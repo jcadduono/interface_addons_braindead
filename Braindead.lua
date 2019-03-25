@@ -121,7 +121,7 @@ local PreviousGCD = {}
 
 -- items equipped with special effects
 local ItemEquipped = {
-
+	RampingAmplitudeGigavoltEngine = false,
 }
 
 -- Azerite trait API access
@@ -133,8 +133,8 @@ local var = {
 	runic_power = 0,
 	runic_power_max = 100,
 	runes = 0,
-	runes_max = 6,
-	runes_regen = 0,
+	rune_max = 6,
+	rune_regen = 0,
 }
 
 local braindeadPanel = CreateFrame('Frame', 'braindeadPanel', UIParent)
@@ -370,7 +370,7 @@ function Ability.add(spellId, buff, player, spellId2)
 		hasted_ticks = false,
 		known = false,
 		runic_power_cost = 0,
-		runes_cost = 0,
+		rune_cost = 0,
 		cooldown_duration = 0,
 		buff_duration = 0,
 		tick_interval = 0,
@@ -398,14 +398,12 @@ function Ability:ready(seconds)
 	return self:cooldown() <= (seconds or 0)
 end
 
-function Ability:usable(pool)
+function Ability:usable()
 	if not self.known then
 		return false
 	end
-	if not pool then
-		if self:runesCost() > var.runes then
-			return false
-		end
+	if self:runeCost() > var.runes then
+		return false
 	end
 	if self:runicPowerCost() > var.runic_power then
 		return false
@@ -527,8 +525,8 @@ function Ability:stack()
 	return 0
 end
 
-function Ability:runesCost()
-	return self.runes_cost
+function Ability:runeCost()
+	return self.rune_cost
 end
 
 function Ability:runicPowerCost()
@@ -676,15 +674,55 @@ end
 
 -- Death Knight Abilities
 ---- Multiple Specializations
+local AntiMagicShell = Ability.add(48707, true, true)
+AntiMagicShell.buff_duration = 5
+AntiMagicShell.cooldown_duration = 60
+AntiMagicShell.triggers_gcd = false
+local ChainsOfIce = Ability.add(45524, false)
+ChainsOfIce.buff_duration = 8
+ChainsOfIce.rune_cost = 1
+local DarkCommand = Ability.add(56222, false)
+DarkCommand.buff_duration = 3
+DarkCommand.cooldown_duration = 8
+DarkCommand.triggers_gcd = false
+local DeathAndDecay = Ability.add(43265, false, true, 52212)
+DeathAndDecay.buff_duration = 10
+DeathAndDecay.cooldown_duration = 30
+DeathAndDecay.rune_cost = 1
+DeathAndDecay.tick_interval = 1
+DeathAndDecay:autoAoe()
+local DeathGrip = Ability.add(49576, false, true)
+DeathGrip.cooldown_duration = 25
+DeathGrip.requires_charge = true
+local DeathsAdvance = Ability.add(48265, true, true)
+DeathsAdvance.buff_duration = 8
+DeathsAdvance.cooldown_duration = 45
+DeathsAdvance.triggers_gcd = false
+local DeathStrike = Ability.add(49998, false, true)
+DeathStrike.runic_power_cost = 45
+local IceboundFortitude = Ability.add(48792, true, true)
+IceboundFortitude.buff_duration = 8
+IceboundFortitude.cooldown_duration = 180
+IceboundFortitude.triggers_gcd = false
 local MindFreeze = Ability.add(47528, false, true)
 MindFreeze.buff_duration = 3
 MindFreeze.cooldown_duration = 15
+MindFreeze.triggers_gcd = false
+local RaiseAlly = Ability.add(61999, false, true)
+RaiseAlly.cooldown_duration = 600
+RaiseAlly.runic_power_cost = 30
 ------ Procs
 
 ------ Talents
-local Asphyxiate = Ability.add(47528, false, true)
+local Asphyxiate = Ability.add(108194, false, true)
 Asphyxiate.buff_duration = 4
 Asphyxiate.cooldown_duration = 45
+local DecomposingAura = Ability.add(199720, false, true, 199721)
+DecomposingAura.buff_duration = 6
+DecomposingAura:autoAoe()
+local SummonGargoyle = Ability.add(49206, true, true)
+SummonGargoyle.buff_duration = 35
+SummonGargoyle.cooldown_duration = 180
 ---- Blood
 
 ------ Talents
@@ -698,18 +736,84 @@ Asphyxiate.cooldown_duration = 45
 ------ Procs
 
 ---- Unholy
+local Apocalypse = Ability.add(275699, false, true)
+Apocalypse.cooldown_duration = 90
+local ArmyOfTheDead = Ability.add(42650, true, true, 42651)
+ArmyOfTheDead.buff_duration = 4
+ArmyOfTheDead.cooldown_duration = 480
+ArmyOfTheDead.rune_cost = 3
+local ControlUndead = Ability.add(111673, true, true)
+ControlUndead.buff_duration = 300
+ControlUndead.rune_cost = 1
+local DarkTransformation = Ability.add(63560, true, true)
+DarkTransformation.buff_duration = 15
+DarkTransformation.cooldown_duration = 60
+local DeathCoil = Ability.add(47541, false, true, 47632)
+DeathCoil.runic_power_cost = 40
+DeathCoil:setVelocity(35)
+local FesteringStrike = Ability.add(85948, false, true)
+FesteringStrike.rune_cost = 2
+local FesteringWound = Ability.add(194310, false, true, 194311)
+FesteringWound.buff_duration = 30
+local Outbreak = Ability.add(77575, false, true, 196782)
+Outbreak.buff_duration = 6
+Outbreak.rune_cost = 1
+Outbreak:autoAoe()
 local RaiseDead = Ability.add(46584, false, true)
 RaiseDead.cooldown_duration = 30
+local ScourgeStrike = Ability.add(55090, false, true, 70890)
+ScourgeStrike.rune_cost = 1
+local VirulentPlague = Ability.add(191587, false, true)
+VirulentPlague.buff_duration = 10.5
+VirulentPlague.tick_interval = 1.5
+VirulentPlague:autoAoe()
+VirulentPlague:trackAuras()
 ------ Talents
-
+local BurstingSores = Ability.add(207264, false, true)
+local ClawingShadows = Ability.add(207311, false, true)
+ClawingShadows.rune_cost = 1
+local DeathPact = Ability.add(48743, true, true)
+DeathPact.buff_duration = 15
+DeathPact.cooldown_duration = 120
+local Defile = Ability.add(152280, false, true, 156000)
+Defile.buff_duration = 10
+Defile.cooldown_duration = 20
+Defile.rune_cost = 1
+Defile.tick_interval = 1
+Defile:autoAoe()
+local Epidemic = Ability.add(207317, false, true, 212739)
+Epidemic.runic_power_cost = 30
+Epidemic:autoAoe()
+local Pestilence = Ability.add(277234, false, true)
+local SoulReaper = Ability.add(130736, false, true)
+SoulReaper.buff_duration = 8
+SoulReaper.cooldown_duration = 45
+local UnholyBlight = Ability.add(115989, true, true)
+UnholyBlight.buff_duration = 6
+UnholyBlight.cooldown_duration = 45
+UnholyBlight.rune_cost = 1
+UnholyBlight.dot = Ability.add(115994, false, true)
+UnholyBlight.dot.buff_duration = 14
+UnholyBlight.dot.tick_interval = 2
+UnholyBlight:autoAoe()
+local UnholyFrenzy = Ability.add(207289, true, true)
+UnholyFrenzy.buff_duration = 12
+UnholyFrenzy.cooldown_duration = 75
 ------ Procs
-
+local DarkSuccor = Ability.add(101568, true, true)
+DarkSuccor.buff_duration = 20
+local RunicCorruption = Ability.add(51462, true, true, 51460)
+RunicCorruption.buff_duration = 3
+local SuddenDoom = Ability.add(49530, true, true, 81340)
+SuddenDoom.buff_duration = 10
+local VirulentEruption = Ability.add(191685, false, true)
+VirulentEruption:autoAoe()
 -- Azerite Traits
 
 -- Racials
-
+local ArcaneTorrent = Ability.add(50613, true, true) -- Blood Elf
 -- Trinket Effects
-
+local MagusOfTheDead = Ability.add(288417, true, true)
 -- End Abilities
 
 -- Start Inventory Items
@@ -827,12 +931,20 @@ local function Runes()
 	return var.runes
 end
 
-local function RunesRegen()
-	return var.runes_regen
+local function RuneDeficit()
+	return var.rune_max - var.runes
+end
+
+local function RuneRegen()
+	return var.rune_regen
 end
 
 local function RunicPower()
 	return var.runic_power
+end
+
+local function RunicPowerDeficit()
+	return var.runic_power_max - var.runic_power
 end
 
 local function HealthPct()
@@ -899,6 +1011,20 @@ end
 
 -- Start Ability Modifications
 
+function DeathCoil:runicPowerCost()
+	if SuddenDoom:up() then
+		return 0
+	end
+	return self.runic_power_cost
+end
+
+function DeathStrike:runicPowerCost()
+	if DarkSuccor:up() then
+		return 0
+	end
+	return self.runic_power_cost
+end
+
 -- End Ability Modifications
 
 local function UseCooldown(ability, overwrite, always)
@@ -911,11 +1037,6 @@ local function UseExtra(ability, overwrite)
 	if not var.extra or overwrite then
 		var.extra = ability
 	end
-end
-
-local function Pool(ability, extra)
-	var.pool_runes = ability:runesCost()
-	return ability
 end
 
 -- Begin Action Priority Lists
@@ -984,17 +1105,7 @@ actions.precombat+=/army_of_the_dead,delay=2
 	end
 --[[
 actions+=/variable,name=pooling_for_gargoyle,value=cooldown.summon_gargoyle.remains<5&talent.summon_gargoyle.enabled
-# Racials, Items, and other ogcds
 actions+=/arcane_torrent,if=runic_power.deficit>65&(pet.gargoyle.active|!talent.summon_gargoyle.enabled)&rune.deficit>=5
-actions+=/blood_fury,if=pet.gargoyle.active|!talent.summon_gargoyle.enabled
-actions+=/berserking,if=buff.unholy_frenzy.up|pet.gargoyle.active|!talent.summon_gargoyle.enabled
-# Custom trinkets usage
-actions+=/use_items,if=time>20|!equipped.ramping_amplitude_gigavolt_engine
-actions+=/use_item,name=ramping_amplitude_gigavolt_engine,if=cooldown.apocalypse.remains<2|talent.army_of_the_damned.enabled|raid_event.adds.in<5
-actions+=/use_item,name=bygone_bee_almanac,if=cooldown.summon_gargoyle.remains>60|!talent.summon_gargoyle.enabled&time>20|!equipped.ramping_amplitude_gigavolt_engine
-actions+=/use_item,name=jes_howler,if=pet.gargoyle.active|!talent.summon_gargoyle.enabled&time>20|!equipped.ramping_amplitude_gigavolt_engine
-actions+=/use_item,name=galecallers_beak,if=pet.gargoyle.active|!talent.summon_gargoyle.enabled&time>20|!equipped.ramping_amplitude_gigavolt_engine
-actions+=/use_item,name=grongs_primal_rage,if=rune<=3&(time>20|!equipped.ramping_amplitude_gigavolt_engine)
 actions+=/potion,if=cooldown.army_of_the_dead.ready|pet.gargoyle.active|buff.unholy_frenzy.up
 # Maintaining Virulent Plague is a priority
 actions+=/outbreak,target_if=dot.virulent_plague.remains<=gcd
@@ -1002,7 +1113,21 @@ actions+=/call_action_list,name=cooldowns
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=generic
 ]]
-
+	var.pooling_for_gargoyle = SummonGargoyle.known and SummonGargoyle:ready(5)
+	if ArcaneTorrent:usable() and RunicPowerDeficit() > 65 and (SummonGargoyle:up() or not SummonGargoyle.known) and RuneDeficit() >= 5 then
+		UseExtra(ArcaneTorrent)
+	end
+	if Opt.pot and BattlePotionOfStrength:usable() and ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up() then
+		UseExtra(BattlePotionOfStrength)
+	end
+	if Outbreak:usable() and VirulentPlague:remains() <= GCD() then
+		return Outbreak
+	end
+	self:cooldowns()
+	if Enemies() >= 2 then
+		return self:aoe()
+	end
+	return self:generic()
 end
 
 APL[SPEC.UNHOLY].cooldowns = function(self)
@@ -1018,7 +1143,41 @@ actions.cooldowns+=/soul_reaper,target_if=target.time_to_die<8&target.time_to_di
 actions.cooldowns+=/soul_reaper,if=(!raid_event.adds.exists|raid_event.adds.in>20)&rune<=(1-buff.unholy_frenzy.up)
 actions.cooldowns+=/unholy_blight
 ]]
-
+	if ArmyOfTheDead:usable() then
+		return UseCooldown(ArmyOfTheDead)
+	end
+	if Apocalypse:usable() and FesteringWound:stack() >= 4 then
+		return UseCooldown(Apocalypse)
+	end
+	if Enemies() == 1 and DarkTransformation:usable() then
+		return UseCooldown(DarkTransformation)
+	end
+	if SummonGargoyle:usable() and RunicPowerDeficit() < 14 then
+		return UseCooldown(SummonGargoyle)
+	end
+	if UnholyFrenzy:usable() then
+		if MagusOfTheDead.known or ItemEquipped.RampingAmplitudeGigavoltEngine then
+			if Apocalypse:ready(2) then
+				return UseCooldown(UnholyFrenzy)
+			end
+		elseif FesteringWound:stack() < 4 then
+			return UseCooldown(UnholyFrenzy)
+		end
+		if Enemies() >= 2 and ((DeathAndDecay:ready(GCD()) and not Defile.known) or (Defile.known and Defile:ready(GCD()))) then
+			return UseCooldown(UnholyFrenzy)
+		end
+	end
+	if SoulReaper:usable() then
+		if between(Target.timeToDie, 4, 8) then
+			return UseCooldown(SoulReaper)
+		end
+		if Enemies() == 1 and Runes() <= (UnholyFrenzy:up() and 1 or 0) then
+			return UseCooldown(SoulReaper)
+		end
+	end
+	if UnholyBlight:usable() then
+		return UseCooldown(UnholyBlight)
+	end
 end
 
 APL[SPEC.UNHOLY].aoe = function(self)
@@ -1041,7 +1200,80 @@ actions.aoe+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gargoyl
 actions.aoe+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-
+	local apocalypse_not_ready = not Apocalypse.known or not Apocalypse:ready()
+	if DeathAndDecay:usable() and apocalypse_not_ready then
+		return DeathAndDecay
+	end
+	if Defile:usable() then
+		return Defile
+	end
+	if DeathAndDecay:up() then
+		if not var.pooling_for_gargoyle and Runes() < 2 then
+			if Epidemic:usable() then
+				return Epidemic
+			end
+			if DeathCoil:usable() then
+				return DeathCoil
+			end
+		end
+		if apocalypse_not_ready then
+			if ScourgeStrike:usable() then
+				return ScourgeStrike
+			end
+			if ClawingShadows:usable() then
+				return ClawingShadows
+			end
+		end
+	end
+	if Epidemic:usable() and not var.pooling_for_gargoyle then
+		return Epidemic
+	end
+	if FesteringStrike:usable() and FesteringWound:stack() <= 1 then
+		if not DeathAndDecay:ready() then
+			return FesteringStrike
+		end
+		if BurstingSores.known and Enemies() >= 2 then
+			return FesteringStrike
+		end
+	end
+	local apocalypse_not_ready_5 = not Apocalypse.known or not Apocalypse:ready(5)
+	if DeathCoil:usable() then
+		if SuddenDoom:up() and (RuneDeficit() >= 4 or not var.pooling_for_gargoyle) then
+			return DeathCoil
+		end
+		if SummonGargoyle:up() then
+			return DeathCoil
+		end
+		if not var.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
+			return DeathCoil
+		end
+	end
+	local aod_not_ready_5 = not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
+	if aod_not_ready_5 and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
+		if ScourgeStrike:usable() then
+			return ScourgeStrike
+		end
+		if ClawingShadows:usable() then
+			return ClawingShadows
+		end
+	end
+	if DeathCoil:usable() and RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
+		return DeathCoil
+	end
+	if FesteringStrike:usable() and aod_not_ready_5 and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
+		return FesteringStrike
+	end
+	if DeathStrike:usable() and DarkSuccor:up() then
+		return DeathStrike
+	end
+	if DeathCoil:usable() and not var.pooling_for_gargoyle then
+		return DeathCoil
+	end
+	if SoulReaper:usable() then
+		if Runes() <= (UnholyFrenzy:up() and 1 or 0) then
+			return SoulReaper
+		end
+	end
 end
 
 APL[SPEC.UNHOLY].generic = function(self)
@@ -1056,7 +1288,50 @@ actions.generic+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gar
 actions.generic+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-
+	local apocalypse_not_ready_5 = not Apocalypse.known or not Apocalypse:ready(5)
+	if DeathCoil:usable() then
+		if SummonGargoyle:up() or (SuddenDoom:up() and not var.pooling_for_gargoyle) then
+			return DeathCoil
+		end
+		if not var.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
+			return DeathCoil
+		end
+	end
+	local apocalypse_not_ready = not Apocalypse.known or not Apocalypse:ready()
+	if apocalypse_not_ready then
+		if Pestilence.known and DeathAndDecay:usable() then
+			return DeathAndDecay
+		end
+		if Defile:usable() then
+			return Defile
+		end
+	end
+	local aod_not_ready_5 = not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
+	if aod_not_ready_5 and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
+		if ScourgeStrike:usable() then
+			return ScourgeStrike
+		end
+		if ClawingShadows:usable() then
+			return ClawingShadows
+		end
+	end
+	if DeathCoil:usable() and RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
+		return DeathCoil
+	end
+	if FesteringStrike:usable() and aod_not_ready_5 and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
+		return FesteringStrike
+	end
+	if DeathStrike:usable() and DarkSuccor:up() then
+		return DeathStrike
+	end
+	if DeathCoil:usable() and not var.pooling_for_gargoyle then
+		return DeathCoil
+	end
+	if SoulReaper:usable() then
+		if Runes() <= (UnholyFrenzy:up() and 1 or 0) then
+			return SoulReaper
+		end
+	end
 end
 
 APL.Interrupt = function(self)
@@ -1217,21 +1492,13 @@ local function Disappear()
 	UpdateGlows()
 end
 
-function Equipped(name, slot)
-	local function SlotMatches(name, slot)
-		local ilink = GetInventoryItemLink('player', slot)
-		if ilink then
-			local iname = ilink:match('%[(.*)%]')
-			return (iname and iname:find(name))
-		end
-		return false
-	end
+function Equipped(itemID, slot)
 	if slot then
-		return SlotMatches(name, slot)
+		return GetInventoryItemID('player', slot) == itemId
 	end
 	local i
 	for i = 1, 19 do
-		if SlotMatches(name, i) then
+		if GetInventoryItemID('player', i) == itemID then
 			return true
 		end
 	end
@@ -1371,17 +1638,17 @@ local function UpdateDisplay()
 			braindeadPanel.dimmer:Show()
 		end
 	end
-	if var.pool_runes then
-		local deficit = var.pool_runes - UnitPower('player', 5)
-		if deficit > 0 then
-			braindeadPanel.text:SetText(format('POOL %d', deficit))
-			braindeadPanel.text:Show()
-		else
-			braindeadPanel.text:Hide()
+end
+
+local function GetAvailableRunes()
+	local runes, i, start, duration = 0
+	for i = 1, var.rune_max do
+		start, duration = GetRuneCooldown(i)
+		if start == 0 or (start + duration - var.time < var.execute_remains) then
+			runes = runes + 1
 		end
-	else
-		braindeadPanel.text:Hide()
 	end
+	return runes
 end
 
 local function UpdateCombat()
@@ -1394,7 +1661,6 @@ local function UpdateCombat()
 	var.main =  nil
 	var.cd = nil
 	var.extra = nil
-	var.pool_runes = nil
 	start, duration = GetSpellCooldown(61304)
 	var.gcd_remains = start > 0 and duration - (var.time - start) or 0
 	_, _, _, _, remains, _, _, _, spellId = UnitCastingInfo('player')
@@ -1404,7 +1670,8 @@ local function UpdateCombat()
 	var.gcd = 1.5 * var.haste_factor
 	var.health = UnitHealth('player')
 	var.health_max = UnitHealthMax('player')
-	var.runes = UnitPower('player', 5)
+	var.runes = GetAvailableRunes()
+	_, var.rune_regen = GetRuneCooldown(1)
 	var.runic_power = UnitPower('player', 6)
 	var.pet_active = UnitExists('pet') and not UnitIsDead('pet')
 
@@ -1697,12 +1964,23 @@ function events:PLAYER_REGEN_ENABLED()
 end
 
 local function UpdateAbilityData()
-	var.runes_max = UnitPowerMax('player', 5)
+	var.rune_max = UnitPowerMax('player', 5)
 	var.runic_power_max = UnitPowerMax('player', 6)
 	local _, ability
 	for _, ability in next, abilities.all do
 		ability.name, _, ability.icon = GetSpellInfo(ability.spellId)
 		ability.known = (IsPlayerSpell(ability.spellId) or (ability.spellId2 and IsPlayerSpell(ability.spellId2)) or Azerite.traits[ability.spellId]) and true or false
+	end
+	if currentSpec == SPEC.UNHOLY then
+		VirulentPlague.known = Outbreak.known
+		VirulentEruption.known = VirulentPlague.known
+		FesteringWound.known = FesteringStrike.known
+		if Defile.known then
+			DeathAndDecay.known = false
+		end
+		if ClawingShadows.known then
+			ScourgeStrike.known = false
+		end
 	end
 	abilities.bySpellId = {}
 	abilities.velocity = {}
@@ -1730,6 +2008,7 @@ end
 function events:PLAYER_EQUIPMENT_CHANGED()
 	Azerite:update()
 	UpdateAbilityData()
+	ItemEquipped.RampingAmplitudeGigavoltEngine = Equipped(165580)
 end
 
 function events:PLAYER_SPECIALIZATION_CHANGED(unitName)
