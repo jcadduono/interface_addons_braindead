@@ -748,6 +748,7 @@ ControlUndead.rune_cost = 1
 local DarkTransformation = Ability.add(63560, true, true)
 DarkTransformation.buff_duration = 15
 DarkTransformation.cooldown_duration = 60
+DarkTransformation.requires_pet = true
 local DeathCoil = Ability.add(47541, false, true, 47632)
 DeathCoil.runic_power_cost = 40
 DeathCoil:setVelocity(35)
@@ -1113,16 +1114,17 @@ actions+=/call_action_list,name=cooldowns
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=generic
 ]]
-	var.pooling_for_gargoyle = SummonGargoyle.known and SummonGargoyle:ready(5)
 	if ArcaneTorrent:usable() and RunicPowerDeficit() > 65 and (SummonGargoyle:up() or not SummonGargoyle.known) and RuneDeficit() >= 5 then
 		UseExtra(ArcaneTorrent)
 	end
 	if Opt.pot and BattlePotionOfStrength:usable() and ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up() then
 		UseExtra(BattlePotionOfStrength)
 	end
-	if Outbreak:usable() and VirulentPlague:remains() <= GCD() then
+	if Outbreak:usable() and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
 		return Outbreak
 	end
+	var.use_long_cds = Target.boss or Target.timeToDie > (12 - min(6, Enemies()))
+	var.pooling_for_gargoyle =  var.use_long_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
 	self:cooldowns()
 	if Enemies() >= 2 then
 		return self:aoe()
@@ -1143,28 +1145,30 @@ actions.cooldowns+=/soul_reaper,target_if=target.time_to_die<8&target.time_to_di
 actions.cooldowns+=/soul_reaper,if=(!raid_event.adds.exists|raid_event.adds.in>20)&rune<=(1-buff.unholy_frenzy.up)
 actions.cooldowns+=/unholy_blight
 ]]
-	if ArmyOfTheDead:usable() then
-		return UseCooldown(ArmyOfTheDead)
-	end
-	if Apocalypse:usable() and FesteringWound:stack() >= 4 then
-		return UseCooldown(Apocalypse)
-	end
-	if Enemies() == 1 and DarkTransformation:usable() then
-		return UseCooldown(DarkTransformation)
-	end
-	if SummonGargoyle:usable() and RunicPowerDeficit() < 14 then
-		return UseCooldown(SummonGargoyle)
-	end
-	if UnholyFrenzy:usable() then
-		if MagusOfTheDead.known or ItemEquipped.RampingAmplitudeGigavoltEngine then
-			if Apocalypse:ready(2) then
+	if var.use_long_cds then
+		if ArmyOfTheDead:usable() then
+			return UseCooldown(ArmyOfTheDead)
+		end
+		if Apocalypse:usable() and FesteringWound:stack() >= 4 then
+			return UseCooldown(Apocalypse)
+		end
+		if Enemies() == 1 and DarkTransformation:usable() then
+			return UseCooldown(DarkTransformation)
+		end
+		if SummonGargoyle:usable() and RunicPowerDeficit() < 14 then
+			return UseCooldown(SummonGargoyle)
+		end
+		if UnholyFrenzy:usable() then
+			if MagusOfTheDead.known or ItemEquipped.RampingAmplitudeGigavoltEngine then
+				if Apocalypse:ready(2) then
+					return UseCooldown(UnholyFrenzy)
+				end
+			elseif FesteringWound:stack() < 4 then
 				return UseCooldown(UnholyFrenzy)
 			end
-		elseif FesteringWound:stack() < 4 then
-			return UseCooldown(UnholyFrenzy)
-		end
-		if Enemies() >= 2 and ((DeathAndDecay:ready(GCD()) and not Defile.known) or (Defile.known and Defile:ready(GCD()))) then
-			return UseCooldown(UnholyFrenzy)
+			if Enemies() >= 2 and ((DeathAndDecay:ready(GCD()) and not Defile.known) or (Defile.known and Defile:ready(GCD()))) then
+				return UseCooldown(UnholyFrenzy)
+			end
 		end
 	end
 	if SoulReaper:usable() then
@@ -1200,7 +1204,7 @@ actions.aoe+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gargoyl
 actions.aoe+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	local apocalypse_not_ready = not Apocalypse.known or not Apocalypse:ready()
+	local apocalypse_not_ready = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready()
 	if DeathAndDecay:usable() and apocalypse_not_ready then
 		return DeathAndDecay
 	end
@@ -1236,7 +1240,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return FesteringStrike
 		end
 	end
-	local apocalypse_not_ready_5 = not Apocalypse.known or not Apocalypse:ready(5)
+	local apocalypse_not_ready_5 = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready(5)
 	if DeathCoil:usable() then
 		if SuddenDoom:up() and (RuneDeficit() >= 4 or not var.pooling_for_gargoyle) then
 			return DeathCoil
@@ -1248,7 +1252,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	local aod_not_ready_5 = not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
+	local aod_not_ready_5 = not var.use_long_cds or not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
 	if aod_not_ready_5 and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
 		if ScourgeStrike:usable() then
 			return ScourgeStrike
@@ -1288,7 +1292,7 @@ actions.generic+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gar
 actions.generic+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	local apocalypse_not_ready_5 = not Apocalypse.known or not Apocalypse:ready(5)
+	local apocalypse_not_ready_5 = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready(5)
 	if DeathCoil:usable() then
 		if SummonGargoyle:up() or (SuddenDoom:up() and not var.pooling_for_gargoyle) then
 			return DeathCoil
@@ -1297,7 +1301,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	local apocalypse_not_ready = not Apocalypse.known or not Apocalypse:ready()
+	local apocalypse_not_ready = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready()
 	if apocalypse_not_ready then
 		if Pestilence.known and DeathAndDecay:usable() then
 			return DeathAndDecay
@@ -1306,7 +1310,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return Defile
 		end
 	end
-	local aod_not_ready_5 = not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
+	local aod_not_ready_5 = not var.use_long_cds or not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
 	if aod_not_ready_5 and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
 		if ScourgeStrike:usable() then
 			return ScourgeStrike
@@ -1673,7 +1677,7 @@ local function UpdateCombat()
 	var.runes = GetAvailableRunes()
 	_, var.rune_regen = GetRuneCooldown(1)
 	var.runic_power = UnitPower('player', 6)
-	var.pet_active = UnitExists('pet') and not UnitIsDead('pet')
+	var.pet_active = IsFlying() or UnitExists('pet') and not UnitIsDead('pet')
 
 	trackAuras:purge()
 	if Opt.auto_aoe then
