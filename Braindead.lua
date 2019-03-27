@@ -87,6 +87,7 @@ local function InitializeOpts()
 		auto_aoe = false,
 		auto_aoe_ttl = 10,
 		pot = false,
+		death_strike_threshold = 60,
 	})
 end
 
@@ -1266,8 +1267,13 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return ClawingShadows
 		end
 	end
-	if DeathCoil:usable() and RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
-		return DeathCoil
+	if RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
+		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+			return DeathStrike
+		end
+		if DeathCoil:usable() then
+			return DeathCoil
+		end
 	end
 	if FesteringStrike:usable() and aod_not_ready_5 and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
 		return FesteringStrike
@@ -1275,8 +1281,13 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 	if DeathStrike:usable() and DarkSuccor:up() then
 		return DeathStrike
 	end
-	if DeathCoil:usable() and not var.pooling_for_gargoyle then
-		return DeathCoil
+	if not var.pooling_for_gargoyle then
+		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+			return DeathStrike
+		end
+		if DeathCoil:usable() then
+			return DeathCoil
+		end
 	end
 	if SoulReaper:usable() then
 		if Runes() <= (UnholyFrenzy:up() and 1 or 0) then
@@ -1324,8 +1335,13 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return ClawingShadows
 		end
 	end
-	if DeathCoil:usable() and RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
-		return DeathCoil
+	if RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
+		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+			return DeathStrike
+		end
+		if DeathCoil:usable() then
+			return DeathCoil
+		end
 	end
 	if FesteringStrike:usable() and aod_not_ready_5 and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
 		return FesteringStrike
@@ -1333,8 +1349,13 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 	if DeathStrike:usable() and DarkSuccor:up() then
 		return DeathStrike
 	end
-	if DeathCoil:usable() and not var.pooling_for_gargoyle then
-		return DeathCoil
+	if not var.pooling_for_gargoyle then
+		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+			return DeathStrike
+		end
+		if DeathCoil:usable() then
+			return DeathCoil
+		end
 	end
 	if SoulReaper:usable() then
 		if Runes() <= (UnholyFrenzy:up() and 1 or 0) then
@@ -2317,6 +2338,12 @@ function SlashCmdList.Braindead(msg, editbox)
 		end
 		return print('Braindead - Show Battle potions in cooldown UI: ' .. (Opt.pot and '|cFF00C000On' or '|cFFC00000Off'))
 	end
+	if msg[1] == 'ds' then
+		if msg[2] then
+			Opt.death_strike_threshold = max(min(tonumber(msg[2]) or 60, 100), 0)
+		end
+		return print('Prophetic - Health percentage threshold to recommend Death Strike: |cFFFFD000' .. Opt.death_strike_threshold .. '%|r')
+	end
 	if msg[1] == 'reset' then
 		braindeadPanel:ClearAllPoints()
 		braindeadPanel:SetPoint('CENTER', 0, -169)
@@ -2346,6 +2373,7 @@ function SlashCmdList.Braindead(msg, editbox)
 		'auto |cFF00C000on|r/|cFFC00000off|r  - automatically change target mode on AoE spells',
 		'ttl |cFFFFD000[seconds]|r  - time target exists in auto AoE after being hit (default is 10 seconds)',
 		'pot |cFF00C000on|r/|cFFC00000off|r - show Battle potions in cooldown UI',
+		'ds |cFFFFD000[percent]|r - health percentage threshold to recommend Death Strike',
 		'|cFFFFD000reset|r - reset the location of the Braindead UI to default',
 	} do
 		print('  ' .. SLASH_Braindead1 .. ' ' .. cmd)
