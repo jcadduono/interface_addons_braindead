@@ -647,6 +647,9 @@ function Ability:trackAuras()
 end
 
 function Ability:applyAura(timeStamp, guid)
+	if autoAoe.blacklist[guid] then
+		return
+	end
 	local aura = {
 		expires = timeStamp + self:duration()
 	}
@@ -654,6 +657,9 @@ function Ability:applyAura(timeStamp, guid)
 end
 
 function Ability:refreshAura(timeStamp, guid)
+	if autoAoe.blacklist[guid] then
+		return
+	end
 	local aura = self.aura_targets[guid]
 	if not aura then
 		self:applyAura(timeStamp, guid)
@@ -717,9 +723,6 @@ RaiseAlly.runic_power_cost = 30
 local Asphyxiate = Ability.add(108194, false, true)
 Asphyxiate.buff_duration = 4
 Asphyxiate.cooldown_duration = 45
-local DecomposingAura = Ability.add(199720, false, true, 199721)
-DecomposingAura.buff_duration = 6
-DecomposingAura:autoAoe()
 local SummonGargoyle = Ability.add(49206, true, true)
 SummonGargoyle.buff_duration = 35
 SummonGargoyle.cooldown_duration = 180
@@ -759,7 +762,7 @@ FesteringWound.buff_duration = 30
 local Outbreak = Ability.add(77575, false, true, 196782)
 Outbreak.buff_duration = 6
 Outbreak.rune_cost = 1
-Outbreak:autoAoe()
+Outbreak:trackAuras()
 local RaiseDead = Ability.add(46584, false, true)
 RaiseDead.cooldown_duration = 30
 local ScourgeStrike = Ability.add(55090, false, true, 70890)
@@ -808,7 +811,6 @@ RunicCorruption.buff_duration = 3
 local SuddenDoom = Ability.add(49530, true, true, 81340)
 SuddenDoom.buff_duration = 10
 local VirulentEruption = Ability.add(191685, false, true)
-VirulentEruption:autoAoe()
 -- Azerite Traits
 
 -- Racials
@@ -1117,7 +1119,7 @@ actions+=/call_action_list,name=generic
 	if ArcaneTorrent:usable() and RunicPowerDeficit() > 65 and (SummonGargoyle:up() or not SummonGargoyle.known) and RuneDeficit() >= 5 then
 		UseExtra(ArcaneTorrent)
 	end
-	if Opt.pot and BattlePotionOfStrength:usable() and ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up() then
+	if Opt.pot and BattlePotionOfStrength:usable() and (ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up()) then
 		UseExtra(BattlePotionOfStrength)
 	end
 	if Outbreak:usable() and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
@@ -1204,6 +1206,9 @@ actions.aoe+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gargoyl
 actions.aoe+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
+	if Outbreak:usable() and Outbreak:down() and VirulentPlague:ticking() < Enemies() then
+		return Outbreak
+	end
 	local apocalypse_not_ready = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready()
 	if DeathAndDecay:usable() and apocalypse_not_ready then
 		return DeathAndDecay
@@ -1213,7 +1218,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 	end
 	if DeathAndDecay:up() then
 		if not var.pooling_for_gargoyle and Runes() < 2 then
-			if Epidemic:usable() then
+			if Epidemic:usable() and VirulentPlague:ticking() >= 2 then
 				return Epidemic
 			end
 			if DeathCoil:usable() then
@@ -1229,7 +1234,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			end
 		end
 	end
-	if Epidemic:usable() and not var.pooling_for_gargoyle then
+	if Epidemic:usable() and not var.pooling_for_gargoyle and VirulentPlague:ticking() >= 2 then
 		return Epidemic
 	end
 	if FesteringStrike:usable() and FesteringWound:stack() <= 1 then
@@ -1809,6 +1814,7 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 	   eventType == 'SPELL_CAST_FAILED' or
 	   eventType == 'SPELL_AURA_REMOVED' or
 	   eventType == 'SPELL_DAMAGE' or
+	   eventType == 'SPELL_PERIODIC_DAMAGE' or
 	   eventType == 'SPELL_HEAL' or
 	   eventType == 'SPELL_MISSED' or
 	   eventType == 'SPELL_AURA_APPLIED' or
@@ -1855,6 +1861,10 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 			castedAbility:refreshAura(timeStamp, dstGUID)
 		elseif eventType == 'SPELL_AURA_REMOVED' then
 			castedAbility:removeAura(dstGUID)
+		elseif eventType == 'SPELL_PERIODIC_DAMAGE' then
+			if castedAbility == VirulentPlague and Outbreak:ticking() > 0 then
+				castedAbility:refreshAura(timeStamp, dstGUID)
+			end
 		end
 	end
 	if eventType == 'SPELL_MISSED' or eventType == 'SPELL_DAMAGE' or eventType == 'SPELL_AURA_APPLIED' or eventType == 'SPELL_AURA_REFRESH' then
