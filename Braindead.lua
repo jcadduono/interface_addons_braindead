@@ -1166,7 +1166,7 @@ actions.cooldowns+=/unholy_blight
 		if Apocalypse:usable() and FesteringWound:stack() >= 4 then
 			return UseCooldown(Apocalypse)
 		end
-		if Enemies() == 1 and DarkTransformation:usable() then
+		if DarkTransformation:usable() then
 			return UseCooldown(DarkTransformation)
 		end
 		if SummonGargoyle:usable() and RunicPowerDeficit() < 14 then
