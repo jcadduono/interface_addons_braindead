@@ -302,7 +302,7 @@ function autoAoe:remove(guid)
 	end
 end
 
-function autoAoe:clear(guid)
+function autoAoe:clear()
 	local guid
 	for guid in next, self.targets do
 		self.targets[guid] = nil
@@ -596,7 +596,6 @@ end
 
 function Ability:autoAoe()
 	self.auto_aoe = true
-	self.first_hit_time = nil
 	self.targets_hit = {}
 end
 
@@ -769,7 +768,7 @@ RaiseDead.cooldown_duration = 30
 local ScourgeStrike = Ability.add(55090, false, true, 70890)
 ScourgeStrike.rune_cost = 1
 local VirulentPlague = Ability.add(191587, false, true)
-VirulentPlague.buff_duration = 10.5
+VirulentPlague.buff_duration = 21
 VirulentPlague.tick_interval = 1.5
 VirulentPlague:autoAoe()
 VirulentPlague:trackAuras()
@@ -786,6 +785,7 @@ Defile.cooldown_duration = 20
 Defile.rune_cost = 1
 Defile.tick_interval = 1
 Defile:autoAoe()
+local EbonFever = Ability.add(207269, false, true)
 local Epidemic = Ability.add(207317, false, true, 212739)
 Epidemic.runic_power_cost = 30
 Epidemic:autoAoe()
@@ -1004,7 +1004,7 @@ local function TargetIsStunnable()
 	if var.instance == 'raid' then
 		return false
 	end
-	if Target.health_max > var.health_max * 10 then
+	if Target.healthMax > var.health_max * 10 then
 		return false
 	end
 	return true
@@ -1030,6 +1030,13 @@ function DeathStrike:runicPowerCost()
 		return 0
 	end
 	return self.runic_power_cost
+end
+
+function VirulentPlague:duration()
+	if EbonFever.known then
+		return Ability.duration(self) / 2
+	end
+	return Ability.duration(self)
 end
 
 -- End Ability Modifications
@@ -1995,17 +2002,18 @@ function events:PLAYER_REGEN_ENABLED()
 		end
 	end
 	if Opt.auto_aoe then
-		for guid in next, autoAoe.targets do
-			autoAoe.targets[guid] = nil
+		for _, ability in next, abilities.autoAoe do
+			ability.first_hit_time = nil
+			for guid in next, ability.targets_hit do
+				ability.targets_hit[guid] = nil
+			end
 		end
-		SetTargetMode(1)
+		autoAoe:clear()
+		autoAoe:update()
 	end
 	if var.last_ability then
 		var.last_ability = nil
 		braindeadPreviousPanel:Hide()
-	end
-	if currentSpec == SPEC.FROST then
-		var.opener_done = nil
 	end
 end
 
