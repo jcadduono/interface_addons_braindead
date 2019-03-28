@@ -1145,7 +1145,7 @@ actions+=/call_action_list,name=generic
 	if Outbreak:usable() and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
 		return Outbreak
 	end
-	var.use_cds = Target.boss or Target.timeToDie > (12 - min(6, Enemies()))
+	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
 	var.pooling_for_aotd = ArmyOfTheDead.known and (Target.boss or Target.timeToDie > 40) and ArmyOfTheDead:ready(5)
 	var.pooling_for_gargoyle =  var.use_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
 	self:cooldowns()
@@ -1234,7 +1234,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		return Outbreak
 	end
 	local apocalypse_not_ready = not var.use_cds or not Apocalypse.known or not Apocalypse:ready()
-	if DeathAndDecay:usable() and apocalypse_not_ready then
+	if DeathAndDecay:usable() and apocalypse_not_ready and Target.timeToDie > max(6 - Enemies(), 2) then
 		return DeathAndDecay
 	end
 	if Defile:usable() then
@@ -1341,7 +1341,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 	end
 	local apocalypse_not_ready = not var.use_cds or not Apocalypse.known or not Apocalypse:ready()
 	if apocalypse_not_ready then
-		if Pestilence.known and DeathAndDecay:usable() then
+		if Pestilence.known and DeathAndDecay:usable() and Target.timeToDie > 6 then
 			return DeathAndDecay
 		end
 		if Defile:usable() then
@@ -1670,7 +1670,7 @@ local function UpdateTargetHealth()
 	Target.health = UnitHealth('target')
 	table.remove(Target.healthArray, 1)
 	Target.healthArray[15] = Target.health
-	Target.timeToDieMax = Target.health / UnitHealthMax('player') * 10
+	Target.timeToDieMax = Target.health / UnitHealthMax('player') * 15
 	Target.healthPercentage = Target.healthMax > 0 and (Target.health / Target.healthMax * 100) or 100
 	Target.healthLostPerSec = (Target.healthArray[1] - Target.health) / 3
 	Target.timeToDie = Target.healthLostPerSec > 0 and min(Target.timeToDieMax, Target.health / Target.healthLostPerSec) or Target.timeToDieMax
