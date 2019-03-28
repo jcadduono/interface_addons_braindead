@@ -790,6 +790,9 @@ local Epidemic = Ability.add(207317, false, true, 212739)
 Epidemic.runic_power_cost = 30
 Epidemic:autoAoe()
 local Pestilence = Ability.add(277234, false, true)
+local RaiseAbomination = Ability.add(288853, true, true)
+RaiseAbomination.buff_duration = 25
+RaiseAbomination.cooldown_duration = 90
 local SoulReaper = Ability.add(130736, false, true)
 SoulReaper.buff_duration = 8
 SoulReaper.cooldown_duration = 45
@@ -1103,8 +1106,13 @@ actions.precombat+=/army_of_the_dead,delay=2
 				UseCooldown(BattlePotionOfStrength)
 			end
 		end
-		if Target.boss and ArmyOfTheDead:usable() then
-			UseCooldown(ArmyOfTheDead)
+		if Target.boss then
+			if ArmyOfTheDead:usable() then
+				UseCooldown(ArmyOfTheDead)
+			end
+			if RaiseAbomination:usable() then
+				UseCooldown(RaiseAbomination)
+			end
 		end
 	end
 --[[
@@ -1151,6 +1159,9 @@ actions.cooldowns+=/unholy_blight
 	if var.use_long_cds then
 		if ArmyOfTheDead:usable() then
 			return UseCooldown(ArmyOfTheDead)
+		end
+		if RaiseAbomination:usable() then
+			return UseCooldown(RaiseAbomination)
 		end
 		if Apocalypse:usable() and FesteringWound:stack() >= 4 then
 			return UseCooldown(Apocalypse)
@@ -2015,6 +2026,9 @@ local function UpdateAbilityData()
 		end
 		if ClawingShadows.known then
 			ScourgeStrike.known = false
+		end
+		if RaiseAbomination.known then
+			ArmyOfTheDead.known = false
 		end
 	end
 	abilities.bySpellId = {}
