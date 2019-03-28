@@ -594,26 +594,30 @@ function Ability:azeriteRank()
 	return Azerite.traits[self.spellId] or 0
 end
 
-function Ability:autoAoe()
-	self.auto_aoe = true
-	self.targets_hit = {}
+function Ability:autoAoe(removeUnaffected)
+	self.auto_aoe = {
+		remove = removeUnaffected,
+		targets = {}
+	}
 end
 
 function Ability:recordTargetHit(guid)
-	self.targets_hit[guid] = var.time
-	if not self.first_hit_time then
-		self.first_hit_time = self.targets_hit[guid]
+	self.auto_aoe.targets[guid] = var.time
+	if not self.auto_aoe.start_time then
+		self.auto_aoe.start_time = self.auto_aoe.targets[guid]
 	end
 end
 
 function Ability:updateTargetsHit()
-	if self.first_hit_time and var.time - self.first_hit_time >= 0.3 then
-		self.first_hit_time = nil
-		autoAoe:clear()
+	if self.auto_aoe.start_time and var.time - self.auto_aoe.start_time >= 0.3 then
+		self.auto_aoe.start_time = nil
+		if self.auto_aoe.remove then
+			autoAoe:clear()
+		end
 		local guid
-		for guid in next, self.targets_hit do
+		for guid in next, self.auto_aoe.targets do
 			autoAoe:add(guid)
-			self.targets_hit[guid] = nil
+			self.auto_aoe.targets[guid] = nil
 		end
 		autoAoe:update()
 	end
@@ -788,7 +792,7 @@ Defile:autoAoe()
 local EbonFever = Ability.add(207269, false, true)
 local Epidemic = Ability.add(207317, false, true, 212739)
 Epidemic.runic_power_cost = 30
-Epidemic:autoAoe()
+Epidemic:autoAoe(true)
 local Pestilence = Ability.add(277234, false, true)
 local RaiseAbomination = Ability.add(288853, true, true)
 RaiseAbomination.buff_duration = 25
@@ -803,7 +807,7 @@ UnholyBlight.rune_cost = 1
 UnholyBlight.dot = Ability.add(115994, false, true)
 UnholyBlight.dot.buff_duration = 14
 UnholyBlight.dot.tick_interval = 2
-UnholyBlight:autoAoe()
+UnholyBlight:autoAoe(true)
 local UnholyFrenzy = Ability.add(207289, true, true)
 UnholyFrenzy.buff_duration = 12
 UnholyFrenzy.cooldown_duration = 75
@@ -1141,8 +1145,9 @@ actions+=/call_action_list,name=generic
 	if Outbreak:usable() and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
 		return Outbreak
 	end
-	var.use_long_cds = Target.boss or Target.timeToDie > (12 - min(6, Enemies()))
-	var.pooling_for_gargoyle =  var.use_long_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
+	var.use_cds = Target.boss or Target.timeToDie > (12 - min(6, Enemies()))
+	var.pooling_for_aotd = ArmyOfTheDead.known and (Target.boss or Target.timeToDie > 40) and ArmyOfTheDead:ready(5)
+	var.pooling_for_gargoyle =  var.use_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
 	self:cooldowns()
 	if Enemies() >= 2 then
 		return self:aoe()
@@ -1163,8 +1168,8 @@ actions.cooldowns+=/soul_reaper,target_if=target.time_to_die<8&target.time_to_di
 actions.cooldowns+=/soul_reaper,if=(!raid_event.adds.exists|raid_event.adds.in>20)&rune<=(1-buff.unholy_frenzy.up)
 actions.cooldowns+=/unholy_blight
 ]]
-	if var.use_long_cds then
-		if ArmyOfTheDead:usable() then
+	if var.use_cds then
+		if var.pooling_for_aotd and ArmyOfTheDead:usable() then
 			return UseCooldown(ArmyOfTheDead)
 		end
 		if RaiseAbomination:usable() then
@@ -1228,7 +1233,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 	if Outbreak:usable() and Outbreak:down() and VirulentPlague:ticking() < Enemies() then
 		return Outbreak
 	end
-	local apocalypse_not_ready = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready()
+	local apocalypse_not_ready = not var.use_cds or not Apocalypse.known or not Apocalypse:ready()
 	if DeathAndDecay:usable() and apocalypse_not_ready then
 		return DeathAndDecay
 	end
@@ -1264,7 +1269,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return FesteringStrike
 		end
 	end
-	local apocalypse_not_ready_5 = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready(5)
+	local apocalypse_not_ready_5 = not var.use_cds or not Apocalypse.known or not Apocalypse:ready(5)
 	if DeathCoil:usable() then
 		if SuddenDoom:up() and (RuneDeficit() >= 4 or not var.pooling_for_gargoyle) then
 			return DeathCoil
@@ -1276,8 +1281,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	local aod_not_ready_5 = not var.use_long_cds or not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
-	if aod_not_ready_5 and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
+	if not var.pooling_for_aotd and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
 		if ScourgeStrike:usable() then
 			return ScourgeStrike
 		end
@@ -1293,7 +1297,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if FesteringStrike:usable() and aod_not_ready_5 and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
+	if not var.pooling_for_aotd and FesteringStrike:usable() and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
 		return FesteringStrike
 	end
 	if DeathStrike:usable() and DarkSuccor:up() then
@@ -1326,7 +1330,7 @@ actions.generic+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gar
 actions.generic+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	local apocalypse_not_ready_5 = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready(5)
+	local apocalypse_not_ready_5 = not var.use_cds or not Apocalypse.known or not Apocalypse:ready(5)
 	if DeathCoil:usable() then
 		if SummonGargoyle:up() or (SuddenDoom:up() and not var.pooling_for_gargoyle) then
 			return DeathCoil
@@ -1335,7 +1339,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	local apocalypse_not_ready = not var.use_long_cds or not Apocalypse.known or not Apocalypse:ready()
+	local apocalypse_not_ready = not var.use_cds or not Apocalypse.known or not Apocalypse:ready()
 	if apocalypse_not_ready then
 		if Pestilence.known and DeathAndDecay:usable() then
 			return DeathAndDecay
@@ -1344,8 +1348,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return Defile
 		end
 	end
-	local aod_not_ready_5 = not var.use_long_cds or not ArmyOfTheDead.known or not ArmyOfTheDead:ready(5)
-	if aod_not_ready_5 and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
+	if (not var.use_aod or not ArmyOfTheDead:ready(5)) and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
 		if ScourgeStrike:usable() then
 			return ScourgeStrike
 		end
@@ -1361,7 +1364,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if FesteringStrike:usable() and aod_not_ready_5 and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
+	if FesteringStrike:usable() and (not var.use_aod or not ArmyOfTheDead:ready(5)) and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
 		return FesteringStrike
 	end
 	if DeathStrike:usable() and DarkSuccor:up() then
@@ -1910,8 +1913,10 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 		if castedAbility.travel_start and castedAbility.travel_start[dstGUID] then
 			castedAbility.travel_start[dstGUID] = nil
 		end
-		if Opt.auto_aoe and castedAbility.auto_aoe then
-			castedAbility:recordTargetHit(dstGUID)
+		if Opt.auto_aoe then
+			if castedAbility.auto_aoe then
+				castedAbility:recordTargetHit(dstGUID)
+			end
 		end
 		if Opt.previous and Opt.miss_effect and eventType == 'SPELL_MISSED' and braindeadPanel:IsVisible() and castedAbility == braindeadPreviousPanel.ability then
 			braindeadPreviousPanel.border:SetTexture('Interface\\AddOns\\Braindead\\misseffect.blp')
@@ -2003,9 +2008,9 @@ function events:PLAYER_REGEN_ENABLED()
 	end
 	if Opt.auto_aoe then
 		for _, ability in next, abilities.autoAoe do
-			ability.first_hit_time = nil
-			for guid in next, ability.targets_hit do
-				ability.targets_hit[guid] = nil
+			ability.auto_aoe.start_time = nil
+			for guid in next, ability.auto_aoe.targets do
+				ability.auto_aoe.targets[guid] = nil
 			end
 		end
 		autoAoe:clear()
