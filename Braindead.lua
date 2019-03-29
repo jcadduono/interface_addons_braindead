@@ -777,7 +777,8 @@ VirulentPlague.tick_interval = 1.5
 VirulentPlague:autoAoe()
 VirulentPlague:trackAuras()
 ------ Talents
-local BurstingSores = Ability.add(207264, false, true)
+local BurstingSores = Ability.add(207264, false, true, 207267)
+BurstingSores:autoAoe()
 local ClawingShadows = Ability.add(207311, false, true)
 ClawingShadows.rune_cost = 1
 local DeathPact = Ability.add(48743, true, true)
