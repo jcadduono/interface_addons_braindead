@@ -1836,7 +1836,7 @@ function events:ADDON_LOADED(name)
 end
 
 function events:COMBAT_LOG_EVENT_UNFILTERED()
-	local timeStamp, eventType, hideCaster, srcGUID, srcName, srcFlags, srcRaidFlags, dstGUID, dstName, dstFlags, dstRaidFlags, spellId, spellName = CombatLogGetCurrentEventInfo()
+	local timeStamp, eventType, _, srcGUID, _, _, _, dstGUID, _, _, _, spellId, spellName, _, missType = CombatLogGetCurrentEventInfo()
 	var.time = GetTime()
 	if eventType == 'UNIT_DIED' or eventType == 'UNIT_DESTROYED' or eventType == 'UNIT_DISSIPATES' or eventType == 'SPELL_INSTAKILL' or eventType == 'PARTY_KILL' then
 		trackAuras:remove(dstGUID)
@@ -1847,7 +1847,7 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 	if Opt.auto_aoe and (eventType == 'SWING_DAMAGE' or eventType == 'SWING_MISSED') then
 		if dstGUID == var.player then
 			autoAoe:add(srcGUID, true)
-		elseif srcGUID == var.player then
+		elseif srcGUID == var.player and not (missType == 'EVADE' or missType == 'IMMUNE') then
 			autoAoe:add(dstGUID, true)
 		end
 	end
@@ -1915,7 +1915,9 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 			castedAbility.travel_start[dstGUID] = nil
 		end
 		if Opt.auto_aoe then
-			if castedAbility.auto_aoe then
+			if missType == 'EVADE' or missType == 'IMMUNE' then
+				autoAoe:remove(dstGUID)
+			elseif castedAbility.auto_aoe then
 				castedAbility:recordTargetHit(dstGUID)
 			end
 		end
