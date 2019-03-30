@@ -959,10 +959,6 @@ local function RunicPowerDeficit()
 	return var.runic_power_max - var.runic_power
 end
 
-local function HealthPct()
-	return UnitHealth('player') / UnitHealthMax('player') * 100
-end
-
 local function GCD()
 	return var.gcd
 end
@@ -1143,7 +1139,7 @@ actions+=/call_action_list,name=generic
 	if Opt.pot and BattlePotionOfStrength:usable() and (ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up()) then
 		UseExtra(BattlePotionOfStrength)
 	end
-	if Outbreak:usable() and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
+	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
 		return Outbreak
 	end
 	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
@@ -1231,7 +1227,7 @@ actions.aoe+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gargoyl
 actions.aoe+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	if Outbreak:usable() and Outbreak:down() and VirulentPlague:ticking() < Enemies() then
+	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:ticking() < Enemies() then
 		return Outbreak
 	end
 	local apocalypse_not_ready = not var.use_cds or not Apocalypse.known or not Apocalypse:ready()
@@ -1936,6 +1932,7 @@ local function UpdateTargetInfo()
 	if not guid then
 		Target.guid = nil
 		Target.boss = false
+		Target.player = false
 		Target.hostile = true
 		Target.healthMax = 0
 		local i
