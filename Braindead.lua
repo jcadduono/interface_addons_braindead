@@ -821,11 +821,11 @@ local SuddenDoom = Ability.add(49530, true, true, 81340)
 SuddenDoom.buff_duration = 10
 local VirulentEruption = Ability.add(191685, false, true)
 -- Azerite Traits
-
+local MagusOfTheDead = Ability.add(288417, true, true)
 -- Racials
 local ArcaneTorrent = Ability.add(50613, true, true) -- Blood Elf
 -- Trinket Effects
-local MagusOfTheDead = Ability.add(288417, true, true)
+
 -- End Abilities
 
 -- Start Inventory Items
@@ -1540,9 +1540,9 @@ local function Disappear()
 	UpdateGlows()
 end
 
-function Equipped(itemID, slot)
+local function Equipped(itemID, slot)
 	if slot then
-		return GetInventoryItemID('player', slot) == itemId
+		return GetInventoryItemID('player', slot) == itemID
 	end
 	local i
 	for i = 1, 19 do
@@ -2200,7 +2200,7 @@ function SlashCmdList.Braindead(msg, editbox)
 			end
 			return print('Braindead - Interrupt ability icon scale set to: |cFFFFD000' .. Opt.scale.interrupt .. '|r times')
 		end
-		if startsWith(msg[2], 'to') then
+		if startsWith(msg[2], 'ex') then
 			if msg[3] then
 				Opt.scale.extra = tonumber(msg[3]) or 0.4
 				braindeadExtraPanel:SetScale(Opt.scale.extra)
