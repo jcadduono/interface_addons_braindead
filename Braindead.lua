@@ -152,7 +152,7 @@ braindeadPanel.border:SetAllPoints(braindeadPanel)
 braindeadPanel.border:SetTexture('Interface\\AddOns\\Braindead\\border.blp')
 braindeadPanel.border:Hide()
 braindeadPanel.text = braindeadPanel:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.text:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
+braindeadPanel.text:SetFont('Fonts\\FRIZQT__.TTF', 9, 'OUTLINE')
 braindeadPanel.text:SetTextColor(1, 1, 1, 1)
 braindeadPanel.text:SetAllPoints(braindeadPanel)
 braindeadPanel.text:SetJustifyH('CENTER')
@@ -1685,6 +1685,19 @@ local function UpdateDisplay()
 		else
 			braindeadPanel.dimmer:Show()
 		end
+	end
+	if currentSpec == SPEC.UNHOLY then
+		if var.pooling_for_aotd then
+			braindeadPanel.text:SetText('Pool for\n' .. ArmyOfTheDead.name)
+			braindeadPanel.text:Show()
+		elseif var.pooling_for_gargoyle then
+			braindeadPanel.text:SetText('Pool for\n' .. SummonGargoyle.name)
+			braindeadPanel.text:Show()
+		else
+			braindeadPanel.text:Hide()
+		end
+	else
+		braindeadPanel.text:Hide()
 	end
 end
 
