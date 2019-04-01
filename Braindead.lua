@@ -136,6 +136,7 @@ local var = {
 	runes = 0,
 	rune_max = 6,
 	rune_regen = 0,
+	group_size = 1,
 }
 
 local braindeadPanel = CreateFrame('Frame', 'braindeadPanel', UIParent)
@@ -1143,8 +1144,8 @@ actions+=/call_action_list,name=generic
 		return Outbreak
 	end
 	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
-	var.pooling_for_aotd = ArmyOfTheDead.known and (Target.boss or Target.timeToDie > 40) and ArmyOfTheDead:ready(5)
-	var.pooling_for_gargoyle =  var.use_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
+	var.pooling_for_aotd = ArmyOfTheDead.known and (Target.boss or Target.timeToDie > (20 * (var.group_size + 1))) and ArmyOfTheDead:ready(5)
+	var.pooling_for_gargoyle = var.use_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
 	self:cooldowns()
 	if Enemies() >= 2 then
 		return self:aoe()
@@ -1345,7 +1346,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return Defile
 		end
 	end
-	if (not var.use_aod or not ArmyOfTheDead:ready(5)) and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
+	if not var.pooling_for_aotd and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
 		if ScourgeStrike:usable() then
 			return ScourgeStrike
 		end
@@ -1361,7 +1362,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if FesteringStrike:usable() and (not var.use_aod or not ArmyOfTheDead:ready(5)) and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
+	if not var.pooling_for_aotd and FesteringStrike:usable() and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
 		return FesteringStrike
 	end
 	if DeathStrike:usable() and DarkSuccor:up() then
@@ -2103,9 +2104,14 @@ function events:PLAYER_SPECIALIZATION_CHANGED(unitName)
 	end
 end
 
+function events:GROUP_ROSTER_UPDATE()
+	var.group_size = min(max(GetNumGroupMembers(), 1), 10)
+end
+
 function events:PLAYER_ENTERING_WORLD()
 	events:PLAYER_EQUIPMENT_CHANGED()
 	events:PLAYER_SPECIALIZATION_CHANGED('player')
+	events:GROUP_ROSTER_UPDATE()
 	if #glows == 0 then
 		CreateOverlayGlows()
 		HookResourceFrame()
