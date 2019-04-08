@@ -779,7 +779,7 @@ VirulentPlague:autoAoe()
 VirulentPlague:trackAuras()
 ------ Talents
 local BurstingSores = Ability.add(207264, false, true, 207267)
-BurstingSores:autoAoe()
+BurstingSores:autoAoe(true)
 local ClawingShadows = Ability.add(207311, false, true)
 ClawingShadows.rune_cost = 1
 local DeathPact = Ability.add(48743, true, true)
@@ -794,7 +794,8 @@ Defile:autoAoe()
 local EbonFever = Ability.add(207269, false, true)
 local Epidemic = Ability.add(207317, false, true, 212739)
 Epidemic.runic_power_cost = 30
-Epidemic:autoAoe(true)
+Epidemic.splash = Ability.add(215969, false, true)
+Epidemic.splash:autoAoe(true)
 local Pestilence = Ability.add(277234, false, true)
 local RaiseAbomination = Ability.add(288853, true, true)
 RaiseAbomination.buff_duration = 25
@@ -1929,6 +1930,8 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 				autoAoe:remove(dstGUID)
 			elseif castedAbility.auto_aoe then
 				castedAbility:recordTargetHit(dstGUID)
+			elseif BurstingSores.known and castedAbility == FesteringWound and eventType == 'SPELL_DAMAGE' then
+				BurstingSores:recordTargetHit(dstGUID)
 			end
 		end
 		if Opt.previous and Opt.miss_effect and eventType == 'SPELL_MISSED' and braindeadPanel:IsVisible() and castedAbility == braindeadPreviousPanel.ability then
@@ -2033,6 +2036,10 @@ function events:PLAYER_REGEN_ENABLED()
 	if var.last_ability then
 		var.last_ability = nil
 		braindeadPreviousPanel:Hide()
+	end
+	if currentSpec == SPEC.UNHOLY then
+		var.pooling_for_aotd = false
+		var.pooling_for_gargoyle = false
 	end
 end
 
