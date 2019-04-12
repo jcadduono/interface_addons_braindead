@@ -107,7 +107,7 @@ local timer = {
 	health = 0
 }
 
-local currentSpec, currentForm, targetMode, combatStartTime = 0, 0, 0, 0
+local currentSpec, targetMode, combatStartTime = 0, 0, 0, 0
 
 -- current target information
 local Target = {
