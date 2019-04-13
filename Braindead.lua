@@ -2325,6 +2325,10 @@ function events:PLAYER_SPECIALIZATION_CHANGED(unitName)
 	end
 end
 
+function events:PLAYER_PVP_TALENT_UPDATE()
+	UpdateAbilityData()
+end
+
 function events:GROUP_ROSTER_UPDATE()
 	var.group_size = min(max(GetNumGroupMembers(), 1), 10)
 end
