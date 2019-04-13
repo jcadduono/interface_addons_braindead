@@ -1453,7 +1453,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 				return DeathCoil
 			end
 		end
-		if apocalypse_not_ready then
+		if apocalypse_not_ready and (not BurstingSores.known or FesteringWound:up()) then
 			if ScourgeStrike:usable() then
 				return ScourgeStrike
 			end
