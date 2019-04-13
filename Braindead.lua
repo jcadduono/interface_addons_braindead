@@ -133,7 +133,8 @@ local var = {
 	time_diff = 0,
 	runic_power = 0,
 	runic_power_max = 100,
-	runes = 0,
+	runes = {},
+	runes_ready = 0,
 	rune_max = 6,
 	rune_regen = 0,
 	group_size = 1,
@@ -413,7 +414,7 @@ function Ability:usable()
 	if not self.known then
 		return false
 	end
-	if self:runeCost() > var.runes then
+	if self:runeCost() > var.runes_ready then
 		return false
 	end
 	if self:runicPowerCost() > var.runic_power then
@@ -705,12 +706,13 @@ local DarkCommand = Ability.add(56222, false)
 DarkCommand.buff_duration = 3
 DarkCommand.cooldown_duration = 8
 DarkCommand.triggers_gcd = false
-local DeathAndDecay = Ability.add(43265, false, true, 52212)
+local DeathAndDecay = Ability.add(43265, true, true, 188290)
 DeathAndDecay.buff_duration = 10
 DeathAndDecay.cooldown_duration = 30
 DeathAndDecay.rune_cost = 1
 DeathAndDecay.tick_interval = 1
-DeathAndDecay:autoAoe()
+DeathAndDecay.damage = Ability.add(52212, false, true)
+DeathAndDecay.damage:autoAoe()
 local DeathGrip = Ability.add(49576, false, true)
 DeathGrip.cooldown_duration = 25
 DeathGrip.requires_charge = true
@@ -741,11 +743,60 @@ local SummonGargoyle = Ability.add(49206, true, true)
 SummonGargoyle.buff_duration = 35
 SummonGargoyle.cooldown_duration = 180
 ---- Blood
-
+local BloodBoil = Ability.add(50842, false, true)
+BloodBoil.cooldown_duration = 7.5
+BloodBoil.requires_charge = true
+BloodBoil:autoAoe(true)
+local BloodPlague = Ability.add(55078, false, true)
+BloodPlague.buff_duration = 24
+BloodPlague.tick_interval = 3
+BloodPlague:autoAoe()
+BloodPlague:trackAuras()
+local DancingRuneWeapon = Ability.add(49028, true, true)
+DancingRuneWeapon.buff_duration = 13
+DancingRuneWeapon.cooldown_duration = 120
+local DeathsCaress = Ability.add(195292, false, true)
+DeathsCaress.rune_cost = 1
+local HeartStrike = Ability.add(206930, false, true)
+HeartStrike.buff_duration = 8
+HeartStrike.rune_cost = 1
+local Marrowrend = Ability.add(195182, false, true)
+Marrowrend.rune_cost = 2
 ------ Talents
-
+local Blooddrinker = Ability.add(206931, false, true)
+Blooddrinker.buff_duration = 3
+Blooddrinker.cooldown_duration = 30
+Blooddrinker.rune_cost = 1
+Blooddrinker.tick_interval = 1
+Blooddrinker.hasted_duration = true
+Blooddrinker.hasted_ticks = true
+local Bonestorm = Ability.add(194844, true, true)
+Bonestorm.buff_duration = 1
+Bonestorm.cooldown_duration = 60
+Bonestorm.runic_power_cost = 10
+Bonestorm.tick_interval = 1
+Bonestorm.damage = Ability.add(196528, false, true)
+Bonestorm.damage:autoAoe()
+local Consumption = Ability.add(274156, false, true)
+Consumption.cooldown_duration = 45
+Consumption:autoAoe()
+local Heartbreaker = Ability.add(210738, false, true)
+local Hemostasis = Ability.add(273946, true, true, 273947)
+Hemostasis.buff_duration = 15
+local Ossuary = Ability.add(219786, true, true, 219788)
+local RapidDecomposition = Ability.add(194662, false, true)
+local RuneStrike = Ability.add(210764, false, true)
+RuneStrike.cooldown_duration = 60
+RuneStrike.rune_cost = 1
+RuneStrike.requires_charge = true
+local Tombstone = Ability.add(219809, false, true)
+Tombstone.buff_duration = 8
+Tombstone.cooldown_duration = 60
 ------ Procs
-
+local BoneShield = Ability.add(195181, true, true)
+BoneShield.buff_duration = 30
+local CrimsonScourge = Ability.add(81136, true, true, 81141)
+CrimsonScourge.buff_duration = 15
 ---- Frost
 
 ------ Talents
@@ -951,15 +1002,19 @@ local function HealthPct()
 end
 
 local function Runes()
-	return var.runes
+	return var.runes_ready
 end
 
 local function RuneDeficit()
-	return var.rune_max - var.runes
+	return var.rune_max - var.runes_ready
 end
 
 local function RuneRegen()
 	return var.rune_regen
+end
+
+local function RuneTimeTo(runes)
+	return max(var.runes[runes] - var.execute_remains, 0)
 end
 
 local function RunicPower()
@@ -1030,25 +1085,37 @@ end
 
 -- Start Ability Modifications
 
+function DeathAndDecay:runeCost()
+	if CrimsonScourge.known and CrimsonScourge:up() then
+		return 0
+	end
+	return Ability.runeCost(self)
+end
+
 function DeathCoil:runicPowerCost()
 	if SuddenDoom:up() then
 		return 0
 	end
-	return self.runic_power_cost
+	return Ability.runicPowerCost(self)
 end
 
 function DeathStrike:runicPowerCost()
 	if DarkSuccor:up() then
 		return 0
 	end
-	return self.runic_power_cost
+	local cost = Ability.runicPowerCost(self)
+	if Ossuary.known and Ossuary:up() then
+		cost = cost - 5
+	end
+	return cost
 end
 
 function VirulentPlague:duration()
+	local duration = Ability.duration(self)
 	if EbonFever.known then
-		return Ability.duration(self) / 2
+		duration =  duration / 2
 	end
-	return Ability.duration(self)
+	return duration
 end
 
 -- End Ability Modifications
@@ -1078,6 +1145,14 @@ local APL = {
 
 APL[SPEC.BLOOD].main = function(self)
 	if TimeInCombat() == 0 then
+--[[
+actions.precombat=flask
+actions.precombat+=/food
+actions.precombat+=/augmentation
+# Snapshot raid buffed stats before combat begins and pre-potting is done.
+actions.precombat+=/snapshot_stats
+actions.precombat+=/potion
+]]
 		if Opt.pot and not InArenaOrBattleground() then
 			if FlaskOfTheUndertow:usable() and FlaskOfTheUndertow.buff:remains() < 300 then
 				UseCooldown(FlaskOfTheUndertow)
@@ -1086,6 +1161,127 @@ APL[SPEC.BLOOD].main = function(self)
 				UseCooldown(BattlePotionOfStrength)
 			end
 		end
+	end
+--[[
+actions+=/blood_fury,if=cooldown.dancing_rune_weapon.ready&(!cooldown.blooddrinker.ready|!talent.blooddrinker.enabled)
+actions+=/berserking
+actions+=/use_items,if=cooldown.dancing_rune_weapon.remains>90
+actions+=/use_item,name=razdunks_big_red_button
+actions+=/use_item,name=merekthas_fang
+actions+=/potion,if=buff.dancing_rune_weapon.up
+actions+=/dancing_rune_weapon,if=!talent.blooddrinker.enabled|!cooldown.blooddrinker.ready
+actions+=/tombstone,if=buff.bone_shield.stack>=7
+actions+=/call_action_list,name=standard
+]]
+	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
+	var.pooling_for_bonestorm = var.use_cds and Bonestorm.known and Enemies() >= 3 and not self.drw_up and Bonestorm:ready(4)
+	self.bs_remains = BoneShield:remains()
+	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:stack()
+	self.drw_up = DancingRuneWeapon:up()
+	if Opt.pot and BattlePotionOfStrength:usable() and self.drw_up then
+		UseCooldown(BattlePotionOfStrength)
+	end
+	if var.use_cds and not self.drw_up and DancingRuneWeapon:usable() and (not Blooddrinker.known or not Blooddrinker:ready()) then
+		UseCooldown(DancingRuneWeapon)
+	end
+	if var.use_cds and Tombstone:usable() and self.bs_stack >= 7 then
+		UseCooldown(Tombstone)
+	end
+	return self:standard()
+end
+
+APL[SPEC.BLOOD].standard = function(self)
+--[[
+actions.standard=death_strike,if=runic_power.deficit<=10
+actions.standard+=/blooddrinker,if=!buff.dancing_rune_weapon.up
+actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|buff.bone_shield.remains<=(gcd+cooldown.blooddrinker.ready*talent.blooddrinker.enabled*2)|buff.bone_shield.stack<3)&runic_power.deficit>=20
+actions.standard+=/blood_boil,if=charges_fractional>=1.8&(buff.hemostasis.stack<=(5-spell_targets.blood_boil)|spell_targets.blood_boil>2)
+actions.standard+=/marrowrend,if=buff.bone_shield.stack<5&talent.ossuary.enabled&runic_power.deficit>=15
+actions.standard+=/bonestorm,if=runic_power>=100&!buff.dancing_rune_weapon.up
+actions.standard+=/death_strike,if=runic_power.deficit<=(15+buff.dancing_rune_weapon.up*5+spell_targets.heart_strike*talent.heartbreaker.enabled*2)|target.time_to_die<10
+actions.standard+=/death_and_decay,if=spell_targets.death_and_decay>=3
+actions.standard+=/rune_strike,if=(charges_fractional>=1.8|buff.dancing_rune_weapon.up)&rune.time_to_3>=gcd
+actions.standard+=/heart_strike,if=buff.dancing_rune_weapon.up|rune.time_to_4<gcd
+actions.standard+=/blood_boil,if=buff.dancing_rune_weapon.up
+actions.standard+=/death_and_decay,if=buff.crimson_scourge.up|talent.rapid_decomposition.enabled|spell_targets.death_and_decay>=2
+actions.standard+=/consumption
+actions.standard+=/blood_boil
+actions.standard+=/heart_strike,if=rune.time_to_3<gcd|buff.bone_shield.stack>6
+actions.standard+=/use_item,name=grongs_primal_rage
+actions.standard+=/rune_strike
+actions.standard+=/arcane_torrent,if=runic_power.deficit>20
+]]
+	if not var.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 10 then
+		return DeathStrike
+	end
+	if Blooddrinker:usable() and not self.drw_up and HealthPct() < 80 then
+		return Blooddrinker
+	end
+	if Marrowrend:usable() then
+		if RunicPowerDeficit() >= 20 and (self.bs_remains <= RuneTimeTo(3) or self.bs_stack < 3) then
+			return Marrowrend
+		end
+		if self.bs_stack < 1 or self.bs_remains <= (GCD() * 2 + (Blooddrinker.known and Blooddrinker:ready() and 3 or 0)) then
+			return Marrowrend
+		end
+	end
+	if BloodBoil:usable() then
+		if BloodBoil:chargesFractional() >= 1.8 and (Enemies() > 2 or Hemostasis:stack() <= (5 - Enemies())) then
+			return BloodBoil
+		end
+		if BloodPlague:down() or BloodPlague:ticking() < Enemies() then
+			return BloodBoil
+		end
+	end
+	if Ossuary.known and Marrowrend:usable() and self.bs_stack < 5 and RunicPowerDeficit() >= 15 then
+		return Marrowrend
+	end
+	if var.use_cds and Bonestorm:usable() and RunicPower() >= 100 and not self.drw_up then
+		UseCooldown(Bonestorm)
+	end
+	if DeathStrike:usable() then
+		if Enemies() == 1 and Target.timeToDie < 10 then
+			return DeathStrike
+		end
+		if HealthPct() < 60 then
+			return DeathStrike
+		end
+	end
+	if DeathAndDecay:usable() and Enemies() >= 3 then
+		return DeathAndDecay
+	end
+	if DeathStrike:usable() and not var.pooling_for_bonestorm and RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and min(Enemies(), 2) * 2 or 0)) then
+		return DeathStrike
+	end
+	if RuneStrike:usable() and RuneTimeTo(3) >= GCD() and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
+		return RuneStrike
+	end
+	if HeartStrike:usable() and (self.drw_up or RuneTimeTo(4) < GCD()) then
+		return HeartStrike
+	end
+	if BloodBoil:usable() and self.drw_up then
+		return BloodBoil
+	end
+	if DeathAndDecay:usable() and (RapidDecomposition.known or Enemies() >= 2 or CrimsonScourge:up()) then
+		return DeathAndDecay
+	end
+	if var.use_cds and Consumption:usable() then
+		UseCooldown(Consumption)
+	end
+	if BloodBoil:usable() then
+		return BloodBoil
+	end
+	if HeartStrike:usable() and (RuneTimeTo(3) < GCD() or self.bs_stack > 6) then
+		return HeartStrike
+	end
+	if RuneStrike:usable() then
+		return RuneStrike
+	end
+	if not var.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 45 and self.bs_stack >= 5 and self.bs_remains > (GCD() + RuneTimeTo(3)) then
+		return DeathStrike
+	end
+	if ArcaneTorrent:usable() and RunicPowerDeficit() > 20 then
+		UseExtra(ArcaneTorrent)
 	end
 end
 
@@ -1686,6 +1882,7 @@ end
 
 local function UpdateDisplay()
 	timer.display = 0
+	local text = false
 	if Opt.dimmer then
 		if not var.main then
 			braindeadPanel.dimmer:Hide()
@@ -1697,30 +1894,33 @@ local function UpdateDisplay()
 			braindeadPanel.dimmer:Show()
 		end
 	end
-	if currentSpec == SPEC.UNHOLY then
-		if var.pooling_for_aotd then
-			braindeadPanel.text:SetText('Pool for\n' .. ArmyOfTheDead.name)
-			braindeadPanel.text:Show()
-		elseif var.pooling_for_gargoyle then
-			braindeadPanel.text:SetText('Pool for\n' .. SummonGargoyle.name)
-			braindeadPanel.text:Show()
-		else
-			braindeadPanel.text:Hide()
-		end
-	else
-		braindeadPanel.text:Hide()
+	if var.pooling_for_bonestorm then
+		braindeadPanel.text:SetText('Pool for\n' .. Bonestorm.name)
+		text = true
+	elseif var.pooling_for_aotd then
+		braindeadPanel.text:SetText('Pool for\n' .. ArmyOfTheDead.name)
+		text = true
+	elseif var.pooling_for_gargoyle then
+		braindeadPanel.text:SetText('Pool for\n' .. SummonGargoyle.name)
+		text = true
 	end
+	braindeadPanel.text:SetShown(text)
 end
 
-local function GetAvailableRunes()
-	local runes, i, start, duration = 0
+local function UpdateRunes()
+	while #var.runes > var.rune_max do
+		var.runes[#var.runes] = nil
+	end
+	local i, start, duration
+	var.runes_ready = 0
 	for i = 1, var.rune_max do
 		start, duration = GetRuneCooldown(i)
-		if start == 0 or (start + duration - var.time < var.execute_remains) then
-			runes = runes + 1
+		var.runes[i] = max(start + duration - var.time, 0)
+		if var.runes[i] <= var.execute_remains then
+			var.runes_ready = var.runes_ready + 1
 		end
 	end
-	return runes
+	table.sort(var.runes)
 end
 
 local function UpdateCombat()
@@ -1742,10 +1942,10 @@ local function UpdateCombat()
 	var.gcd = 1.5 * var.haste_factor
 	var.health = UnitHealth('player')
 	var.health_max = UnitHealthMax('player')
-	var.runes = GetAvailableRunes()
 	_, var.rune_regen = GetRuneCooldown(1)
 	var.runic_power = UnitPower('player', 6)
 	var.pet_active = IsFlying() or UnitExists('pet') and not UnitIsDead('pet')
+	UpdateRunes()
 
 	trackAuras:purge()
 	if Opt.auto_aoe then
@@ -2047,10 +2247,9 @@ function events:PLAYER_REGEN_ENABLED()
 		var.last_ability = nil
 		braindeadPreviousPanel:Hide()
 	end
-	if currentSpec == SPEC.UNHOLY then
-		var.pooling_for_aotd = false
-		var.pooling_for_gargoyle = false
-	end
+	var.pooling_for_bonestorm = false
+	var.pooling_for_aotd = false
+	var.pooling_for_gargoyle = false
 end
 
 local function UpdateAbilityData()
@@ -2061,7 +2260,11 @@ local function UpdateAbilityData()
 		ability.name, _, ability.icon = GetSpellInfo(ability.spellId)
 		ability.known = (IsPlayerSpell(ability.spellId) or (ability.spellId2 and IsPlayerSpell(ability.spellId2)) or Azerite.traits[ability.spellId]) and true or false
 	end
-	if currentSpec == SPEC.UNHOLY then
+	if currentSpec == SPEC.BLOOD then
+		BloodPlague.known = BloodBoil.known
+		BoneShield.known = Marrowrend.known
+		Bonestorm.damage.known = Bonestorm.known
+	elseif currentSpec == SPEC.UNHOLY then
 		VirulentPlague.known = Outbreak.known
 		VirulentEruption.known = VirulentPlague.known
 		FesteringWound.known = FesteringStrike.known
@@ -2075,6 +2278,7 @@ local function UpdateAbilityData()
 			ArmyOfTheDead.known = false
 		end
 	end
+	DeathAndDecay.damage.known = DeathAndDecay.known
 	abilities.bySpellId = {}
 	abilities.velocity = {}
 	abilities.autoAoe = {}
