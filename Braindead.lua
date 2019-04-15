@@ -1268,6 +1268,9 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if DeathAndDecay:usable() and (Enemies() >= 2 or Target.timeToDie > 4 and (RapidDecomposition.known or CrimsonScourge:up())) then
 		return DeathAndDecay
 	end
+	if var.use_cds and Bonestorm:usable() and Enemies() >= 2 and Target.timeToDie > 8 and RunicPower() >= 100 then
+		UseCooldown(Bonestorm)
+	end
 	if var.use_cds and Consumption:usable() then
 		UseCooldown(Consumption)
 	end
