@@ -1265,7 +1265,7 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if BloodBoil:usable() and self.drw_up then
 		return BloodBoil
 	end
-	if DeathAndDecay:usable() and (RapidDecomposition.known or Enemies() >= 2 or CrimsonScourge:up()) then
+	if DeathAndDecay:usable() and (Enemies() >= 2 or Target.timeToDie > 4 and (RapidDecomposition.known or CrimsonScourge:up())) then
 		return DeathAndDecay
 	end
 	if var.use_cds and Consumption:usable() then
