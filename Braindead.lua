@@ -752,8 +752,8 @@ BloodPlague.buff_duration = 24
 BloodPlague.tick_interval = 3
 BloodPlague:autoAoe()
 BloodPlague:trackAuras()
-local DancingRuneWeapon = Ability.add(49028, true, true)
-DancingRuneWeapon.buff_duration = 13
+local DancingRuneWeapon = Ability.add(49028, true, true, 81256)
+DancingRuneWeapon.buff_duration = 8
 DancingRuneWeapon.cooldown_duration = 120
 local DeathsCaress = Ability.add(195292, false, true)
 DeathsCaress.rune_cost = 1
@@ -1161,6 +1161,9 @@ actions.precombat+=/potion
 				UseCooldown(BattlePotionOfStrength)
 			end
 		end
+		if DeathAndDecay:usable() then
+			UseCooldown(DeathAndDecay)
+		end
 	end
 --[[
 actions+=/blood_fury,if=cooldown.dancing_rune_weapon.ready&(!cooldown.blooddrinker.ready|!talent.blooddrinker.enabled)
@@ -1174,14 +1177,14 @@ actions+=/tombstone,if=buff.bone_shield.stack>=7
 actions+=/call_action_list,name=standard
 ]]
 	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
-	var.pooling_for_bonestorm = var.use_cds and Bonestorm.known and Enemies() >= 3 and not self.drw_up and Bonestorm:ready(4)
+	var.pooling_for_bonestorm = Bonestorm.known and Enemies() >= 3 and not self.drw_up and Bonestorm:ready(4)
 	self.bs_remains = BoneShield:remains()
 	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:stack()
 	self.drw_up = DancingRuneWeapon:up()
 	if Opt.pot and BattlePotionOfStrength:usable() and self.drw_up then
 		UseCooldown(BattlePotionOfStrength)
 	end
-	if var.use_cds and not self.drw_up and DancingRuneWeapon:usable() and (not Blooddrinker.known or not Blooddrinker:ready()) then
+	if var.use_cds and not self.drw_up and DancingRuneWeapon:usable() and not var.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:ready()) then
 		UseCooldown(DancingRuneWeapon)
 	end
 	if var.use_cds and Tombstone:usable() and self.bs_stack >= 7 then
@@ -1211,7 +1214,7 @@ actions.standard+=/use_item,name=grongs_primal_rage
 actions.standard+=/rune_strike
 actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 ]]
-	if not var.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 10 then
+	if DeathStrike:usable() and RunicPowerDeficit() <= 10 and (not var.pooling_for_bonestorm or not Bonestorm:ready(2)) then
 		return DeathStrike
 	end
 	if Blooddrinker:usable() and not self.drw_up and HealthPct() < 80 then
@@ -1236,7 +1239,7 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if Ossuary.known and Marrowrend:usable() and self.bs_stack < 5 and RunicPowerDeficit() >= 15 then
 		return Marrowrend
 	end
-	if var.use_cds and Bonestorm:usable() and RunicPower() >= 100 and not self.drw_up then
+	if var.pooling_for_bonestorm and Bonestorm:usable() and RunicPower() >= 100 then
 		UseCooldown(Bonestorm)
 	end
 	if DeathStrike:usable() then
