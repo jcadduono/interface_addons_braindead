@@ -1283,6 +1283,9 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if not var.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 45 and self.bs_stack >= 5 and self.bs_remains > (GCD() + RuneTimeTo(3)) then
 		return DeathStrike
 	end
+	if HeartStrike:usable() and Enemies() == 1 and self.bs_stack >= 5 and self.bs_remains > Target.timeToDie then
+		return HeartStrike
+	end
 	if ArcaneTorrent:usable() and RunicPowerDeficit() > 20 then
 		UseExtra(ArcaneTorrent)
 	end
