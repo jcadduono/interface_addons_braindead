@@ -1259,8 +1259,13 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if RuneStrike:usable() and RuneTimeTo(3) >= GCD() and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
 		return RuneStrike
 	end
-	if HeartStrike:usable() and (self.drw_up or RuneTimeTo(4) < GCD()) then
-		return HeartStrike
+	if HeartStrike:usable() then
+		if self.drw_up or RuneTimeTo(4) < GCD() then
+			return HeartStrike
+		end
+		if Enemies() >= 4 and DeathAndDecay:up() then
+			return HeartStrike
+		end
 	end
 	if BloodBoil:usable() and self.drw_up then
 		return BloodBoil
