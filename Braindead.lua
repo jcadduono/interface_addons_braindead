@@ -1434,8 +1434,8 @@ actions.aoe=death_and_decay,if=cooldown.apocalypse.remains
 actions.aoe+=/defile
 actions.aoe+=/epidemic,if=death_and_decay.ticking&rune<2&!variable.pooling_for_gargoyle
 actions.aoe+=/death_coil,if=death_and_decay.ticking&rune<2&!variable.pooling_for_gargoyle
-actions.aoe+=/scourge_strike,if=death_and_decay.ticking&cooldown.apocalypse.remains
-actions.aoe+=/clawing_shadows,if=death_and_decay.ticking&cooldown.apocalypse.remains
+actions.aoe+=/scourge_strike,if=death_and_decay.ticking&cooldown.apocalypse.remains&(!talent.bursting_sores.enabled|debuff.festering_wound.up)
+actions.aoe+=/clawing_shadows,if=death_and_decay.ticking&cooldown.apocalypse.remains&(!talent.bursting_sores.enabled|debuff.festering_wound.up)
 actions.aoe+=/epidemic,if=!variable.pooling_for_gargoyle
 actions.aoe+=/festering_strike,target_if=debuff.festering_wound.stack<=1&cooldown.death_and_decay.remains
 actions.aoe+=/festering_strike,if=talent.bursting_sores.enabled&spell_targets.bursting_sores>=2&debuff.festering_wound.stack<=1
@@ -1896,17 +1896,11 @@ end
 
 local function UpdateDisplay()
 	timer.display = 0
-	local text = false
+	local text, dim = false, false
 	if Opt.dimmer then
-		if not var.main then
-			braindeadPanel.dimmer:Hide()
-		elseif var.main.spellId and IsUsableSpell(var.main.spellId) then
-			braindeadPanel.dimmer:Hide()
-		elseif var.main.itemId and IsUsableItem(var.main.itemId) then
-			braindeadPanel.dimmer:Hide()
-		else
-			braindeadPanel.dimmer:Show()
-		end
+		dim = not ((not var.main) or
+		           (var.main.spellId and IsUsableSpell(var.main.spellId)) or
+		           (var.main.itemId and IsUsableItem(var.main.itemId)))
 	end
 	if var.pooling_for_bonestorm then
 		braindeadPanel.text:SetText('Pool for\n' .. Bonestorm.name)
@@ -1918,6 +1912,7 @@ local function UpdateDisplay()
 		braindeadPanel.text:SetText('Pool for\n' .. SummonGargoyle.name)
 		text = true
 	end
+	braindeadPanel.dimmer:SetShown(dim)
 	braindeadPanel.text:SetShown(text)
 end
 
