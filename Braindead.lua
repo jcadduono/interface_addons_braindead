@@ -1110,6 +1110,10 @@ function DeathStrike:runicPowerCost()
 	return cost
 end
 
+function HeartStrike:targets()
+	return min(Enemies(), DeathAndDecay:up() and 5 or 2)
+end
+
 function VirulentPlague:duration()
 	local duration = Ability.duration(self)
 	if EbonFever.known then
@@ -1263,7 +1267,7 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if DeathAndDecay:usable() and Enemies() >= 3 then
 		return DeathAndDecay
 	end
-	if DeathStrike:usable() and not var.pooling_for_bonestorm and RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and min(Enemies(), 2) * 2 or 0)) then
+	if DeathStrike:usable() and not var.pooling_for_bonestorm and RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:targets() * 2 or 0)) then
 		return DeathStrike
 	end
 	if RuneStrike:usable() and RuneTimeTo(3) >= GCD() and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
@@ -1273,7 +1277,7 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		if self.drw_up or RuneTimeTo(4) < GCD() then
 			return HeartStrike
 		end
-		if Enemies() >= 4 and DeathAndDecay:up() then
+		if HeartStrike:targets() >= 4 then
 			return HeartStrike
 		end
 	end
