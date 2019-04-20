@@ -1048,9 +1048,9 @@ local function BloodlustActive()
 			id == 2825 or	-- Bloodlust (Horde Shaman)
 			id == 32182 or	-- Heroism (Alliance Shaman)
 			id == 80353 or	-- Time Warp (Mage)
-			id == 90355 or	-- Ancient Hysteria (Druid Pet - Core Hound)
-			id == 160452 or -- Netherwinds (Druid Pet - Nether Ray)
-			id == 264667 or -- Primal Rage (Druid Pet - Ferocity)
+			id == 90355 or	-- Ancient Hysteria (Hunter Pet - Core Hound)
+			id == 160452 or -- Netherwinds (Hunter Pet - Nether Ray)
+			id == 264667 or -- Primal Rage (Hunter Pet - Ferocity)
 			id == 178207 or -- Drums of Fury (Leatherworking)
 			id == 146555 or -- Drums of Rage (Leatherworking)
 			id == 230935 or -- Drums of the Mountain (Leatherworking)
@@ -1229,7 +1229,10 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		end
 	end
 	if BloodBoil:usable() then
-		if BloodBoil:chargesFractional() >= 1.8 and (Enemies() > 2 or Hemostasis:stack() <= (5 - Enemies())) then
+		if BloodBoil:chargesFractional() >= 1.8 and (Enemies() > 2 or (Hemostasis.known and Hemostasis:stack() <= (5 - Enemies()))) then
+			return BloodBoil
+		end
+		if Hemostasis.known and DeathStrike:usable() and HealthPct() < 60 and Hemostasis:stack() <= (5 - Enemies()) then
 			return BloodBoil
 		end
 		if BloodPlague:down() or BloodPlague:ticking() < Enemies() then
@@ -1243,10 +1246,17 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		UseCooldown(Bonestorm)
 	end
 	if DeathStrike:usable() then
-		if Enemies() == 1 and Target.timeToDie < 10 then
+		if Enemies() == 1 and Target.timeToDie < 2 then
 			return DeathStrike
 		end
-		if HealthPct() < 60 then
+		if Hemostasis.known then
+			if HealthPct() < 60 and Hemostasis:stack() >= 5 then
+				return DeathStrike
+			end
+			if HealthPct() < 40 and not BloodBoil:ready() then
+				return DeathStrike
+			end
+		elseif HealthPct() < 40 then
 			return DeathStrike
 		end
 	end
@@ -1267,8 +1277,13 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 			return HeartStrike
 		end
 	end
-	if BloodBoil:usable() and self.drw_up then
-		return BloodBoil
+	if BloodBoil:usable() then
+		if self.drw_up then
+			return BloodBoil
+		end
+		if Hemostasis.known and HealthPct() < 60 and Hemostasis:stack() <= (5 - Enemies()) then
+			return BloodBoil
+		end
 	end
 	if DeathAndDecay:usable() and (Enemies() >= 2 or Target.timeToDie > 4 and (RapidDecomposition.known or CrimsonScourge:up())) then
 		return DeathAndDecay
@@ -1288,7 +1303,7 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if RuneStrike:usable() then
 		return RuneStrike
 	end
-	if not var.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 45 and self.bs_stack >= 5 and self.bs_remains > (GCD() + RuneTimeTo(3)) then
+	if not var.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (GCD() + RuneTimeTo(3)) then
 		return DeathStrike
 	end
 	if HeartStrike:usable() and Enemies() == 1 and self.bs_stack >= 5 and self.bs_remains > Target.timeToDie then
