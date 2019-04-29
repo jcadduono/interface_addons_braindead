@@ -1383,7 +1383,7 @@ actions+=/call_action_list,name=generic
 		return Outbreak
 	end
 	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
-	var.pooling_for_aotd = ArmyOfTheDead.known and (Target.boss or Target.timeToDie > (20 * (var.group_size + 1))) and ArmyOfTheDead:ready(5)
+	var.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:ready(5)
 	var.pooling_for_gargoyle = var.use_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
 	self:cooldowns()
 	if Enemies() >= 2 then
