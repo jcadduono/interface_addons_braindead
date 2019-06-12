@@ -27,7 +27,7 @@ end
 Braindead = {}
 local Opt -- use this as a local table reference to Braindead
 
-SLASH_Braindead1, SLASH_Braindead2 = '/brain', '/bd'
+SLASH_Braindead1, SLASH_Braindead2 = '/bd', '/brain'
 BINDING_HEADER_BRAINDEAD = 'Braindead'
 
 local function InitializeOpts()
@@ -87,6 +87,7 @@ local function InitializeOpts()
 		auto_aoe = false,
 		auto_aoe_ttl = 10,
 		pot = false,
+		trinket = true,
 		death_strike_threshold = 60,
 	})
 end
@@ -107,30 +108,16 @@ local timer = {
 	health = 0
 }
 
-local currentSpec, targetMode, combatStartTime = 0, 0, 0, 0
-
--- current target information
-local Target = {
-	boss = false,
-	guid = 0,
-	healthArray = {},
-	hostile = false
-}
-
--- list of previous GCD abilities
-local PreviousGCD = {}
-
--- items equipped with special effects
-local ItemEquipped = {
-	RampingAmplitudeGigavoltEngine = false,
-}
-
--- Azerite trait API access
-local Azerite = {}
-
-local var = {
-	gcd = 1.5,
+-- current player information
+local Player = {
+	time = 0,
 	time_diff = 0,
+	ctime = 0,
+	combat_start = 0,
+	spec = 0,
+	gcd = 1.5,
+	health = 0,
+	health_max = 0,
 	runic_power = 0,
 	runic_power_max = 100,
 	runes = {},
@@ -138,7 +125,19 @@ local var = {
 	rune_max = 6,
 	rune_regen = 0,
 	group_size = 1,
+	previous_gcd = {},-- list of previous GCD abilities
 }
+
+-- current target information
+local Target = {
+	boss = false,
+	guid = 0,
+	healthArray = {},
+	hostile = false,
+}
+
+-- Azerite trait API access
+local Azerite = {}
 
 local braindeadPanel = CreateFrame('Frame', 'braindeadPanel', UIParent)
 braindeadPanel:SetPoint('CENTER', 0, -169)
@@ -153,22 +152,23 @@ braindeadPanel.border = braindeadPanel:CreateTexture(nil, 'ARTWORK')
 braindeadPanel.border:SetAllPoints(braindeadPanel)
 braindeadPanel.border:SetTexture('Interface\\AddOns\\Braindead\\border.blp')
 braindeadPanel.border:Hide()
-braindeadPanel.text = braindeadPanel:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.text:SetFont('Fonts\\FRIZQT__.TTF', 9, 'OUTLINE')
-braindeadPanel.text:SetTextColor(1, 1, 1, 1)
-braindeadPanel.text:SetAllPoints(braindeadPanel)
-braindeadPanel.text:SetJustifyH('CENTER')
-braindeadPanel.text:SetJustifyV('CENTER')
-braindeadPanel.swipe = CreateFrame('Cooldown', nil, braindeadPanel, 'CooldownFrameTemplate')
-braindeadPanel.swipe:SetAllPoints(braindeadPanel)
 braindeadPanel.dimmer = braindeadPanel:CreateTexture(nil, 'BORDER')
 braindeadPanel.dimmer:SetAllPoints(braindeadPanel)
 braindeadPanel.dimmer:SetColorTexture(0, 0, 0, 0.6)
 braindeadPanel.dimmer:Hide()
-braindeadPanel.targets = braindeadPanel:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.targets:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
-braindeadPanel.targets:SetPoint('BOTTOMRIGHT', braindeadPanel, 'BOTTOMRIGHT', -1.5, 3)
-braindeadPanel.button = CreateFrame('Button', 'braindeadPanelButton', braindeadPanel)
+braindeadPanel.swipe = CreateFrame('Cooldown', nil, braindeadPanel, 'CooldownFrameTemplate')
+braindeadPanel.swipe:SetAllPoints(braindeadPanel)
+braindeadPanel.text = CreateFrame('Frame', nil, braindeadPanel)
+braindeadPanel.text:SetAllPoints(braindeadPanel)
+braindeadPanel.text.br = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
+braindeadPanel.text.br:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
+braindeadPanel.text.br:SetPoint('BOTTOMRIGHT', braindeadPanel, 'BOTTOMRIGHT', -1.5, 3)
+braindeadPanel.text.center = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
+braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 9, 'OUTLINE')
+braindeadPanel.text.center:SetAllPoints(braindeadPanel.text)
+braindeadPanel.text.center:SetJustifyH('CENTER')
+braindeadPanel.text.center:SetJustifyV('CENTER')
+braindeadPanel.button = CreateFrame('Button', nil, braindeadPanel)
 braindeadPanel.button:SetAllPoints(braindeadPanel)
 braindeadPanel.button:RegisterForClicks('LeftButtonDown', 'RightButtonDown', 'MiddleButtonDown')
 local braindeadPreviousPanel = CreateFrame('Frame', 'braindeadPreviousPanel', UIParent)
@@ -262,21 +262,21 @@ local function SetTargetMode(mode)
 	if mode == targetMode then
 		return
 	end
-	targetMode = min(mode, #targetModes[currentSpec])
-	var.enemy_count = targetModes[currentSpec][targetMode][1]
-	braindeadPanel.targets:SetText(targetModes[currentSpec][targetMode][2])
+	targetMode = min(mode, #targetModes[Player.spec])
+	Player.enemies = targetModes[Player.spec][targetMode][1]
+	braindeadPanel.text.br:SetText(targetModes[Player.spec][targetMode][2])
 end
 Braindead_SetTargetMode = SetTargetMode
 
 function ToggleTargetMode()
 	local mode = targetMode + 1
-	SetTargetMode(mode > #targetModes[currentSpec] and 1 or mode)
+	SetTargetMode(mode > #targetModes[Player.spec] and 1 or mode)
 end
 Braindead_ToggleTargetMode = ToggleTargetMode
 
 local function ToggleTargetModeReverse()
 	local mode = targetMode - 1
-	SetTargetMode(mode < 1 and #targetModes[currentSpec] or mode)
+	SetTargetMode(mode < 1 and #targetModes[Player.spec] or mode)
 end
 Braindead_ToggleTargetModeReverse = ToggleTargetModeReverse
 
@@ -284,7 +284,7 @@ local autoAoe = {
 	targets = {},
 	blacklist = {},
 	ignored_units = {
-		['120651'] = true, -- Explosives (Mythic+ affix)
+		[120651] = true, -- Explosives (Mythic+ affix)
 	},
 }
 
@@ -292,13 +292,13 @@ function autoAoe:add(guid, update)
 	if self.blacklist[guid] then
 		return
 	end
-	local _, _, _, _, _, unitId = strsplit('-', guid)
-	if unitId and self.ignored_units[unitId] then
-		self.blacklist[guid] = var.time + 10
+	local unitId = guid:match('^%w+-%d+-%d+-%d+-%d+-(%d+)')
+	if unitId and self.ignored_units[tonumber(unitId)] then
+		self.blacklist[guid] = Player.time + 10
 		return
 	end
 	local new = not self.targets[guid]
-	self.targets[guid] = var.time
+	self.targets[guid] = Player.time
 	if update and new then
 		self:update()
 	end
@@ -306,7 +306,7 @@ end
 
 function autoAoe:remove(guid)
 	-- blacklist enemies for 2 seconds when they die to prevent out of order events from re-adding them
-	self.blacklist[guid] = var.time + 2
+	self.blacklist[guid] = Player.time + 2
 	if self.targets[guid] then
 		self.targets[guid] = nil
 		self:update()
@@ -329,11 +329,11 @@ function autoAoe:update()
 		SetTargetMode(1)
 		return
 	end
-	var.enemy_count = count
-	for i = #targetModes[currentSpec], 1, -1 do
-		if count >= targetModes[currentSpec][i][1] then
+	Player.enemies = count
+	for i = #targetModes[Player.spec], 1, -1 do
+		if count >= targetModes[Player.spec][i][1] then
 			SetTargetMode(i)
-			var.enemy_count = count
+			Player.enemies = count
 			return
 		end
 	end
@@ -342,14 +342,14 @@ end
 function autoAoe:purge()
 	local update, guid, t
 	for guid, t in next, self.targets do
-		if var.time - t > Opt.auto_aoe_ttl then
+		if Player.time - t > Opt.auto_aoe_ttl then
 			self.targets[guid] = nil
 			update = true
 		end
 	end
 	-- remove expired blacklisted enemies
 	for guid, t in next, self.blacklist do
-		if var.time > t then
+		if Player.time > t then
 			self.blacklist[guid] = nil
 		end
 	end
@@ -386,8 +386,9 @@ function Ability.add(spellId, buff, player, spellId2)
 		cooldown_duration = 0,
 		buff_duration = 0,
 		tick_interval = 0,
+		max_range = 40,
 		velocity = 0,
-		auraTarget = buff and 'player' or 'target',
+		auraTarget = buff == 'pet' and 'pet' or buff and 'player' or 'target',
 		auraFilter = (buff and 'HELPFUL' or 'HARMFUL') .. (player and '|PLAYER' or '')
 	}
 	setmetatable(ability, Ability)
@@ -414,23 +415,23 @@ function Ability:usable()
 	if not self.known then
 		return false
 	end
-	if self:runeCost() > var.runes_ready then
+	if self:runeCost() > Player.runes_ready then
 		return false
 	end
-	if self:runicPowerCost() > var.runic_power then
+	if self:runicPowerCost() > Player.runic_power then
+		return false
+	end
+	if self.requires_pet and not Player.pet_active then
 		return false
 	end
 	if self.requires_charge and self:charges() == 0 then
-		return false
-	end
-	if self.requires_pet and not var.pet_active then
 		return false
 	end
 	return self:ready()
 end
 
 function Ability:remains()
-	if self:traveling() then
+	if self:casting() or self:traveling() then
 		return self:duration()
 	end
 	local _, i, id, expires
@@ -443,7 +444,7 @@ function Ability:remains()
 			if expires == 0 then
 				return 600 -- infinite duration
 			end
-			return max(expires - var.time - var.execute_remains, 0)
+			return max(expires - Player.ctime - Player.execute_remains, 0)
 		end
 	end
 	return 0
@@ -457,23 +458,11 @@ function Ability:refreshable()
 end
 
 function Ability:up()
-	if self:traveling() or self:casting() then
-		return true
-	end
-	local _, i, id, expires
-	for i = 1, 40 do
-		_, _, _, _, _, expires, _, _, _, id = UnitAura(self.auraTarget, i, self.auraFilter)
-		if not id then
-			return false
-		end
-		if self:match(id) then
-			return expires == 0 or expires - var.time > var.execute_remains
-		end
-	end
+	return self:remains() > 0
 end
 
 function Ability:down()
-	return not self:up()
+	return self:remains() <= 0
 end
 
 function Ability:setVelocity(velocity)
@@ -488,18 +477,22 @@ end
 
 function Ability:traveling()
 	if self.travel_start and self.travel_start[Target.guid] then
-		if var.time - self.travel_start[Target.guid] < 40 / self.velocity then
+		if Player.time - self.travel_start[Target.guid] < self.max_range / self.velocity then
 			return true
 		end
 		self.travel_start[Target.guid] = nil
 	end
 end
 
+function Ability:travelTime()
+	return Target.estimated_range / self.velocity
+end
+
 function Ability:ticking()
 	if self.aura_targets then
 		local count, guid, aura = 0
 		for guid, aura in next, self.aura_targets do
-			if aura.expires - (var.time - var.time_diff) > var.execute_remains then
+			if aura.expires - Player.time > Player.execute_remains then
 				count = count + 1
 			end
 		end
@@ -509,7 +502,7 @@ function Ability:ticking()
 end
 
 function Ability:cooldownDuration()
-	return self.hasted_cooldown and (var.haste_factor * self.cooldown_duration) or self.cooldown_duration
+	return self.hasted_cooldown and (Player.haste_factor * self.cooldown_duration) or self.cooldown_duration
 end
 
 function Ability:cooldown()
@@ -520,7 +513,7 @@ function Ability:cooldown()
 	if start == 0 then
 		return 0
 	end
-	return max(0, duration - (var.time - start) - var.execute_remains)
+	return max(0, duration - (Player.ctime - start) - Player.execute_remains)
 end
 
 function Ability:stack()
@@ -531,7 +524,7 @@ function Ability:stack()
 			return 0
 		end
 		if self:match(id) then
-			return (expires == 0 or expires - var.time > var.execute_remains) and count or 0
+			return (expires == 0 or expires - Player.ctime > Player.execute_remains) and count or 0
 		end
 	end
 	return 0
@@ -554,7 +547,7 @@ function Ability:chargesFractional()
 	if charges >= max_charges then
 		return charges
 	end
-	return charges + ((max(0, var.time - recharge_start + var.execute_remains)) / recharge_time)
+	return charges + ((max(0, Player.ctime - recharge_start + Player.execute_remains)) / recharge_time)
 end
 
 function Ability:fullRechargeTime()
@@ -562,7 +555,7 @@ function Ability:fullRechargeTime()
 	if charges >= max_charges then
 		return 0
 	end
-	return (max_charges - charges - 1) * recharge_time + (recharge_time - (var.time - recharge_start) - var.execute_remains)
+	return (max_charges - charges - 1) * recharge_time + (recharge_time - (Player.ctime - recharge_start) - Player.execute_remains)
 end
 
 function Ability:maxCharges()
@@ -571,11 +564,11 @@ function Ability:maxCharges()
 end
 
 function Ability:duration()
-	return self.hasted_duration and (var.haste_factor * self.buff_duration) or self.buff_duration
+	return self.hasted_duration and (Player.haste_factor * self.buff_duration) or self.buff_duration
 end
 
 function Ability:casting()
-	return var.ability_casting == self
+	return Player.ability_casting == self
 end
 
 function Ability:channeling()
@@ -585,42 +578,53 @@ end
 function Ability:castTime()
 	local _, _, _, castTime = GetSpellInfo(self.spellId)
 	if castTime == 0 then
-		return self.triggers_gcd and var.gcd or 0
+		return self.triggers_gcd and Player.gcd or 0
 	end
 	return castTime / 1000
 end
 
 function Ability:tickTime()
-	return self.hasted_ticks and (var.haste_factor * self.tick_interval) or self.tick_interval
+	return self.hasted_ticks and (Player.haste_factor * self.tick_interval) or self.tick_interval
 end
 
-function Ability:previous()
-	if self:casting() or self:channeling() then
-		return true
+function Ability:previous(n)
+	local i = n or 1
+	if Player.ability_casting then
+		if i == 1 then
+			return Player.ability_casting == self
+		end
+		i = i - 1
 	end
-	return PreviousGCD[1] == self or var.last_ability == self
+	return Player.previous_gcd[i] == self
 end
 
 function Ability:azeriteRank()
 	return Azerite.traits[self.spellId] or 0
 end
 
-function Ability:autoAoe(removeUnaffected)
+function Ability:autoAoe(removeUnaffected, trigger)
 	self.auto_aoe = {
 		remove = removeUnaffected,
 		targets = {}
 	}
+	if trigger == 'periodic' then
+		self.auto_aoe.trigger = 'SPELL_PERIODIC_DAMAGE'
+	elseif trigger == 'apply' then
+		self.auto_aoe.trigger = 'SPELL_AURA_APPLIED'
+	else
+		self.auto_aoe.trigger = 'SPELL_DAMAGE'
+	end
 end
 
 function Ability:recordTargetHit(guid)
-	self.auto_aoe.targets[guid] = var.time
+	self.auto_aoe.targets[guid] = Player.time
 	if not self.auto_aoe.start_time then
 		self.auto_aoe.start_time = self.auto_aoe.targets[guid]
 	end
 end
 
 function Ability:updateTargetsHit()
-	if self.auto_aoe.start_time and var.time - self.auto_aoe.start_time >= 0.3 then
+	if self.auto_aoe.start_time and Player.time - self.auto_aoe.start_time >= 0.3 then
 		self.auto_aoe.start_time = nil
 		if self.auto_aoe.remove then
 			autoAoe:clear()
@@ -639,11 +643,10 @@ end
 local trackAuras = {}
 
 function trackAuras:purge()
-	local now = var.time - var.time_diff
 	local _, ability, guid, expires
 	for _, ability in next, abilities.trackAuras do
 		for guid, aura in next, ability.aura_targets do
-			if aura.expires <= now then
+			if aura.expires <= Player.time then
 				ability:removeAura(guid)
 			end
 		end
@@ -661,28 +664,28 @@ function Ability:trackAuras()
 	self.aura_targets = {}
 end
 
-function Ability:applyAura(timeStamp, guid)
+function Ability:applyAura(guid)
 	if autoAoe.blacklist[guid] then
 		return
 	end
 	local aura = {
-		expires = timeStamp + self:duration()
+		expires = Player.time + self:duration()
 	}
 	self.aura_targets[guid] = aura
 end
 
-function Ability:refreshAura(timeStamp, guid)
+function Ability:refreshAura(guid)
 	if autoAoe.blacklist[guid] then
 		return
 	end
 	local aura = self.aura_targets[guid]
 	if not aura then
-		self:applyAura(timeStamp, guid)
+		self:applyAura(guid)
 		return
 	end
-	local remains = aura.expires - timeStamp
+	local remains = aura.expires - Player.time
 	local duration = self:duration()
-	aura.expires = timeStamp + min(duration * 1.3, remains + duration)
+	aura.expires = Player.time + min(duration * 1.3, remains + duration)
 end
 
 function Ability:removeAura(guid)
@@ -835,7 +838,7 @@ ScourgeStrike.rune_cost = 1
 local VirulentPlague = Ability.add(191587, false, true)
 VirulentPlague.buff_duration = 21
 VirulentPlague.tick_interval = 1.5
-VirulentPlague:autoAoe()
+VirulentPlague:autoAoe(false, 'apply')
 VirulentPlague:trackAuras()
 ------ Talents
 local BurstingSores = Ability.add(207264, false, true, 207267)
@@ -900,7 +903,8 @@ function InventoryItem.add(itemId)
 	local item = {
 		itemId = itemId,
 		name = name,
-		icon = icon
+		icon = icon,
+		can_use = false,
 	}
 	setmetatable(item, InventoryItem)
 	inventoryItems[#inventoryItems + 1] = item
@@ -909,7 +913,7 @@ end
 
 function InventoryItem:charges()
 	local charges = GetItemCount(self.itemId, false, true) or 0
-	if self.created_by and (self.created_by:previous() or PreviousGCD[1] == self.created_by) then
+	if self.created_by and (self.created_by:previous() or Player.previous_gcd[1] == self.created_by) then
 		charges = max(charges, self.max_charges)
 	end
 	return charges
@@ -917,23 +921,35 @@ end
 
 function InventoryItem:count()
 	local count = GetItemCount(self.itemId, false, false) or 0
-	if self.created_by and (self.created_by:previous() or PreviousGCD[1] == self.created_by) then
+	if self.created_by and (self.created_by:previous() or Player.previous_gcd[1] == self.created_by) then
 		count = max(count, 1)
 	end
 	return count
 end
 
 function InventoryItem:cooldown()
-	local startTime, duration = GetItemCooldown(self.itemId)
-	return startTime == 0 and 0 or duration - (var.time - startTime)
+	local startTime, duration
+	if self.equip_slot then
+		startTime, duration = GetInventoryItemCooldown('player', self.equip_slot)
+	else
+		startTime, duration = GetItemCooldown(self.itemId)
+	end
+	return startTime == 0 and 0 or duration - (Player.ctime - startTime)
 end
 
 function InventoryItem:ready(seconds)
 	return self:cooldown() <= (seconds or 0)
 end
 
+function InventoryItem:equipped()
+	return self.equip_slot and true
+end
+
 function InventoryItem:usable(seconds)
-	if self:charges() == 0 then
+	if not self.can_use then
+		return false
+	end
+	if not self:equipped() and self:charges() == 0 then
 		return false
 	end
 	return self:ready(seconds)
@@ -945,6 +961,9 @@ FlaskOfTheUndertow.buff = Ability.add(251839, true, true)
 local BattlePotionOfStrength = InventoryItem.add(163224)
 BattlePotionOfStrength.buff = Ability.add(279153, true, true)
 BattlePotionOfStrength.buff.triggers_gcd = false
+-- Equipment
+local Trinket1 = InventoryItem.add(0)
+local Trinket2 = InventoryItem.add(0)
 -- End Inventory Items
 
 -- Start Azerite Trait API
@@ -990,52 +1009,48 @@ end
 -- Start Helpful Functions
 
 local function Health()
-	return var.health
+	return Player.health
 end
 
 local function HealthMax()
-	return var.health_max
+	return Player.health_max
 end
 
 local function HealthPct()
-	return var.health / var.health_max * 100
+	return Player.health / Player.health_max * 100
 end
 
 local function Runes()
-	return var.runes_ready
+	return Player.runes_ready
 end
 
 local function RuneDeficit()
-	return var.rune_max - var.runes_ready
+	return Player.rune_max - Player.runes_ready
 end
 
 local function RuneRegen()
-	return var.rune_regen
+	return Player.rune_regen
 end
 
 local function RuneTimeTo(runes)
-	return max(var.runes[runes] - var.execute_remains, 0)
+	return max(Player.runes[runes] - Player.execute_remains, 0)
 end
 
 local function RunicPower()
-	return var.runic_power
+	return Player.runic_power
 end
 
 local function RunicPowerDeficit()
-	return var.runic_power_max - var.runic_power
+	return Player.runic_power_max - Player.runic_power
 end
 
 local function GCD()
-	return var.gcd
-end
-
-local function Enemies()
-	return var.enemy_count
+	return Player.gcd
 end
 
 local function TimeInCombat()
-	if combatStartTime > 0 then
-		return var.time - combatStartTime
+	if Player.combat_start > 0 then
+		return Player.time - Player.combat_start
 	end
 	return 0
 end
@@ -1045,10 +1060,10 @@ local function BloodlustActive()
 	for i = 1, 40 do
 		_, _, _, _, _, _, _, _, _, id = UnitAura('player', i, 'HELPFUL')
 		if (
-			id == 2825 or	-- Bloodlust (Horde Shaman)
-			id == 32182 or	-- Heroism (Alliance Shaman)
-			id == 80353 or	-- Time Warp (Mage)
-			id == 90355 or	-- Ancient Hysteria (Hunter Pet - Core Hound)
+			id == 2825 or   -- Bloodlust (Horde Shaman)
+			id == 32182 or  -- Heroism (Alliance Shaman)
+			id == 80353 or  -- Time Warp (Mage)
+			id == 90355 or  -- Ancient Hysteria (Hunter Pet - Core Hound)
 			id == 160452 or -- Netherwinds (Hunter Pet - Nether Ray)
 			id == 264667 or -- Primal Rage (Hunter Pet - Ferocity)
 			id == 178207 or -- Drums of Fury (Leatherworking)
@@ -1061,24 +1076,30 @@ local function BloodlustActive()
 	end
 end
 
-local function TargetIsStunnable()
-	if Target.player then
-		return true
-	end
-	if Target.boss then
-		return false
-	end
-	if var.instance == 'raid' then
-		return false
-	end
-	if Target.healthMax > var.health_max * 10 then
-		return false
-	end
-	return true
+local function InArenaOrBattleground()
+	return Player.instance == 'arena' or Player.instance == 'pvp'
 end
 
-local function InArenaOrBattleground()
-	return var.instance == 'arena' or var.instance == 'pvp'
+local function UpdatePetStatus()
+	Player.pet = UnitGUID('pet')
+	Player.pet_alive = Player.pet and not UnitIsDead('pet') and true
+	Player.pet_active = (Player.pet_alive and not Player.pet_stuck or IsFlying()) and true
+end
+
+local function UpdateRunes()
+	while #Player.runes > Player.rune_max do
+		Player.runes[#Player.runes] = nil
+	end
+	local i, start, duration
+	Player.runes_ready = 0
+	for i = 1, Player.rune_max do
+		start, duration = GetRuneCooldown(i)
+		Player.runes[i] = max(start + duration - Player.ctime, 0)
+		if Player.runes[i] <= Player.execute_remains then
+			Player.runes_ready = Player.runes_ready + 1
+		end
+	end
+	table.sort(Player.runes)
 end
 
 -- End Helpful Functions
@@ -1111,7 +1132,7 @@ function DeathStrike:runicPowerCost()
 end
 
 function HeartStrike:targets()
-	return min(Enemies(), DeathAndDecay:up() and 5 or 2)
+	return min(Player.enemies, DeathAndDecay:up() and 5 or 2)
 end
 
 function VirulentPlague:duration()
@@ -1122,17 +1143,24 @@ function VirulentPlague:duration()
 	return duration
 end
 
+function Asphyxiate:usable()
+	if not Target.stunnable then
+		return false
+	end
+	return Ability.usable(self)
+end
+
 -- End Ability Modifications
 
-local function UseCooldown(ability, overwrite, always)
-	if always or (Opt.cooldown and (not Opt.boss_only or Target.boss) and (not var.cd or overwrite)) then
-		var.cd = ability
+local function UseCooldown(ability, overwrite)
+	if Opt.cooldown and (not Opt.boss_only or Target.boss) and (not Player.cd or overwrite) then
+		Player.cd = ability
 	end
 end
 
 local function UseExtra(ability, overwrite)
-	if not var.extra or overwrite then
-		var.extra = ability
+	if not Player.extra or overwrite then
+		Player.extra = ability
 	end
 end
 
@@ -1180,18 +1208,18 @@ actions+=/dancing_rune_weapon,if=!talent.blooddrinker.enabled|!cooldown.blooddri
 actions+=/tombstone,if=buff.bone_shield.stack>=7
 actions+=/call_action_list,name=standard
 ]]
-	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
-	var.pooling_for_bonestorm = Bonestorm.known and Enemies() >= 3 and not self.drw_up and Bonestorm:ready(4)
+	Player.use_cds = Target.boss or Target.timeToDie > (12 - min(Player.enemies, 6))
+	Player.pooling_for_bonestorm = Bonestorm.known and Player.enemies >= 3 and not self.drw_up and Bonestorm:ready(4)
 	self.bs_remains = BoneShield:remains()
 	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:stack()
 	self.drw_up = DancingRuneWeapon:up()
 	if Opt.pot and BattlePotionOfStrength:usable() and self.drw_up then
 		UseCooldown(BattlePotionOfStrength)
 	end
-	if var.use_cds and not self.drw_up and DancingRuneWeapon:usable() and not var.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:ready()) then
+	if Player.use_cds and not self.drw_up and DancingRuneWeapon:usable() and not Player.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:ready()) then
 		UseCooldown(DancingRuneWeapon)
 	end
-	if var.use_cds and Tombstone:usable() and self.bs_stack >= 7 then
+	if Player.use_cds and Tombstone:usable() and self.bs_stack >= 7 then
 		UseCooldown(Tombstone)
 	end
 	return self:standard()
@@ -1218,7 +1246,7 @@ actions.standard+=/use_item,name=grongs_primal_rage
 actions.standard+=/rune_strike
 actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 ]]
-	if DeathStrike:usable() and RunicPowerDeficit() <= 10 and (not var.pooling_for_bonestorm or not Bonestorm:ready(2)) then
+	if DeathStrike:usable() and RunicPowerDeficit() <= 10 and (not Player.pooling_for_bonestorm or not Bonestorm:ready(2)) then
 		return DeathStrike
 	end
 	if Blooddrinker:usable() and not self.drw_up and HealthPct() < 80 then
@@ -1233,24 +1261,24 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		end
 	end
 	if BloodBoil:usable() then
-		if BloodBoil:chargesFractional() >= 1.8 and (Enemies() > 2 or (Hemostasis.known and Hemostasis:stack() <= (5 - Enemies()))) then
+		if BloodBoil:chargesFractional() >= 1.8 and (Player.enemies > 2 or (Hemostasis.known and Hemostasis:stack() <= (5 - Player.enemies))) then
 			return BloodBoil
 		end
-		if Hemostasis.known and DeathStrike:usable() and HealthPct() < 60 and Hemostasis:stack() <= (5 - Enemies()) then
+		if Hemostasis.known and DeathStrike:usable() and HealthPct() < 60 and Hemostasis:stack() <= (5 - Player.enemies) then
 			return BloodBoil
 		end
-		if BloodPlague:down() or BloodPlague:ticking() < Enemies() then
+		if BloodPlague:down() or BloodPlague:ticking() < Player.enemies then
 			return BloodBoil
 		end
 	end
 	if Ossuary.known and Marrowrend:usable() and self.bs_stack < 5 and RunicPowerDeficit() >= 15 then
 		return Marrowrend
 	end
-	if var.pooling_for_bonestorm and Bonestorm:usable() and RunicPower() >= 100 then
+	if Player.pooling_for_bonestorm and Bonestorm:usable() and RunicPower() >= 100 then
 		UseCooldown(Bonestorm)
 	end
 	if DeathStrike:usable() then
-		if Enemies() == 1 and Target.timeToDie < 2 then
+		if Player.enemies == 1 and Target.timeToDie < 2 then
 			return DeathStrike
 		end
 		if Hemostasis.known then
@@ -1264,10 +1292,10 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 			return DeathStrike
 		end
 	end
-	if DeathAndDecay:usable() and Enemies() >= 3 then
+	if DeathAndDecay:usable() and Player.enemies >= 3 then
 		return DeathAndDecay
 	end
-	if DeathStrike:usable() and not var.pooling_for_bonestorm and RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:targets() * 2 or 0)) then
+	if DeathStrike:usable() and not Player.pooling_for_bonestorm and RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:targets() * 2 or 0)) then
 		return DeathStrike
 	end
 	if RuneStrike:usable() and RuneTimeTo(3) >= GCD() and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
@@ -1285,17 +1313,17 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		if self.drw_up then
 			return BloodBoil
 		end
-		if Hemostasis.known and HealthPct() < 60 and Hemostasis:stack() <= (5 - Enemies()) then
+		if Hemostasis.known and HealthPct() < 60 and Hemostasis:stack() <= (5 - Player.enemies) then
 			return BloodBoil
 		end
 	end
-	if DeathAndDecay:usable() and (Enemies() >= 2 or Target.timeToDie > 4 and (RapidDecomposition.known or CrimsonScourge:up())) then
+	if DeathAndDecay:usable() and (Player.enemies >= 2 or Target.timeToDie > 4 and (RapidDecomposition.known or CrimsonScourge:up())) then
 		return DeathAndDecay
 	end
-	if var.use_cds and Bonestorm:usable() and Enemies() >= 2 and Target.timeToDie > 8 and RunicPower() >= 100 then
+	if Player.use_cds and Bonestorm:usable() and Player.enemies >= 2 and Target.timeToDie > 8 and RunicPower() >= 100 then
 		UseCooldown(Bonestorm)
 	end
-	if var.use_cds and Consumption:usable() then
+	if Player.use_cds and Consumption:usable() then
 		UseCooldown(Consumption)
 	end
 	if BloodBoil:usable() then
@@ -1307,10 +1335,10 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if RuneStrike:usable() then
 		return RuneStrike
 	end
-	if not var.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (GCD() + RuneTimeTo(3)) then
+	if not Player.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (GCD() + RuneTimeTo(3)) then
 		return DeathStrike
 	end
-	if HeartStrike:usable() and Enemies() == 1 and self.bs_stack >= 5 and self.bs_remains > Target.timeToDie then
+	if HeartStrike:usable() and Player.enemies == 1 and self.bs_stack >= 5 and self.bs_remains > Target.timeToDie then
 		return HeartStrike
 	end
 	if ArcaneTorrent:usable() and RunicPowerDeficit() > 20 then
@@ -1332,7 +1360,11 @@ APL[SPEC.FROST].main = function(self)
 end
 
 APL[SPEC.UNHOLY].main = function(self)
-	if not var.pet_active and RaiseDead:usable() then
+	Player.use_cds = Target.boss or Target.timeToDie > (12 - min(Player.enemies, 6))
+	Player.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:ready(5)
+	Player.pooling_for_gargoyle = Player.use_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
+
+	if not Player.pet_active and RaiseDead:usable() then
 		UseExtra(RaiseDead)
 	end
 	if TimeInCombat() == 0 then
@@ -1382,11 +1414,8 @@ actions+=/call_action_list,name=generic
 	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
 		return Outbreak
 	end
-	var.use_cds = Target.boss or Target.timeToDie > (12 - min(Enemies(), 6))
-	var.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:ready(5)
-	var.pooling_for_gargoyle = var.use_cds and SummonGargoyle.known and SummonGargoyle:ready(5)
 	self:cooldowns()
-	if Enemies() >= 2 then
+	if Player.enemies >= 2 then
 		return self:aoe()
 	end
 	return self:generic()
@@ -1405,8 +1434,8 @@ actions.cooldowns+=/soul_reaper,target_if=target.time_to_die<8&target.time_to_di
 actions.cooldowns+=/soul_reaper,if=(!raid_event.adds.exists|raid_event.adds.in>20)&rune<=(1-buff.unholy_frenzy.up)
 actions.cooldowns+=/unholy_blight
 ]]
-	if var.use_cds then
-		if var.pooling_for_aotd and ArmyOfTheDead:usable() then
+	if Player.use_cds then
+		if Player.pooling_for_aotd and ArmyOfTheDead:usable() then
 			return UseCooldown(ArmyOfTheDead)
 		end
 		if RaiseAbomination:usable() then
@@ -1422,14 +1451,14 @@ actions.cooldowns+=/unholy_blight
 			return UseCooldown(SummonGargoyle)
 		end
 		if UnholyFrenzy:usable() then
-			if MagusOfTheDead.known or ItemEquipped.RampingAmplitudeGigavoltEngine then
+			if MagusOfTheDead.known or (Trinket1.itemId == 165580 or Trinket2.itemId == 165580) then
 				if Apocalypse:ready(2) then
 					return UseCooldown(UnholyFrenzy)
 				end
 			elseif FesteringWound:stack() < 4 then
 				return UseCooldown(UnholyFrenzy)
 			end
-			if Enemies() >= 2 and ((DeathAndDecay:ready(GCD()) and not Defile.known) or (Defile.known and Defile:ready(GCD()))) then
+			if Player.enemies >= 2 and ((DeathAndDecay:ready(GCD()) and not Defile.known) or (Defile.known and Defile:ready(GCD()))) then
 				return UseCooldown(UnholyFrenzy)
 			end
 		end
@@ -1438,7 +1467,7 @@ actions.cooldowns+=/unholy_blight
 		if between(Target.timeToDie, 4, 8) then
 			return UseCooldown(SoulReaper)
 		end
-		if Enemies() == 1 and Runes() <= (UnholyFrenzy:up() and 1 or 0) then
+		if Player.enemies == 1 and Runes() <= (UnholyFrenzy:up() and 1 or 0) then
 			return UseCooldown(SoulReaper)
 		end
 	end
@@ -1467,18 +1496,18 @@ actions.aoe+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gargoyl
 actions.aoe+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:ticking() < Enemies() then
+	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:ticking() < Player.enemies then
 		return Outbreak
 	end
-	local apocalypse_not_ready = not var.use_cds or not Apocalypse.known or not Apocalypse:ready()
-	if DeathAndDecay:usable() and apocalypse_not_ready and Target.timeToDie > max(6 - Enemies(), 2) then
+	local apocalypse_not_ready = not Player.use_cds or not Apocalypse.known or not Apocalypse:ready()
+	if DeathAndDecay:usable() and apocalypse_not_ready and Target.timeToDie > max(6 - Player.enemies, 2) then
 		return DeathAndDecay
 	end
 	if Defile:usable() then
 		return Defile
 	end
 	if DeathAndDecay:up() then
-		if not var.pooling_for_gargoyle and Runes() < 2 then
+		if not Player.pooling_for_gargoyle and Runes() < 2 then
 			if Epidemic:usable() and VirulentPlague:ticking() >= 2 then
 				return Epidemic
 			end
@@ -1495,30 +1524,30 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			end
 		end
 	end
-	if Epidemic:usable() and not var.pooling_for_gargoyle and VirulentPlague:ticking() >= 2 then
+	if Epidemic:usable() and not Player.pooling_for_gargoyle and VirulentPlague:ticking() >= 2 then
 		return Epidemic
 	end
 	if FesteringStrike:usable() and FesteringWound:stack() <= 1 then
 		if not DeathAndDecay:ready() then
 			return FesteringStrike
 		end
-		if BurstingSores.known and Enemies() >= 2 then
+		if BurstingSores.known and Player.enemies >= 2 then
 			return FesteringStrike
 		end
 	end
-	local apocalypse_not_ready_5 = not var.use_cds or not Apocalypse.known or not Apocalypse:ready(5)
+	local apocalypse_not_ready_5 = not Player.use_cds or not Apocalypse.known or not Apocalypse:ready(5)
 	if DeathCoil:usable() then
-		if SuddenDoom:up() and (RuneDeficit() >= 4 or not var.pooling_for_gargoyle) then
+		if SuddenDoom:up() and (RuneDeficit() >= 4 or not Player.pooling_for_gargoyle) then
 			return DeathCoil
 		end
 		if SummonGargoyle:up() then
 			return DeathCoil
 		end
-		if not var.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
+		if not Player.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
 			return DeathCoil
 		end
 	end
-	if not var.pooling_for_aotd and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
+	if not Player.pooling_for_aotd and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
 		if ScourgeStrike:usable() then
 			return ScourgeStrike
 		end
@@ -1526,7 +1555,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return ClawingShadows
 		end
 	end
-	if RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
+	if RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
 		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
@@ -1534,13 +1563,13 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if not var.pooling_for_aotd and FesteringStrike:usable() and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
+	if not Player.pooling_for_aotd and FesteringStrike:usable() and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
 		return FesteringStrike
 	end
 	if DeathStrike:usable() and DarkSuccor:up() then
 		return DeathStrike
 	end
-	if not var.pooling_for_gargoyle then
+	if not Player.pooling_for_gargoyle then
 		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
@@ -1567,16 +1596,16 @@ actions.generic+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gar
 actions.generic+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	local apocalypse_not_ready_5 = not var.use_cds or not Apocalypse.known or not Apocalypse:ready(5)
+	local apocalypse_not_ready_5 = not Player.use_cds or not Apocalypse.known or not Apocalypse:ready(5)
 	if DeathCoil:usable() then
-		if SummonGargoyle:up() or (SuddenDoom:up() and not var.pooling_for_gargoyle) then
+		if SummonGargoyle:up() or (SuddenDoom:up() and not Player.pooling_for_gargoyle) then
 			return DeathCoil
 		end
-		if not var.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
+		if not Player.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
 			return DeathCoil
 		end
 	end
-	local apocalypse_not_ready = not var.use_cds or not Apocalypse.known or not Apocalypse:ready()
+	local apocalypse_not_ready = not Player.use_cds or not Apocalypse.known or not Apocalypse:ready()
 	if apocalypse_not_ready then
 		if Pestilence.known and DeathAndDecay:usable() and Target.timeToDie > 6 then
 			return DeathAndDecay
@@ -1585,7 +1614,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return Defile
 		end
 	end
-	if not var.pooling_for_aotd and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
+	if not Player.pooling_for_aotd and ((FesteringWound:up() and apocalypse_not_ready_5) or FesteringWound:stack() > 4) then
 		if ScourgeStrike:usable() then
 			return ScourgeStrike
 		end
@@ -1593,7 +1622,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return ClawingShadows
 		end
 	end
-	if RunicPowerDeficit() < 20 and not var.pooling_for_gargoyle then
+	if RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
 		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
@@ -1601,13 +1630,13 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if not var.pooling_for_aotd and FesteringStrike:usable() and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
+	if not Player.pooling_for_aotd and FesteringStrike:usable() and ((((FesteringWound:stack() < 4 and UnholyFrenzy:down()) or FesteringWound:stack() < 3) and Apocalypse:ready(3)) or FesteringWound:stack() < 1) then
 		return FesteringStrike
 	end
 	if DeathStrike:usable() and DarkSuccor:up() then
 		return DeathStrike
 	end
-	if not var.pooling_for_gargoyle then
+	if not Player.pooling_for_gargoyle then
 		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
@@ -1626,7 +1655,7 @@ APL.Interrupt = function(self)
 	if MindFreeze:usable() then
 		return MindFreeze
 	end
-	if Asphyxiate:usable() and TargetIsStunnable() then
+	if Asphyxiate:usable() then
 		return Asphyxiate
 	end
 end
@@ -1639,21 +1668,18 @@ local function UpdateInterrupt()
 		_, _, _, start, ends, _, notInterruptible = UnitChannelInfo('target')
 	end
 	if not start or notInterruptible then
-		var.interrupt = nil
+		Player.interrupt = nil
 		braindeadInterruptPanel:Hide()
 		return
 	end
-	var.interrupt = APL.Interrupt()
-	if var.interrupt then
-		braindeadInterruptPanel.icon:SetTexture(var.interrupt.icon)
-		braindeadInterruptPanel.icon:Show()
-		braindeadInterruptPanel.border:Show()
-	else
-		braindeadInterruptPanel.icon:Hide()
-		braindeadInterruptPanel.border:Hide()
+	Player.interrupt = APL.Interrupt()
+	if Player.interrupt then
+		braindeadInterruptPanel.icon:SetTexture(Player.interrupt.icon)
 	end
-	braindeadInterruptPanel:Show()
+	braindeadInterruptPanel.icon:SetShown(Player.interrupt)
+	braindeadInterruptPanel.border:SetShown(Player.interrupt)
 	braindeadInterruptPanel.cast:SetCooldown(start / 1000, (ends - start) / 1000)
+	braindeadInterruptPanel:Show()
 end
 
 local function DenyOverlayGlow(actionButton)
@@ -1739,10 +1765,10 @@ local function UpdateGlows()
 		glow = glows[i]
 		icon = glow.button.icon:GetTexture()
 		if icon and glow.button.icon:IsVisible() and (
-			(Opt.glow.main and var.main and icon == var.main.icon) or
-			(Opt.glow.cooldown and var.cd and icon == var.cd.icon) or
-			(Opt.glow.interrupt and var.interrupt and icon == var.interrupt.icon) or
-			(Opt.glow.extra and var.extra and icon == var.extra.icon)
+			(Opt.glow.main and Player.main and icon == Player.main.icon) or
+			(Opt.glow.cooldown and Player.cd and icon == Player.cd.icon) or
+			(Opt.glow.interrupt and Player.interrupt and icon == Player.interrupt.icon) or
+			(Opt.glow.extra and Player.extra and icon == Player.extra.icon)
 			) then
 			if not glow:IsVisible() then
 				glow.animIn:Play()
@@ -1759,35 +1785,34 @@ function events:ACTIONBAR_SLOT_CHANGED()
 end
 
 local function ShouldHide()
-	return (currentSpec == SPEC.NONE or
-		   (currentSpec == SPEC.BLOOD and Opt.hide.blood) or
-		   (currentSpec == SPEC.FROST and Opt.hide.frost) or
-		   (currentSpec == SPEC.UNHOLY and Opt.hide.unholy))
+	return (Player.spec == SPEC.NONE or
+		   (Player.spec == SPEC.BLOOD and Opt.hide.blood) or
+		   (Player.spec == SPEC.FROST and Opt.hide.frost) or
+		   (Player.spec == SPEC.UNHOLY and Opt.hide.unholy))
 end
 
 local function Disappear()
 	braindeadPanel:Hide()
 	braindeadPanel.icon:Hide()
 	braindeadPanel.border:Hide()
-	braindeadPanel.text:Hide()
 	braindeadCooldownPanel:Hide()
 	braindeadInterruptPanel:Hide()
 	braindeadExtraPanel:Hide()
-	var.main, var.last_main = nil
-	var.cd, var.last_cd = nil
-	var.interrupt = nil
-	var.extra, var.last_extra = nil
+	Player.main, Player.last_main = nil
+	Player.cd, Player.last_cd = nil
+	Player.interrupt = nil
+	Player.extra, Player.last_extra = nil
 	UpdateGlows()
 end
 
 local function Equipped(itemID, slot)
 	if slot then
-		return GetInventoryItemID('player', slot) == itemID
+		return GetInventoryItemID('player', slot) == itemID, slot
 	end
 	local i
 	for i = 1, 19 do
 		if GetInventoryItemID('player', i) == itemID then
-			return true
+			return true, i
 		end
 	end
 	return false
@@ -1795,11 +1820,7 @@ end
 
 local function UpdateDraggable()
 	braindeadPanel:EnableMouse(Opt.aoe or not Opt.locked)
-	if Opt.aoe then
-		braindeadPanel.button:Show()
-	else
-		braindeadPanel.button:Hide()
-	end
+	braindeadPanel.button:SetShown(Opt.aoe)
 	if Opt.locked then
 		braindeadPanel:SetScript('OnDragStart', nil)
 		braindeadPanel:SetScript('OnDragStop', nil)
@@ -1874,7 +1895,7 @@ end
 local function OnResourceFrameShow()
 	if Opt.snap then
 		braindeadPanel:ClearAllPoints()
-		local p = ResourceFramePoints[resourceAnchor.name][currentSpec][Opt.snap]
+		local p = ResourceFramePoints[resourceAnchor.name][Player.spec][Opt.snap]
 		braindeadPanel:SetPoint(p[1], resourceAnchor.frame, p[2], p[3], p[4])
 		SnapAllPanels()
 	end
@@ -1915,64 +1936,49 @@ end
 
 local function UpdateDisplay()
 	timer.display = 0
-	local text, dim = false, false
+	local text_center, dim = false, false
 	if Opt.dimmer then
-		dim = not ((not var.main) or
-		           (var.main.spellId and IsUsableSpell(var.main.spellId)) or
-		           (var.main.itemId and IsUsableItem(var.main.itemId)))
+		dim = not ((not Player.main) or
+		           (Player.main.spellId and IsUsableSpell(Player.main.spellId)) or
+		           (Player.main.itemId and IsUsableItem(Player.main.itemId)))
 	end
-	if var.pooling_for_bonestorm then
-		braindeadPanel.text:SetText('Pool for\n' .. Bonestorm.name)
-		text = true
-	elseif var.pooling_for_aotd then
-		braindeadPanel.text:SetText('Pool for\n' .. ArmyOfTheDead.name)
-		text = true
-	elseif var.pooling_for_gargoyle then
-		braindeadPanel.text:SetText('Pool for\n' .. SummonGargoyle.name)
-		text = true
+	if Player.pooling_for_bonestorm then
+		braindeadPanel.text.center:SetText('Pool for\n' .. Bonestorm.name)
+		text_center = true
+	elseif Player.pooling_for_aotd then
+		braindeadPanel.text.center:SetText('Pool for\n' .. ArmyOfTheDead.name)
+		text_center = true
+	elseif Player.pooling_for_gargoyle then
+		braindeadPanel.text.center:SetText('Pool for\n' .. SummonGargoyle.name)
+		text_center = true
 	end
 	braindeadPanel.dimmer:SetShown(dim)
-	braindeadPanel.text:SetShown(text)
-end
-
-local function UpdateRunes()
-	while #var.runes > var.rune_max do
-		var.runes[#var.runes] = nil
-	end
-	local i, start, duration
-	var.runes_ready = 0
-	for i = 1, var.rune_max do
-		start, duration = GetRuneCooldown(i)
-		var.runes[i] = max(start + duration - var.time, 0)
-		if var.runes[i] <= var.execute_remains then
-			var.runes_ready = var.runes_ready + 1
-		end
-	end
-	table.sort(var.runes)
+	braindeadPanel.text.center:SetShown(text_center)
 end
 
 local function UpdateCombat()
 	timer.combat = 0
 	local _, start, duration, remains, spellId
-	var.time = GetTime()
-	var.last_main = var.main
-	var.last_cd = var.cd
-	var.last_extra = var.extra
-	var.main =  nil
-	var.cd = nil
-	var.extra = nil
+	Player.ctime = GetTime()
+	Player.time = Player.ctime - Player.time_diff
+	Player.last_main = Player.main
+	Player.last_cd = Player.cd
+	Player.last_extra = Player.extra
+	Player.main =  nil
+	Player.cd = nil
+	Player.extra = nil
 	start, duration = GetSpellCooldown(61304)
-	var.gcd_remains = start > 0 and duration - (var.time - start) or 0
+	Player.gcd_remains = start > 0 and duration - (Player.ctime - start) or 0
 	_, _, _, _, remains, _, _, _, spellId = UnitCastingInfo('player')
-	var.ability_casting = abilities.bySpellId[spellId]
-	var.execute_remains = max(remains and (remains / 1000 - var.time) or 0, var.gcd_remains)
-	var.haste_factor = 1 / (1 + UnitSpellHaste('player') / 100)
-	var.gcd = 1.5 * var.haste_factor
-	var.health = UnitHealth('player')
-	var.health_max = UnitHealthMax('player')
-	_, var.rune_regen = GetRuneCooldown(1)
-	var.runic_power = UnitPower('player', 6)
-	var.pet_active = IsFlying() or UnitExists('pet') and not UnitIsDead('pet')
+	Player.ability_casting = abilities.bySpellId[spellId]
+	Player.execute_remains = max(remains and (remains / 1000 - Player.ctime) or 0, Player.gcd_remains)
+	Player.haste_factor = 1 / (1 + UnitSpellHaste('player') / 100)
+	Player.gcd = 1.5 * Player.haste_factor
+	Player.health = UnitHealth('player')
+	Player.health_max = UnitHealthMax('player')
+	_, Player.rune_regen = GetRuneCooldown(1)
+	Player.runic_power = UnitPower('player', 6)
+	UpdatePetStatus()
 	UpdateRunes()
 
 	trackAuras:purge()
@@ -1984,32 +1990,25 @@ local function UpdateCombat()
 		autoAoe:purge()
 	end
 
-	var.main = APL[currentSpec]:main()
-	if var.main ~= var.last_main then
-		if var.main then
-			braindeadPanel.icon:SetTexture(var.main.icon)
-			braindeadPanel.icon:Show()
-			braindeadPanel.border:Show()
-		else
-			braindeadPanel.icon:Hide()
-			braindeadPanel.border:Hide()
+	Player.main = APL[Player.spec]:main()
+	if Player.main ~= Player.last_main then
+		if Player.main then
+			braindeadPanel.icon:SetTexture(Player.main.icon)
 		end
+		braindeadPanel.icon:SetShown(Player.main)
+		braindeadPanel.border:SetShown(Player.main)
 	end
-	if var.cd ~= var.last_cd then
-		if var.cd then
-			braindeadCooldownPanel.icon:SetTexture(var.cd.icon)
-			braindeadCooldownPanel:Show()
-		else
-			braindeadCooldownPanel:Hide()
+	if Player.cd ~= Player.last_cd then
+		if Player.cd then
+			braindeadCooldownPanel.icon:SetTexture(Player.cd.icon)
 		end
+		braindeadCooldownPanel:SetShown(Player.cd)
 	end
-	if var.extra ~= var.last_extra then
-		if var.extra then
-			braindeadExtraPanel.icon:SetTexture(var.extra.icon)
-			braindeadExtraPanel:Show()
-		else
-			braindeadExtraPanel:Hide()
+	if Player.extra ~= Player.last_extra then
+		if Player.extra then
+			braindeadExtraPanel.icon:SetTexture(Player.extra.icon)
 		end
+		braindeadExtraPanel:SetShown(Player.extra)
 	end
 	if Opt.interrupt then
 		UpdateInterrupt()
@@ -2033,12 +2032,8 @@ function events:SPELL_UPDATE_COOLDOWN()
 			duration = (castEnd - castStart) / 1000
 		else
 			start, duration = GetSpellCooldown(61304)
-			if start <= 0 then
-				return braindeadPanel.swipe:Hide()
-			end
 		end
 		braindeadPanel.swipe:SetCooldown(start, duration)
-		braindeadPanel.swipe:Show()
 	end
 end
 
@@ -2083,31 +2078,66 @@ function events:ADDON_LOADED(name)
 	end
 end
 
+function events:UI_ERROR_MESSAGE(errorId)
+	if (
+	    errorId == 394 or -- pet is rooted
+	    errorId == 396 or -- target out of pet range
+	    errorId == 400    -- no pet path to target
+	) then
+		Player.pet_stuck = true
+	end
+end
+
 function events:COMBAT_LOG_EVENT_UNFILTERED()
 	local timeStamp, eventType, _, srcGUID, _, _, _, dstGUID, _, _, _, spellId, spellName, _, missType = CombatLogGetCurrentEventInfo()
-	var.time = GetTime()
+	Player.time = timeStamp
+	Player.ctime = GetTime()
+	Player.time_diff = Player.ctime - Player.time
+
 	if eventType == 'UNIT_DIED' or eventType == 'UNIT_DESTROYED' or eventType == 'UNIT_DISSIPATES' or eventType == 'SPELL_INSTAKILL' or eventType == 'PARTY_KILL' then
 		trackAuras:remove(dstGUID)
 		if Opt.auto_aoe then
 			autoAoe:remove(dstGUID)
 		end
-		return
 	end
 	if Opt.auto_aoe and (eventType == 'SWING_DAMAGE' or eventType == 'SWING_MISSED') then
-		if dstGUID == var.player then
+		if dstGUID == Player.guid or dstGUID == Player.pet then
 			autoAoe:add(srcGUID, true)
-		elseif srcGUID == var.player and not (missType == 'EVADE' or missType == 'IMMUNE') then
+		elseif (srcGUID == Player.guid or srcGUID == Player.pet) and not (missType == 'EVADE' or missType == 'IMMUNE') then
 			autoAoe:add(dstGUID, true)
 		end
 	end
-	if srcGUID ~= var.player or not (
+
+	local ability = spellId and abilities.bySpellId[spellId]
+
+	if APL[Player.spec].combat_event then
+		APL[Player.spec]:combat_event(eventType, srcGUID, dstGUID, spellId, ability)
+	end
+
+	if (srcGUID ~= Player.guid and srcGUID ~= Player.pet) then
+		return
+	end
+
+	if srcGUID == Player.pet then
+		if Player.pet_stuck and (eventType == 'SPELL_CAST_SUCCESS' or eventType == 'SPELL_DAMAGE' or eventType == 'SWING_DAMAGE') then
+			Player.pet_stuck = false
+		elseif not Player.pet_stuck and eventType == 'SPELL_CAST_FAILED' and missType == 'No path available' then
+			Player.pet_stuck = true
+		end
+	end
+
+	if not ability then
+		--print(format('EVENT %s TRACK CHECK FOR UNKNOWN %s ID %d', eventType, spellName, spellId))
+		return
+	end
+
+	if not (
 	   eventType == 'SPELL_CAST_START' or
 	   eventType == 'SPELL_CAST_SUCCESS' or
 	   eventType == 'SPELL_CAST_FAILED' or
 	   eventType == 'SPELL_AURA_REMOVED' or
 	   eventType == 'SPELL_DAMAGE' or
 	   eventType == 'SPELL_PERIODIC_DAMAGE' or
-	   eventType == 'SPELL_HEAL' or
 	   eventType == 'SPELL_MISSED' or
 	   eventType == 'SPELL_AURA_APPLIED' or
 	   eventType == 'SPELL_AURA_REFRESH' or
@@ -2115,64 +2145,66 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 	then
 		return
 	end
-	local castedAbility = abilities.bySpellId[spellId]
-	if not castedAbility then
-		--print(format('EVENT %s TRACK CHECK FOR UNKNOWN %s ID %d', eventType, spellName, spellId))
-		return
-	end
---[[ DEBUG ]
-	print(format('EVENT %s TRACK CHECK FOR %s ID %d', eventType, spellName, spellId))
-	if eventType == 'SPELL_AURA_APPLIED' or eventType == 'SPELL_AURA_REFRESH' or eventType == 'SPELL_PERIODIC_DAMAGE' or eventType == 'SPELL_DAMAGE' then
-		print(format('%s: %s - time: %.2f - time since last: %.2f', eventType, spellName, timeStamp, timeStamp - (castedAbility.last_trigger or timeStamp)))
-		castedAbility.last_trigger = timeStamp
-	end
---[ DEBUG ]]
-	var.time_diff = var.time - timeStamp
+
 	UpdateCombatWithin(0.05)
 	if eventType == 'SPELL_CAST_SUCCESS' then
-		var.last_ability = castedAbility
-		if castedAbility.triggers_gcd then
-			PreviousGCD[10] = nil
-			table.insert(PreviousGCD, 1, castedAbility)
+		if srcGUID == Player.guid or ability.player_triggered then
+			Player.last_ability = ability
+			if ability.triggers_gcd then
+				Player.previous_gcd[10] = nil
+				table.insert(Player.previous_gcd, 1, ability)
+			end
+			if ability.travel_start then
+				ability.travel_start[dstGUID] = Player.time
+			end
+			if Opt.previous and braindeadPanel:IsVisible() then
+				braindeadPreviousPanel.ability = ability
+				braindeadPreviousPanel.border:SetTexture('Interface\\AddOns\\Braindead\\border.blp')
+				braindeadPreviousPanel.icon:SetTexture(ability.icon)
+				braindeadPreviousPanel:Show()
+			end
 		end
-		if castedAbility.travel_start then
-			castedAbility.travel_start[dstGUID] = var.time
-		end
-		if Opt.previous and braindeadPanel:IsVisible() then
-			braindeadPreviousPanel.ability = castedAbility
-			braindeadPreviousPanel.border:SetTexture('Interface\\AddOns\\Braindead\\border.blp')
-			braindeadPreviousPanel.icon:SetTexture(castedAbility.icon)
-			braindeadPreviousPanel:Show()
+		if Player.pet_stuck and ability.requires_pet then
+			Player.pet_stuck = false
 		end
 		return
 	end
-	if castedAbility.aura_targets then
+	if eventType == 'SPELL_CAST_FAILED' then
+		if ability.requires_pet and missType == 'No path available' then
+			Player.pet_stuck = true
+		end
+		return
+	end
+	if dstGUID == Player.guid or dstGUID == Player.pet then
+		return -- ignore buffs beyond here
+	end
+	if ability.aura_targets then
 		if eventType == 'SPELL_AURA_APPLIED' then
-			castedAbility:applyAura(timeStamp, dstGUID)
+			ability:applyAura(dstGUID)
 		elseif eventType == 'SPELL_AURA_REFRESH' then
-			castedAbility:refreshAura(timeStamp, dstGUID)
+			ability:refreshAura(dstGUID)
 		elseif eventType == 'SPELL_AURA_REMOVED' then
-			castedAbility:removeAura(dstGUID)
+			ability:removeAura(dstGUID)
 		elseif eventType == 'SPELL_PERIODIC_DAMAGE' then
-			if castedAbility == VirulentPlague and Outbreak:ticking() > 0 then
-				castedAbility:refreshAura(timeStamp, dstGUID)
+			if ability == VirulentPlague and Outbreak:ticking() > 0 then
+				ability:refreshAura(timeStamp, dstGUID)
 			end
 		end
 	end
-	if dstGUID ~= var.player and (eventType == 'SPELL_MISSED' or eventType == 'SPELL_DAMAGE' or eventType == 'SPELL_AURA_APPLIED' or eventType == 'SPELL_AURA_REFRESH') then
-		if castedAbility.travel_start and castedAbility.travel_start[dstGUID] then
-			castedAbility.travel_start[dstGUID] = nil
+	if Opt.auto_aoe then
+		if eventType == 'SPELL_MISSED' and (missType == 'EVADE' or missType == 'IMMUNE') then
+			autoAoe:remove(dstGUID)
+		elseif ability.auto_aoe and (eventType == ability.auto_aoe.trigger or ability.auto_aoe.trigger == 'SPELL_AURA_APPLIED' and eventType == 'SPELL_AURA_REFRESH') then
+			ability:recordTargetHit(dstGUID)
+		elseif BurstingSores.known and ability == FesteringWound and eventType == 'SPELL_DAMAGE' then
+			BurstingSores:recordTargetHit(dstGUID)
 		end
-		if Opt.auto_aoe then
-			if missType == 'EVADE' or missType == 'IMMUNE' then
-				autoAoe:remove(dstGUID)
-			elseif castedAbility.auto_aoe then
-				castedAbility:recordTargetHit(dstGUID)
-			elseif BurstingSores.known and castedAbility == FesteringWound and eventType == 'SPELL_DAMAGE' then
-				BurstingSores:recordTargetHit(dstGUID)
-			end
+	end
+	if eventType == 'SPELL_MISSED' or eventType == 'SPELL_DAMAGE' or eventType == 'SPELL_AURA_APPLIED' or eventType == 'SPELL_AURA_REFRESH' then
+		if ability.travel_start and ability.travel_start[dstGUID] then
+			ability.travel_start[dstGUID] = nil
 		end
-		if Opt.previous and Opt.miss_effect and eventType == 'SPELL_MISSED' and braindeadPanel:IsVisible() and castedAbility == braindeadPreviousPanel.ability then
+		if Opt.previous and Opt.miss_effect and eventType == 'SPELL_MISSED' and braindeadPanel:IsVisible() and ability == braindeadPreviousPanel.ability then
 			braindeadPreviousPanel.border:SetTexture('Interface\\AddOns\\Braindead\\misseffect.blp')
 		end
 	end
@@ -2189,6 +2221,7 @@ local function UpdateTargetInfo()
 		Target.boss = false
 		Target.player = false
 		Target.hostile = true
+		Target.stunnable = false
 		Target.healthMax = 0
 		local i
 		for i = 1, 15 do
@@ -2200,7 +2233,7 @@ local function UpdateTargetInfo()
 			braindeadPanel:Show()
 			return true
 		end
-		if Opt.previous and combatStartTime == 0 then
+		if Opt.previous and Player.combat_start == 0 then
 			braindeadPreviousPanel:Hide()
 		end
 		return
@@ -2212,17 +2245,18 @@ local function UpdateTargetInfo()
 			Target.healthArray[i] = UnitHealth('target')
 		end
 	end
+	Target.boss = false
+	Target.stunnable = true
 	Target.level = UnitLevel('target')
 	Target.healthMax = UnitHealthMax('target')
 	Target.player = UnitIsPlayer('target')
-	if Target.player then
-		Target.boss = false
-	elseif Target.level == -1 then
-		Target.boss = true
-	elseif var.instance == 'party' and Target.level >= UnitLevel('player') + 2 then
-		Target.boss = true
-	else
-		Target.boss = false
+	if not Target.player then
+		if Target.level == -1 or (Player.instance == 'party' and Target.level >= UnitLevel('player') + 2) then
+			Target.boss = true
+			Target.stunnable = false
+		elseif Player.instance == 'raid' or (Target.healthMax > Player.health_max * 10) then
+			Target.stunnable = false
+		end
 	end
 	Target.hostile = UnitCanAttack('player', 'target') and not UnitIsDead('target')
 	if Target.hostile or Opt.always_on then
@@ -2250,11 +2284,18 @@ function events:UNIT_FLAGS(unitID)
 end
 
 function events:PLAYER_REGEN_DISABLED()
-	combatStartTime = GetTime()
+	Player.combat_start = GetTime() - Player.time_diff
 end
 
 function events:PLAYER_REGEN_ENABLED()
-	combatStartTime = 0
+	Player.combat_start = 0
+	Player.pet_stuck = false
+	Target.estimated_range = 30
+	Player.previous_gcd = {}
+	if Player.last_ability then
+		Player.last_ability = nil
+		braindeadPreviousPanel:Hide()
+	end
 	local _, ability, guid
 	for _, ability in next, abilities.velocity do
 		for guid in next, ability.travel_start do
@@ -2271,28 +2312,24 @@ function events:PLAYER_REGEN_ENABLED()
 		autoAoe:clear()
 		autoAoe:update()
 	end
-	if var.last_ability then
-		var.last_ability = nil
-		braindeadPreviousPanel:Hide()
-	end
-	var.pooling_for_bonestorm = false
-	var.pooling_for_aotd = false
-	var.pooling_for_gargoyle = false
+	Player.pooling_for_bonestorm = false
+	Player.pooling_for_aotd = false
+	Player.pooling_for_gargoyle = false
 end
 
 local function UpdateAbilityData()
-	var.rune_max = UnitPowerMax('player', 5)
-	var.runic_power_max = UnitPowerMax('player', 6)
+	Player.rune_max = UnitPowerMax('player', 5)
+	Player.runic_power_max = UnitPowerMax('player', 6)
 	local _, ability
 	for _, ability in next, abilities.all do
 		ability.name, _, ability.icon = GetSpellInfo(ability.spellId)
 		ability.known = (IsPlayerSpell(ability.spellId) or (ability.spellId2 and IsPlayerSpell(ability.spellId2)) or Azerite.traits[ability.spellId]) and true or false
 	end
-	if currentSpec == SPEC.BLOOD then
+	if Player.spec == SPEC.BLOOD then
 		BloodPlague.known = BloodBoil.known
 		BoneShield.known = Marrowrend.known
 		Bonestorm.damage.known = Bonestorm.known
-	elseif currentSpec == SPEC.UNHOLY then
+	elseif Player.spec == SPEC.UNHOLY then
 		VirulentPlague.known = Outbreak.known
 		VirulentEruption.known = VirulentPlague.known
 		FesteringWound.known = FesteringStrike.known
@@ -2333,24 +2370,33 @@ end
 function events:PLAYER_EQUIPMENT_CHANGED()
 	Azerite:update()
 	UpdateAbilityData()
-	ItemEquipped.RampingAmplitudeGigavoltEngine = Equipped(165580)
+	Trinket1.itemId = GetInventoryItemID('player', 13)
+	Trinket2.itemId = GetInventoryItemID('player', 14)
+	local _, i, equipType, hasCooldown
+	for i = 1, #inventoryItems do
+		inventoryItems[i].name, _, _, _, _, _, _, _, equipType, inventoryItems[i].icon = GetItemInfo(inventoryItems[i].itemId)
+		inventoryItems[i].can_use = inventoryItems[i].name and true or false
+		if equipType and equipType ~= '' then
+			hasCooldown = 0
+			_, inventoryItems[i].equip_slot = Equipped(inventoryItems[i].itemId)
+			if inventoryItems[i].equip_slot then
+				_, _, hasCooldown = GetInventoryItemCooldown('player', inventoryItems[i].equip_slot)
+			end
+			inventoryItems[i].can_use = hasCooldown == 1
+		end
+	end
 end
 
 function events:PLAYER_SPECIALIZATION_CHANGED(unitName)
-	if unitName == 'player' then
-		currentSpec = GetSpecialization() or 0
-		Azerite:update()
-		UpdateAbilityData()
-		local _, i
-		for i = 1, #inventoryItems do
-			inventoryItems[i].name, _, _, _, _, _, _, _, _, inventoryItems[i].icon = GetItemInfo(inventoryItems[i].itemId)
-		end
-		braindeadPreviousPanel.ability = nil
-		PreviousGCD = {}
-		SetTargetMode(1)
-		UpdateTargetInfo()
-		events:PLAYER_REGEN_ENABLED()
+	if unitName ~= 'player' then
+		return
 	end
+	Player.spec = GetSpecialization() or 0
+	braindeadPreviousPanel.ability = nil
+	SetTargetMode(1)
+	UpdateTargetInfo()
+	events:PLAYER_EQUIPMENT_CHANGED()
+	events:PLAYER_REGEN_ENABLED()
 end
 
 function events:PLAYER_PVP_TALENT_UPDATE()
@@ -2358,20 +2404,19 @@ function events:PLAYER_PVP_TALENT_UPDATE()
 end
 
 function events:GROUP_ROSTER_UPDATE()
-	var.group_size = min(max(GetNumGroupMembers(), 1), 10)
+	Player.group_size = min(max(GetNumGroupMembers(), 1), 10)
 end
 
 function events:PLAYER_ENTERING_WORLD()
-	events:PLAYER_EQUIPMENT_CHANGED()
-	events:PLAYER_SPECIALIZATION_CHANGED('player')
-	events:GROUP_ROSTER_UPDATE()
 	if #glows == 0 then
 		CreateOverlayGlows()
 		HookResourceFrame()
 	end
 	local _
-	_, var.instance = IsInInstance()
-	var.player = UnitGUID('player')
+	_, Player.instance = IsInInstance()
+	Player.guid = UnitGUID('player')
+	events:PLAYER_SPECIALIZATION_CHANGED('player')
+	events:GROUP_ROSTER_UPDATE()
 end
 
 braindeadPanel.button:SetScript('OnClick', function(self, button, down)
@@ -2407,14 +2452,40 @@ for event in next, events do
 	braindeadPanel:RegisterEvent(event)
 end
 
+-- this fancy hack allows you to click BattleTag links to add them as a friend!
+local ChatFrame_OnHyperlinkShow_Original = ChatFrame_OnHyperlinkShow
+function ChatFrame_OnHyperlinkShow(chatFrame, link, ...)
+	local linkType, linkData = link:match('(.-):(.*)')
+	if linkType == 'BNadd' then
+		return BattleTagInviteFrame_Show(linkData)
+	end
+	return ChatFrame_OnHyperlinkShow_Original(chatFrame, link, ...)
+end
+
+local function Status(desc, opt, ...)
+	local opt_view
+	if type(opt) == 'string' then
+		if opt:sub(1, 2) == '|c' then
+			opt_view = opt
+		else
+			opt_view = '|cFFFFD000' .. opt .. '|r'
+		end
+	elseif type(opt) == 'number' then
+		opt_view = '|cFFFFD000' .. opt .. '|r'
+	else
+		opt_view = opt and '|cFF00C000On|r' or '|cFFC00000Off|r'
+	end
+	print('Braindead -', desc .. ':', opt_view, ...)
+end
+
 function SlashCmdList.Braindead(msg, editbox)
-	msg = { strsplit(' ', strlower(msg)) }
+	msg = { strsplit(' ', msg:lower()) }
 	if startsWith(msg[1], 'lock') then
 		if msg[2] then
 			Opt.locked = msg[2] == 'on'
 			UpdateDraggable()
 		end
-		return print('Braindead - Locked: ' .. (Opt.locked and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Locked', Opt.locked)
 	end
 	if startsWith(msg[1], 'snap') then
 		if msg[2] then
@@ -2428,7 +2499,7 @@ function SlashCmdList.Braindead(msg, editbox)
 			end
 			OnResourceFrameShow()
 		end
-		return print('Braindead - Snap to Blizzard combat resources frame: ' .. (Opt.snap and ('|cFF00C000' .. Opt.snap) or '|cFFC00000Off'))
+		return Status('Snap to Blizzard combat resources frame', Opt.snap)
 	end
 	if msg[1] == 'scale' then
 		if startsWith(msg[2], 'prev') then
@@ -2436,57 +2507,57 @@ function SlashCmdList.Braindead(msg, editbox)
 				Opt.scale.previous = tonumber(msg[3]) or 0.7
 				braindeadPreviousPanel:SetScale(Opt.scale.previous)
 			end
-			return print('Braindead - Previous ability icon scale set to: |cFFFFD000' .. Opt.scale.previous .. '|r times')
+			return Status('Previous ability icon scale', Opt.scale.previous, 'times')
 		end
 		if msg[2] == 'main' then
 			if msg[3] then
 				Opt.scale.main = tonumber(msg[3]) or 1
 				braindeadPanel:SetScale(Opt.scale.main)
 			end
-			return print('Braindead - Main ability icon scale set to: |cFFFFD000' .. Opt.scale.main .. '|r times')
+			return Status('Main ability icon scale', Opt.scale.main, 'times')
 		end
 		if msg[2] == 'cd' then
 			if msg[3] then
 				Opt.scale.cooldown = tonumber(msg[3]) or 0.7
 				braindeadCooldownPanel:SetScale(Opt.scale.cooldown)
 			end
-			return print('Braindead - Cooldown ability icon scale set to: |cFFFFD000' .. Opt.scale.cooldown .. '|r times')
+			return Status('Cooldown ability icon scale', Opt.scale.cooldown, 'times')
 		end
 		if startsWith(msg[2], 'int') then
 			if msg[3] then
 				Opt.scale.interrupt = tonumber(msg[3]) or 0.4
 				braindeadInterruptPanel:SetScale(Opt.scale.interrupt)
 			end
-			return print('Braindead - Interrupt ability icon scale set to: |cFFFFD000' .. Opt.scale.interrupt .. '|r times')
+			return Status('Interrupt ability icon scale', Opt.scale.interrupt, 'times')
 		end
-		if startsWith(msg[2], 'ex') then
+		if startsWith(msg[2], 'ex') or startsWith(msg[2], 'pet') then
 			if msg[3] then
 				Opt.scale.extra = tonumber(msg[3]) or 0.4
 				braindeadExtraPanel:SetScale(Opt.scale.extra)
 			end
-			return print('Braindead - Extra cooldown ability icon scale set to: |cFFFFD000' .. Opt.scale.extra .. '|r times')
+			return Status('Extra/Pet cooldown ability icon scale', Opt.scale.extra, 'times')
 		end
 		if msg[2] == 'glow' then
 			if msg[3] then
 				Opt.scale.glow = tonumber(msg[3]) or 1
 				UpdateGlowColorAndScale()
 			end
-			return print('Braindead - Action button glow scale set to: |cFFFFD000' .. Opt.scale.glow .. '|r times')
+			return Status('Action button glow scale', Opt.scale.glow, 'times')
 		end
-		return print('Braindead - Default icon scale options: |cFFFFD000prev 0.7|r, |cFFFFD000main 1|r, |cFFFFD000cd 0.7|r, |cFFFFD000interrupt 0.4|r, |cFFFFD000extra 0.4|r, and |cFFFFD000glow 1|r')
+		return Status('Default icon scale options', '|cFFFFD000prev 0.7|r, |cFFFFD000main 1|r, |cFFFFD000cd 0.7|r, |cFFFFD000interrupt 0.4|r, |cFFFFD000pet 0.4|r, and |cFFFFD000glow 1|r')
 	end
 	if msg[1] == 'alpha' then
 		if msg[2] then
 			Opt.alpha = max(min((tonumber(msg[2]) or 100), 100), 0) / 100
 			UpdateAlpha()
 		end
-		return print('Braindead - Icon transparency set to: |cFFFFD000' .. Opt.alpha * 100 .. '%|r')
+		return Status('Icon transparency', Opt.alpha * 100 .. '%')
 	end
 	if startsWith(msg[1], 'freq') then
 		if msg[2] then
 			Opt.frequency = tonumber(msg[2]) or 0.2
 		end
-		return print('Braindead - Calculation frequency (max time to wait between each update): Every |cFFFFD000' .. Opt.frequency .. '|r seconds')
+		return Status('Calculation frequency (max time to wait between each update): Every', Opt.frequency, 'seconds')
 	end
 	if startsWith(msg[1], 'glow') then
 		if msg[2] == 'main' then
@@ -2494,35 +2565,35 @@ function SlashCmdList.Braindead(msg, editbox)
 				Opt.glow.main = msg[3] == 'on'
 				UpdateGlows()
 			end
-			return print('Braindead - Glowing ability buttons (main icon): ' .. (Opt.glow.main and '|cFF00C000On' or '|cFFC00000Off'))
+			return Status('Glowing ability buttons (main icon)', Opt.glow.main)
 		end
 		if msg[2] == 'cd' then
 			if msg[3] then
 				Opt.glow.cooldown = msg[3] == 'on'
 				UpdateGlows()
 			end
-			return print('Braindead - Glowing ability buttons (cooldown icon): ' .. (Opt.glow.cooldown and '|cFF00C000On' or '|cFFC00000Off'))
+			return Status('Glowing ability buttons (cooldown icon)', Opt.glow.cooldown)
 		end
 		if startsWith(msg[2], 'int') then
 			if msg[3] then
 				Opt.glow.interrupt = msg[3] == 'on'
 				UpdateGlows()
 			end
-			return print('Braindead - Glowing ability buttons (interrupt icon): ' .. (Opt.glow.interrupt and '|cFF00C000On' or '|cFFC00000Off'))
+			return Status('Glowing ability buttons (interrupt icon)', Opt.glow.interrupt)
 		end
-		if startsWith(msg[2], 'ex') then
+		if startsWith(msg[2], 'ex') or startsWith(msg[2], 'pet') then
 			if msg[3] then
 				Opt.glow.extra = msg[3] == 'on'
 				UpdateGlows()
 			end
-			return print('Braindead - Glowing ability buttons (extra icon): ' .. (Opt.glow.extra and '|cFF00C000On' or '|cFFC00000Off'))
+			return Status('Glowing ability buttons (extra/pet cooldown icon)', Opt.glow.extra)
 		end
 		if startsWith(msg[2], 'bliz') then
 			if msg[3] then
 				Opt.glow.blizzard = msg[3] == 'on'
 				UpdateGlows()
 			end
-			return print('Braindead - Blizzard default proc glow: ' .. (Opt.glow.blizzard and '|cFF00C000On' or '|cFFC00000Off'))
+			return Status('Blizzard default proc glow', Opt.glow.blizzard)
 		end
 		if msg[2] == 'color' then
 			if msg[5] then
@@ -2531,53 +2602,47 @@ function SlashCmdList.Braindead(msg, editbox)
 				Opt.glow.color.b = max(min(tonumber(msg[5]) or 0, 1), 0)
 				UpdateGlowColorAndScale()
 			end
-			return print('Braindead - Glow color:', '|cFFFF0000' .. Opt.glow.color.r, '|cFF00FF00' .. Opt.glow.color.g, '|cFF0000FF' .. Opt.glow.color.b)
+			return Status('Glow color', '|cFFFF0000' .. Opt.glow.color.r, '|cFF00FF00' .. Opt.glow.color.g, '|cFF0000FF' .. Opt.glow.color.b)
 		end
-		return print('Braindead - Possible glow options: |cFFFFD000main|r, |cFFFFD000cd|r, |cFFFFD000interrupt|r, |cFFFFD000extra|r, |cFFFFD000blizzard|r, and |cFFFFD000color')
+		return Status('Possible glow options', '|cFFFFD000main|r, |cFFFFD000cd|r, |cFFFFD000interrupt|r, |cFFFFD000pet|r, |cFFFFD000blizzard|r, and |cFFFFD000color')
 	end
 	if startsWith(msg[1], 'prev') then
 		if msg[2] then
 			Opt.previous = msg[2] == 'on'
 			UpdateTargetInfo()
 		end
-		return print('Braindead - Previous ability icon: ' .. (Opt.previous and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Previous ability icon', Opt.previous)
 	end
 	if msg[1] == 'always' then
 		if msg[2] then
 			Opt.always_on = msg[2] == 'on'
 			UpdateTargetInfo()
 		end
-		return print('Braindead - Show the Braindead UI without a target: ' .. (Opt.always_on and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Show the Braindead UI without a target', Opt.always_on)
 	end
 	if msg[1] == 'cd' then
 		if msg[2] then
 			Opt.cooldown = msg[2] == 'on'
 		end
-		return print('Braindead - Use Braindead for cooldown management: ' .. (Opt.cooldown and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Use Braindead for cooldown management', Opt.cooldown)
 	end
 	if msg[1] == 'swipe' then
 		if msg[2] then
 			Opt.spell_swipe = msg[2] == 'on'
-			if not Opt.spell_swipe then
-				braindeadPanel.swipe:Hide()
-			end
 		end
-		return print('Braindead - Spell casting swipe animation: ' .. (Opt.spell_swipe and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Spell casting swipe animation', Opt.spell_swipe)
 	end
 	if startsWith(msg[1], 'dim') then
 		if msg[2] then
 			Opt.dimmer = msg[2] == 'on'
-			if not Opt.dimmer then
-				braindeadPanel.dimmer:Hide()
-			end
 		end
-		return print('Braindead - Dim main ability icon when you don\'t have enough resources to use it: ' .. (Opt.dimmer and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Dim main ability icon when you don\'t have enough mana to use it', Opt.dimmer)
 	end
 	if msg[1] == 'miss' then
 		if msg[2] then
 			Opt.miss_effect = msg[2] == 'on'
 		end
-		return print('Braindead - Red border around previous ability when it fails to hit: ' .. (Opt.miss_effect and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Red border around previous ability when it fails to hit', Opt.miss_effect)
 	end
 	if msg[1] == 'aoe' then
 		if msg[2] then
@@ -2585,69 +2650,75 @@ function SlashCmdList.Braindead(msg, editbox)
 			Braindead_SetTargetMode(1)
 			UpdateDraggable()
 		end
-		return print('Braindead - Allow clicking main ability icon to toggle amount of targets (disables moving): ' .. (Opt.aoe and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Allow clicking main ability icon to toggle amount of targets (disables moving)', Opt.aoe)
 	end
 	if msg[1] == 'bossonly' then
 		if msg[2] then
 			Opt.boss_only = msg[2] == 'on'
 		end
-		return print('Braindead - Only use cooldowns on bosses: ' .. (Opt.boss_only and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Only use cooldowns on bosses', Opt.boss_only)
 	end
 	if msg[1] == 'hidespec' or startsWith(msg[1], 'spec') then
 		if msg[2] then
-			if startsWith(msg[2], 'b') then
+			if startsWith(msg[2], 'bl') then
 				Opt.hide.blood = not Opt.hide.blood
 				events:PLAYER_SPECIALIZATION_CHANGED('player')
-				return print('Braindead - Blood specialization: |cFFFFD000' .. (Opt.hide.blood and '|cFFC00000Off' or '|cFF00C000On'))
+				return Status('Blood specialization', not Opt.hide.blood)
 			end
-			if startsWith(msg[2], 'f') then
+			if startsWith(msg[2], 'fr') then
 				Opt.hide.frost = not Opt.hide.frost
 				events:PLAYER_SPECIALIZATION_CHANGED('player')
-				return print('Braindead - Frost specialization: |cFFFFD000' .. (Opt.hide.frost and '|cFFC00000Off' or '|cFF00C000On'))
+				return Status('Frost specialization', not Opt.hide.frost)
 			end
-			if startsWith(msg[2], 'u') then
+			if startsWith(msg[2], 'un') or startsWith(msg[2], 'uh') then
 				Opt.hide.unholy = not Opt.hide.unholy
 				events:PLAYER_SPECIALIZATION_CHANGED('player')
-				return print('Braindead - Unholy specialization: |cFFFFD000' .. (Opt.hide.unholy and '|cFFC00000Off' or '|cFF00C000On'))
+				return Status('Unholy specialization', not Opt.hide.unholy)
 			end
 		end
-		return print('Braindead - Possible hidespec options: |cFFFFD000blood|r/|cFFFFD000frost|r/|cFFFFD000unholy|r - toggle disabling Braindead for specializations')
+		return Status('Possible hidespec options', '|cFFFFD000blood|r/|cFFFFD000frost|r/|cFFFFD000unholy|r')
 	end
 	if startsWith(msg[1], 'int') then
 		if msg[2] then
 			Opt.interrupt = msg[2] == 'on'
 		end
-		return print('Braindead - Show an icon for interruptable spells: ' .. (Opt.interrupt and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Show an icon for interruptable spells', Opt.interrupt)
 	end
 	if msg[1] == 'auto' then
 		if msg[2] then
 			Opt.auto_aoe = msg[2] == 'on'
 		end
-		return print('Braindead - Automatically change target mode on AoE spells: ' .. (Opt.auto_aoe and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Automatically change target mode on AoE spells', Opt.auto_aoe)
 	end
 	if msg[1] == 'ttl' then
 		if msg[2] then
 			Opt.auto_aoe_ttl = tonumber(msg[2]) or 10
 		end
-		return print('Braindead - Length of time target exists in auto AoE after being hit: |cFFFFD000' .. Opt.auto_aoe_ttl .. '|r seconds')
+		return Status('Length of time target exists in auto AoE after being hit', Opt.auto_aoe_ttl, 'seconds')
 	end
 	if startsWith(msg[1], 'pot') then
 		if msg[2] then
 			Opt.pot = msg[2] == 'on'
 		end
-		return print('Braindead - Show Battle potions in cooldown UI: ' .. (Opt.pot and '|cFF00C000On' or '|cFFC00000Off'))
+		return Status('Show flasks and battle potions in cooldown UI', Opt.pot)
+	end
+	if startsWith(msg[1], 'tri') then
+		if msg[2] then
+			Opt.trinket = msg[2] == 'on'
+		end
+		return Status('Show on-use trinkets in cooldown UI', Opt.trinket)
 	end
 	if msg[1] == 'ds' then
 		if msg[2] then
 			Opt.death_strike_threshold = max(min(tonumber(msg[2]) or 60, 100), 0)
 		end
-		return print('Prophetic - Health percentage threshold to recommend Death Strike: |cFFFFD000' .. Opt.death_strike_threshold .. '%|r')
+		return Status('Health percentage threshold to recommend Death Strike', Opt.death_strike_threshold .. '%')
 	end
 	if msg[1] == 'reset' then
 		braindeadPanel:ClearAllPoints()
 		braindeadPanel:SetPoint('CENTER', 0, -169)
 		SnapAllPanels()
-		return print('Braindead - Position has been reset to default')
+		return Status('Position has been reset to', 'default')
 	end
 	print('Braindead (version: |cFFFFD000' .. GetAddOnMetadata('Braindead', 'Version') .. '|r) - Commands:')
 	local _, cmd
@@ -2672,10 +2743,12 @@ function SlashCmdList.Braindead(msg, editbox)
 		'auto |cFF00C000on|r/|cFFC00000off|r  - automatically change target mode on AoE spells',
 		'ttl |cFFFFD000[seconds]|r  - time target exists in auto AoE after being hit (default is 10 seconds)',
 		'pot |cFF00C000on|r/|cFFC00000off|r - show Battle potions in cooldown UI',
+		'trinket |cFF00C000on|r/|cFFC00000off|r - show on-use trinkets in cooldown UI',
 		'ds |cFFFFD000[percent]|r - health percentage threshold to recommend Death Strike',
 		'|cFFFFD000reset|r - reset the location of the Braindead UI to default',
 	} do
 		print('  ' .. SLASH_Braindead1 .. ' ' .. cmd)
 	end
-	print('Got ideas for improvement or found a bug? Contact |cFFC41F3BRaids|cFFFFD000-Zul\'jin|r or |cFFFFD000Spy#1955|r (the author of this addon)')
+	print('Got ideas for improvement or found a bug? Talk to me on Battle.net:',
+		'|c' .. BATTLENET_FONT_COLOR:GenerateHexColor() .. '|HBNadd:Spy#1955|h[Spy#1955]|h|r')
 end
