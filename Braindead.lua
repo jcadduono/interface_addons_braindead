@@ -1220,6 +1220,13 @@ actions+=/call_action_list,name=standard
 	self.bs_remains = BoneShield:remains()
 	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:stack()
 	self.drw_up = DancingRuneWeapon:up()
+	if Opt.trinket then
+		if Trinket1:usable() and (not DancingRuneWeapon:ready(90) or Trinket1.itemId == 159611 or Trinket1.itemId == 158367) then
+			UseCooldown(Trinket1)
+		elseif Trinket2:usable() and (not DancingRuneWeapon:ready(90) or Trinket2.itemId == 159611 or Trinket2.itemId == 158367) then
+			UseCooldown(Trinket2)
+		end
+	end
 	if Opt.pot and BattlePotionOfStrength:usable() and self.drw_up then
 		UseCooldown(BattlePotionOfStrength)
 	end
@@ -2115,12 +2122,6 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 		end
 	end
 
-	local ability = spellId and abilities.bySpellId[spellId]
-
-	if APL[Player.spec].combat_event then
-		APL[Player.spec]:combat_event(eventType, srcGUID, dstGUID, spellId, ability)
-	end
-
 	if (srcGUID ~= Player.guid and srcGUID ~= Player.pet) then
 		return
 	end
@@ -2133,6 +2134,7 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 		end
 	end
 
+	local ability = spellId and abilities.bySpellId[spellId]
 	if not ability then
 		--print(format('EVENT %s TRACK CHECK FOR UNKNOWN %s ID %d', eventType, spellName, spellId))
 		return
@@ -2225,10 +2227,12 @@ local function UpdateTargetInfo()
 	if not guid then
 		Target.guid = nil
 		Target.boss = false
+		Target.stunnable = true
+		Target.classification = 'normal'
 		Target.player = false
-		Target.hostile = true
-		Target.stunnable = false
+		Target.level = UnitLevel('player')
 		Target.healthMax = 0
+		Target.hostile = true
 		local i
 		for i = 1, 15 do
 			Target.healthArray[i] = 0
@@ -2253,10 +2257,12 @@ local function UpdateTargetInfo()
 	end
 	Target.boss = false
 	Target.stunnable = true
+	Target.classification = UnitClassification('target')
+	Target.player = UnitIsPlayer('target')
 	Target.level = UnitLevel('target')
 	Target.healthMax = UnitHealthMax('target')
-	Target.player = UnitIsPlayer('target')
-	if not Target.player then
+	Target.hostile = UnitCanAttack('player', 'target') and not UnitIsDead('target')
+	if not Target.player and Target.classification ~= 'minus' and Target.classification ~= 'normal' then
 		if Target.level == -1 or (Player.instance == 'party' and Target.level >= UnitLevel('player') + 2) then
 			Target.boss = true
 			Target.stunnable = false
@@ -2264,7 +2270,6 @@ local function UpdateTargetInfo()
 			Target.stunnable = false
 		end
 	end
-	Target.hostile = UnitCanAttack('player', 'target') and not UnitIsDead('target')
 	if Target.hostile or Opt.always_on then
 		UpdateTargetHealth()
 		UpdateCombat()
