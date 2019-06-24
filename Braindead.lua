@@ -683,9 +683,16 @@ function Ability:refreshAura(guid)
 		self:applyAura(guid)
 		return
 	end
-	local remains = aura.expires - Player.time
 	local duration = self:duration()
-	aura.expires = Player.time + min(duration * 1.3, remains + duration)
+	aura.expires = Player.time + min(duration * 1.3, (aura.expires - Player.time) + duration)
+end
+
+function Ability:refreshAuraAll()
+	local guid, aura, remains
+	local duration = self:duration()
+	for guid, aura in next, self.aura_targets do
+		aura.expires = Player.time + min(duration * 1.3, (aura.expires - Player.time) + duration)
+	end
 end
 
 function Ability:removeAura(guid)
@@ -2185,10 +2192,9 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 			ability:refreshAura(dstGUID)
 		elseif eventType == 'SPELL_AURA_REMOVED' then
 			ability:removeAura(dstGUID)
-		elseif eventType == 'SPELL_PERIODIC_DAMAGE' then
-			if ability == VirulentPlague and Outbreak:ticking() > 0 then
-				ability:refreshAura(timeStamp, dstGUID)
-			end
+		end
+		if ability == Outbreak then
+			VirulentPlague:refreshAuraAll()
 		end
 	end
 	if Opt.auto_aoe then
