@@ -388,7 +388,7 @@ function Ability.add(spellId, buff, player, spellId2)
 		tick_interval = 0,
 		max_range = 40,
 		velocity = 0,
-		auraTarget = buff == 'pet' and 'pet' or buff and 'player' or 'target',
+		auraTarget = buff and 'player' or 'target',
 		auraFilter = (buff and 'HELPFUL' or 'HARMFUL') .. (player and '|PLAYER' or '')
 	}
 	setmetatable(ability, Ability)
@@ -462,7 +462,7 @@ function Ability:up()
 end
 
 function Ability:down()
-	return self:remains() <= 0
+	return not self:up()
 end
 
 function Ability:setVelocity(velocity)
@@ -1051,10 +1051,6 @@ local function RunicPowerDeficit()
 	return Player.runic_power_max - Player.runic_power
 end
 
-local function GCD()
-	return Player.gcd
-end
-
 local function TimeInCombat()
 	if Player.combat_start > 0 then
 		return Player.time - Player.combat_start
@@ -1085,12 +1081,6 @@ end
 
 local function InArenaOrBattleground()
 	return Player.instance == 'arena' or Player.instance == 'pvp'
-end
-
-local function UpdatePetStatus()
-	Player.pet = UnitGUID('pet')
-	Player.pet_alive = Player.pet and not UnitIsDead('pet') and true
-	Player.pet_active = (Player.pet_alive and not Player.pet_stuck or IsFlying()) and true
 end
 
 local function UpdateRunes()
@@ -1270,7 +1260,7 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		if RunicPowerDeficit() >= 20 and (self.bs_remains <= RuneTimeTo(3) or self.bs_stack < 3) then
 			return Marrowrend
 		end
-		if self.bs_stack < 1 or self.bs_remains <= (GCD() * 2 + (Blooddrinker.known and Blooddrinker:ready() and 3 or 0)) then
+		if self.bs_stack < 1 or self.bs_remains <= (Player.gcd * 2 + (Blooddrinker.known and Blooddrinker:ready() and 3 or 0)) then
 			return Marrowrend
 		end
 	end
@@ -1312,11 +1302,11 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if DeathStrike:usable() and not Player.pooling_for_bonestorm and RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:targets() * 2 or 0)) then
 		return DeathStrike
 	end
-	if RuneStrike:usable() and RuneTimeTo(3) >= GCD() and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
+	if RuneStrike:usable() and RuneTimeTo(3) >= Player.gcd and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
 		return RuneStrike
 	end
 	if HeartStrike:usable() then
-		if self.drw_up or RuneTimeTo(4) < GCD() then
+		if self.drw_up or RuneTimeTo(4) < Player.gcd then
 			return HeartStrike
 		end
 		if HeartStrike:targets() >= 4 then
@@ -1343,13 +1333,13 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if BloodBoil:usable() then
 		return BloodBoil
 	end
-	if HeartStrike:usable() and (RuneTimeTo(3) < GCD() or self.bs_stack > 6) then
+	if HeartStrike:usable() and (RuneTimeTo(3) < Player.gcd or self.bs_stack > 6) then
 		return HeartStrike
 	end
 	if RuneStrike:usable() then
 		return RuneStrike
 	end
-	if not Player.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (GCD() + RuneTimeTo(3)) then
+	if not Player.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (Player.gcd + RuneTimeTo(3)) then
 		return DeathStrike
 	end
 	if HeartStrike:usable() and Player.enemies == 1 and self.bs_stack >= 5 and self.bs_remains > Target.timeToDie then
@@ -1425,7 +1415,7 @@ actions+=/call_action_list,name=generic
 	if Opt.pot and BattlePotionOfStrength:usable() and (ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up()) then
 		UseExtra(BattlePotionOfStrength)
 	end
-	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:remains() <= GCD() and Target.timeToDie > (VirulentPlague:remains() + 1) then
+	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:remains() <= Player.gcd and Target.timeToDie > (VirulentPlague:remains() + 1) then
 		return Outbreak
 	end
 	self:cooldowns()
@@ -1472,7 +1462,7 @@ actions.cooldowns+=/unholy_blight
 			elseif FesteringWound:stack() < 4 then
 				return UseCooldown(UnholyFrenzy)
 			end
-			if Player.enemies >= 2 and ((DeathAndDecay:ready(GCD()) and not Defile.known) or (Defile.known and Defile:ready(GCD()))) then
+			if Player.enemies >= 2 and ((DeathAndDecay:ready(Player.gcd) and not Defile.known) or (Defile.known and Defile:ready(Player.gcd))) then
 				return UseCooldown(UnholyFrenzy)
 			end
 		end
@@ -1950,7 +1940,7 @@ end
 
 local function UpdateDisplay()
 	timer.display = 0
-	local text_center, dim = false, false
+	local dim, text_center
 	if Opt.dimmer then
 		dim = not ((not Player.main) or
 		           (Player.main.spellId and IsUsableSpell(Player.main.spellId)) or
@@ -1992,7 +1982,9 @@ local function UpdateCombat()
 	Player.health_max = UnitHealthMax('player')
 	_, Player.rune_regen = GetRuneCooldown(1)
 	Player.runic_power = UnitPower('player', 6)
-	UpdatePetStatus()
+	Player.pet = UnitGUID('pet')
+	Player.pet_alive = Player.pet and not UnitIsDead('pet') and true
+	Player.pet_active = (Player.pet_alive and not Player.pet_stuck or IsFlying()) and true
 	UpdateRunes()
 
 	trackAuras:purge()
@@ -2381,11 +2373,11 @@ end
 function events:PLAYER_EQUIPMENT_CHANGED()
 	Azerite:update()
 	UpdateAbilityData()
-	Trinket1.itemId = GetInventoryItemID('player', 13)
-	Trinket2.itemId = GetInventoryItemID('player', 14)
+	Trinket1.itemId = GetInventoryItemID('player', 13) or 0
+	Trinket2.itemId = GetInventoryItemID('player', 14) or 0
 	local _, i, equipType, hasCooldown
 	for i = 1, #inventoryItems do
-		inventoryItems[i].name, _, _, _, _, _, _, _, equipType, inventoryItems[i].icon = GetItemInfo(inventoryItems[i].itemId)
+		inventoryItems[i].name, _, _, _, _, _, _, _, equipType, inventoryItems[i].icon = GetItemInfo(inventoryItems[i].itemId or 0)
 		inventoryItems[i].can_use = inventoryItems[i].name and true or false
 		if equipType and equipType ~= '' then
 			hasCooldown = 0
