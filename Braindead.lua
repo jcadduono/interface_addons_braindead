@@ -1846,15 +1846,31 @@ local function UpdateDraggable()
 	end
 end
 
+local function UpdateScale()
+	braindeadPanel:SetSize(64 * Opt.scale.main, 64 * Opt.scale.main)
+	braindeadPreviousPanel:SetSize(64 * Opt.scale.previous, 64 * Opt.scale.previous)
+	braindeadCooldownPanel:SetSize(64 * Opt.scale.cooldown, 64 * Opt.scale.cooldown)
+	braindeadInterruptPanel:SetSize(64 * Opt.scale.interrupt, 64 * Opt.scale.interrupt)
+	braindeadExtraPanel:SetSize(64 * Opt.scale.extra, 64 * Opt.scale.extra)
+end
+
+local function UpdateAlpha()
+	braindeadPanel:SetAlpha(Opt.alpha)
+	braindeadPreviousPanel:SetAlpha(Opt.alpha)
+	braindeadCooldownPanel:SetAlpha(Opt.alpha)
+	braindeadInterruptPanel:SetAlpha(Opt.alpha)
+	braindeadExtraPanel:SetAlpha(Opt.alpha)
+end
+
 local function SnapAllPanels()
 	braindeadPreviousPanel:ClearAllPoints()
-	braindeadPreviousPanel:SetPoint('BOTTOMRIGHT', braindeadPanel, 'BOTTOMLEFT', -10, -5)
+	braindeadPreviousPanel:SetPoint('TOPRIGHT', braindeadPanel, 'BOTTOMLEFT', -3, 40)
 	braindeadCooldownPanel:ClearAllPoints()
-	braindeadCooldownPanel:SetPoint('BOTTOMLEFT', braindeadPanel, 'BOTTOMRIGHT', 10, -5)
+	braindeadCooldownPanel:SetPoint('TOPLEFT', braindeadPanel, 'BOTTOMRIGHT', 3, 40)
 	braindeadInterruptPanel:ClearAllPoints()
-	braindeadInterruptPanel:SetPoint('TOPLEFT', braindeadPanel, 'TOPRIGHT', 16, 25)
+	braindeadInterruptPanel:SetPoint('BOTTOMLEFT', braindeadPanel, 'TOPRIGHT', 3, -21)
 	braindeadExtraPanel:ClearAllPoints()
-	braindeadExtraPanel:SetPoint('TOPRIGHT', braindeadPanel, 'TOPLEFT', -16, 25)
+	braindeadExtraPanel:SetPoint('BOTTOMRIGHT', braindeadPanel, 'TOPLEFT', -3, -21)
 end
 
 local resourceAnchor = {}
@@ -1862,30 +1878,30 @@ local resourceAnchor = {}
 local ResourceFramePoints = {
 	['blizzard'] = {
 		[SPEC.BLOOD] = {
-			['above'] = { 'BOTTOM', 'TOP', 0, 42 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -18 }
+			['above'] = { 'BOTTOM', 'TOP', 0, 49 },
+			['below'] = { 'TOP', 'BOTTOM', 0, -3 }
 		},
 		[SPEC.FROST] = {
-			['above'] = { 'BOTTOM', 'TOP', 0, 42 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -18 }
+			['above'] = { 'BOTTOM', 'TOP', 0, 49 },
+			['below'] = { 'TOP', 'BOTTOM', 0, -3 }
 		},
 		[SPEC.UNHOLY] = {
-			['above'] = { 'BOTTOM', 'TOP', 0, 42 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -18 }
+			['above'] = { 'BOTTOM', 'TOP', 0, 49 },
+			['below'] = { 'TOP', 'BOTTOM', 0, -3 }
 		},
 	},
 	['kui'] = {
 		[SPEC.BLOOD] = {
-			['above'] = { 'BOTTOM', 'TOP', 0, 30 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -4 }
+			['above'] = { 'BOTTOM', 'TOP', 0, 28 },
+			['below'] = { 'TOP', 'BOTTOM', 0, 6 }
 		},
 		[SPEC.FROST] = {
-			['above'] = { 'BOTTOM', 'TOP', 0, 30 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -4 }
+			['above'] = { 'BOTTOM', 'TOP', 0, 28 },
+			['below'] = { 'TOP', 'BOTTOM', 0, 6 }
 		},
 		[SPEC.UNHOLY] = {
-			['above'] = { 'BOTTOM', 'TOP', 0, 30 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -4 }
+			['above'] = { 'BOTTOM', 'TOP', 0, 28 },
+			['below'] = { 'TOP', 'BOTTOM', 0, 6 }
 		},
 	},
 }
@@ -1913,18 +1929,12 @@ local function HookResourceFrame()
 		resourceAnchor.frame = KuiNameplatesPlayerAnchor
 	else
 		resourceAnchor.name = 'blizzard'
-		resourceAnchor.frame = ClassNameplateManaBarFrame
+		resourceAnchor.frame = NamePlateDriverFrame:GetClassNameplateBar()
 	end
-	resourceAnchor.frame:HookScript("OnHide", OnResourceFrameHide)
-	resourceAnchor.frame:HookScript("OnShow", OnResourceFrameShow)
-end
-
-local function UpdateAlpha()
-	braindeadPanel:SetAlpha(Opt.alpha)
-	braindeadPreviousPanel:SetAlpha(Opt.alpha)
-	braindeadCooldownPanel:SetAlpha(Opt.alpha)
-	braindeadInterruptPanel:SetAlpha(Opt.alpha)
-	braindeadExtraPanel:SetAlpha(Opt.alpha)
+	if resourceAnchor.frame then
+		resourceAnchor.frame:HookScript("OnHide", OnResourceFrameHide)
+		resourceAnchor.frame:HookScript("OnShow", OnResourceFrameShow)
+	end
 end
 
 local function UpdateTargetHealth()
@@ -2075,12 +2085,8 @@ function events:ADDON_LOADED(name)
 		Azerite:initialize()
 		UpdateDraggable()
 		UpdateAlpha()
+		UpdateScale()
 		SnapAllPanels()
-		braindeadPanel:SetScale(Opt.scale.main)
-		braindeadPreviousPanel:SetScale(Opt.scale.previous)
-		braindeadCooldownPanel:SetScale(Opt.scale.cooldown)
-		braindeadInterruptPanel:SetScale(Opt.scale.interrupt)
-		braindeadExtraPanel:SetScale(Opt.scale.extra)
 	end
 end
 
@@ -2508,35 +2514,35 @@ function SlashCmdList.Braindead(msg, editbox)
 		if startsWith(msg[2], 'prev') then
 			if msg[3] then
 				Opt.scale.previous = tonumber(msg[3]) or 0.7
-				braindeadPreviousPanel:SetScale(Opt.scale.previous)
+				UpdateScale()
 			end
 			return Status('Previous ability icon scale', Opt.scale.previous, 'times')
 		end
 		if msg[2] == 'main' then
 			if msg[3] then
 				Opt.scale.main = tonumber(msg[3]) or 1
-				braindeadPanel:SetScale(Opt.scale.main)
+				UpdateScale()
 			end
 			return Status('Main ability icon scale', Opt.scale.main, 'times')
 		end
 		if msg[2] == 'cd' then
 			if msg[3] then
 				Opt.scale.cooldown = tonumber(msg[3]) or 0.7
-				braindeadCooldownPanel:SetScale(Opt.scale.cooldown)
+				UpdateScale()
 			end
 			return Status('Cooldown ability icon scale', Opt.scale.cooldown, 'times')
 		end
 		if startsWith(msg[2], 'int') then
 			if msg[3] then
 				Opt.scale.interrupt = tonumber(msg[3]) or 0.4
-				braindeadInterruptPanel:SetScale(Opt.scale.interrupt)
+				UpdateScale()
 			end
 			return Status('Interrupt ability icon scale', Opt.scale.interrupt, 'times')
 		end
 		if startsWith(msg[2], 'ex') or startsWith(msg[2], 'pet') then
 			if msg[3] then
 				Opt.scale.extra = tonumber(msg[3]) or 0.4
-				braindeadExtraPanel:SetScale(Opt.scale.extra)
+				UpdateScale()
 			end
 			return Status('Extra/Pet cooldown ability icon scale', Opt.scale.extra, 'times')
 		end
