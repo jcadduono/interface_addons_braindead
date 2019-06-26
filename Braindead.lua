@@ -893,6 +893,8 @@ local SuddenDoom = Ability.add(49530, true, true, 81340)
 SuddenDoom.buff_duration = 10
 local VirulentEruption = Ability.add(191685, false, true)
 -- Azerite Traits
+local ConcentratedFlame = Ability.add(295373, false, true)
+ConcentratedFlame.cooldown_duration = 30
 local MagusOfTheDead = Ability.add(288417, true, true)
 -- Racials
 local ArcaneTorrent = Ability.add(50613, true, true) -- Blood Elf
@@ -1586,6 +1588,9 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return SoulReaper
 		end
 	end
+	if ConcentratedFlame:usable() then
+		return ConcentratedFlame
+	end
 end
 
 APL[SPEC.UNHOLY].generic = function(self)
@@ -1647,6 +1652,9 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		if DeathCoil:usable() then
 			return DeathCoil
 		end
+	end
+	if ConcentratedFlame:usable() then
+		return ConcentratedFlame
 	end
 	if SoulReaper:usable() then
 		if Runes() <= (UnholyFrenzy:up() and 1 or 0) then
