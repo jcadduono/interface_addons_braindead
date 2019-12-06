@@ -126,6 +126,8 @@ local Player = {
 	rune_regen = 0,
 	group_size = 1,
 	previous_gcd = {},-- list of previous GCD abilities
+	item_use_blacklist = { -- list of item IDs with on-use effects we should mark unusable
+	},
 }
 
 -- current target information
@@ -134,6 +136,7 @@ local Target = {
 	guid = 0,
 	healthArray = {},
 	hostile = false,
+	estimated_range = 30,
 }
 
 -- Azerite trait API access
@@ -232,9 +235,10 @@ braindeadExtraPanel.border = braindeadExtraPanel:CreateTexture(nil, 'ARTWORK')
 braindeadExtraPanel.border:SetAllPoints(braindeadExtraPanel)
 braindeadExtraPanel.border:SetTexture('Interface\\AddOns\\Braindead\\border.blp')
 
--- Start Auto AoE
+-- Start AoE
 
-local targetModes = {
+Player.target_mode = 0
+Player.target_modes = {
 	[SPEC.NONE] = {
 		{1, ''}
 	},
@@ -259,26 +263,30 @@ local targetModes = {
 }
 
 local function SetTargetMode(mode)
-	if mode == targetMode then
+	if mode == Player.target_mode then
 		return
 	end
-	targetMode = min(mode, #targetModes[Player.spec])
-	Player.enemies = targetModes[Player.spec][targetMode][1]
-	braindeadPanel.text.br:SetText(targetModes[Player.spec][targetMode][2])
+	Player.target_mode = min(mode, #Player.target_modes[Player.spec])
+	Player.enemies = Player.target_modes[Player.spec][Player.target_mode][1]
+	braindeadPanel.text.br:SetText(Player.target_modes[Player.spec][Player.target_mode][2])
 end
 Braindead_SetTargetMode = SetTargetMode
 
-function ToggleTargetMode()
-	local mode = targetMode + 1
-	SetTargetMode(mode > #targetModes[Player.spec] and 1 or mode)
+local function ToggleTargetMode()
+	local mode = Player.target_mode + 1
+	SetTargetMode(mode > #Player.target_modes[Player.spec] and 1 or mode)
 end
 Braindead_ToggleTargetMode = ToggleTargetMode
 
 local function ToggleTargetModeReverse()
-	local mode = targetMode - 1
-	SetTargetMode(mode < 1 and #targetModes[Player.spec] or mode)
+	local mode = Player.target_mode - 1
+	SetTargetMode(mode < 1 and #Player.target_modes[Player.spec] or mode)
 end
 Braindead_ToggleTargetModeReverse = ToggleTargetModeReverse
+
+-- End AoE
+
+-- Start Auto AoE
 
 local autoAoe = {
 	targets = {},
@@ -330,8 +338,8 @@ function autoAoe:update()
 		return
 	end
 	Player.enemies = count
-	for i = #targetModes[Player.spec], 1, -1 do
-		if count >= targetModes[Player.spec][i][1] then
+	for i = #Player.target_modes[Player.spec], 1, -1 do
+		if count >= Player.target_modes[Player.spec][i][1] then
 			SetTargetMode(i)
 			Player.enemies = count
 			return
@@ -904,7 +912,7 @@ local ArcaneTorrent = Ability.add(50613, true, true) -- Blood Elf
 
 -- Start Inventory Items
 
-local InventoryItem, inventoryItems = {}, {}
+local InventoryItem, inventoryItems, Trinket = {}, {}, {}
 InventoryItem.__index = InventoryItem
 
 function InventoryItem.add(itemId)
@@ -982,6 +990,7 @@ Azerite.equip_slots = { 1, 3, 5 } -- Head, Shoulder, Chest
 function Azerite:initialize()
 	self.locations = {}
 	self.traits = {}
+	self.essences = {}
 	local i
 	for i = 1, #self.equip_slots do
 		self.locations[i] = ItemLocation:CreateFromEquipmentSlot(self.equip_slots[i])
@@ -989,16 +998,18 @@ function Azerite:initialize()
 end
 
 function Azerite:update()
-	local _, loc, tinfo, tslot, pid, pinfo
+	local _, loc, slot, pid, pinfo
 	for pid in next, self.traits do
 		self.traits[pid] = nil
 	end
+	for pid in next, self.essences do
+		self.essences[pid] = nil
+	end
 	for _, loc in next, self.locations do
 		if GetInventoryItemID('player', loc:GetEquipmentSlot()) and C_AzeriteEmpoweredItem.IsAzeriteEmpoweredItem(loc) then
-			tinfo = C_AzeriteEmpoweredItem.GetAllTierInfo(loc)
-			for _, tslot in next, tinfo do
-				if tslot.azeritePowerIDs then
-					for _, pid in next, tslot.azeritePowerIDs do
+			for _, slot in next, C_AzeriteEmpoweredItem.GetAllTierInfo(loc) do
+				if slot.azeritePowerIDs then
+					for _, pid in next, slot.azeritePowerIDs do
 						if C_AzeriteEmpoweredItem.IsPowerSelected(loc, pid) then
 							self.traits[pid] = 1 + (self.traits[pid] or 0)
 							pinfo = C_AzeriteEmpoweredItem.GetPowerInfo(pid)
@@ -1011,56 +1022,69 @@ function Azerite:update()
 			end
 		end
 	end
+	for _, loc in next, C_AzeriteEssence.GetMilestones() do
+		if loc.slot then
+			pid = C_AzeriteEssence.GetMilestoneEssence(loc.ID)
+			if pid then
+				pinfo = C_AzeriteEssence.GetEssenceInfo(pid)
+				self.essences[pid] = {
+					id = pid,
+					rank = pinfo.rank,
+					major = loc.slot == 0,
+				}
+			end
+		end
+	end
 end
 
 -- End Azerite Trait API
 
--- Start Helpful Functions
+-- Start Player API
 
-local function Health()
-	return Player.health
+function Player:Health()
+	return self.health
 end
 
-local function HealthMax()
-	return Player.health_max
+function Player:HealthMax()
+	return self.health_max
 end
 
-local function HealthPct()
-	return Player.health / Player.health_max * 100
+function Player:HealthPct()
+	return self.health / self.health_max * 100
 end
 
-local function Runes()
-	return Player.runes_ready
+function Player:Runes()
+	return self.runes_ready
 end
 
-local function RuneDeficit()
-	return Player.rune_max - Player.runes_ready
+function Player:RuneDeficit()
+	return self.rune_max - self.runes_ready
 end
 
-local function RuneRegen()
-	return Player.rune_regen
+function Player:RuneRegen()
+	return self.rune_regen
 end
 
-local function RuneTimeTo(runes)
-	return max(Player.runes[runes] - Player.execute_remains, 0)
+function Player:RuneTimeTo(runes)
+	return max(self.runes[runes] - self.execute_remains, 0)
 end
 
-local function RunicPower()
-	return Player.runic_power
+function Player:RunicPower()
+	return self.runic_power
 end
 
-local function RunicPowerDeficit()
-	return Player.runic_power_max - Player.runic_power
+function Player:RunicPowerDeficit()
+	return self.runic_power_max - self.runic_power
 end
 
-local function TimeInCombat()
-	if Player.combat_start > 0 then
-		return Player.time - Player.combat_start
+function Player:TimeInCombat()
+	if self.combat_start > 0 then
+		return self.time - self.combat_start
 	end
 	return 0
 end
 
-local function BloodlustActive()
+function Player:BloodlustActive()
 	local _, i, id
 	for i = 1, 40 do
 		_, _, _, _, _, _, _, _, _, id = UnitAura('player', i, 'HELPFUL')
@@ -1081,27 +1105,33 @@ local function BloodlustActive()
 	end
 end
 
-local function InArenaOrBattleground()
-	return Player.instance == 'arena' or Player.instance == 'pvp'
+function Player:InArenaOrBattleground()
+	return self.instance == 'arena' or self.instance == 'pvp'
 end
 
-local function UpdateRunes()
-	while #Player.runes > Player.rune_max do
-		Player.runes[#Player.runes] = nil
+function Player:UpdatePet()
+	self.pet = UnitGUID('pet')
+	self.pet_alive = self.pet and not UnitIsDead('pet') and true
+	self.pet_active = (self.pet_alive and not self.pet_stuck or IsFlying()) and true
+end
+
+function Player:UpdateRunes()
+	while #self.runes > self.rune_max do
+		self.runes[#self.runes] = nil
 	end
 	local i, start, duration
-	Player.runes_ready = 0
-	for i = 1, Player.rune_max do
+	self.runes_ready = 0
+	for i = 1, self.rune_max do
 		start, duration = GetRuneCooldown(i)
-		Player.runes[i] = max(start + duration - Player.ctime, 0)
-		if Player.runes[i] <= Player.execute_remains then
-			Player.runes_ready = Player.runes_ready + 1
+		self.runes[i] = max(start + duration - self.ctime, 0)
+		if self.runes[i] <= self.execute_remains then
+			self.runes_ready = self.runes_ready + 1
 		end
 	end
-	table.sort(Player.runes)
+	table.sort(self.runes)
 end
 
--- End Helpful Functions
+-- End Player API
 
 -- Start Ability Modifications
 
@@ -1175,7 +1205,7 @@ local APL = {
 }
 
 APL[SPEC.BLOOD].main = function(self)
-	if TimeInCombat() == 0 then
+	if Player:TimeInCombat() == 0 then
 --[[
 actions.precombat=flask
 actions.precombat+=/food
@@ -1252,14 +1282,14 @@ actions.standard+=/use_item,name=grongs_primal_rage
 actions.standard+=/rune_strike
 actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 ]]
-	if DeathStrike:usable() and RunicPowerDeficit() <= 10 and (not Player.pooling_for_bonestorm or not Bonestorm:ready(2)) then
+	if DeathStrike:usable() and Player:RunicPowerDeficit() <= 10 and (not Player.pooling_for_bonestorm or not Bonestorm:ready(2)) then
 		return DeathStrike
 	end
-	if Blooddrinker:usable() and not self.drw_up and HealthPct() < 80 then
+	if Blooddrinker:usable() and not self.drw_up and Player:HealthPct() < 80 then
 		return Blooddrinker
 	end
 	if Marrowrend:usable() then
-		if RunicPowerDeficit() >= 20 and (self.bs_remains <= RuneTimeTo(3) or self.bs_stack < 3) then
+		if Player:RunicPowerDeficit() >= 20 and (self.bs_remains <= Player:RuneTimeTo(3) or self.bs_stack < 3) then
 			return Marrowrend
 		end
 		if self.bs_stack < 1 or self.bs_remains <= (Player.gcd * 2 + (Blooddrinker.known and Blooddrinker:ready() and 3 or 0)) then
@@ -1270,17 +1300,17 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		if BloodBoil:chargesFractional() >= 1.8 and (Player.enemies > 2 or (Hemostasis.known and Hemostasis:stack() <= (5 - Player.enemies))) then
 			return BloodBoil
 		end
-		if Hemostasis.known and DeathStrike:usable() and HealthPct() < 60 and Hemostasis:stack() <= (5 - Player.enemies) then
+		if Hemostasis.known and DeathStrike:usable() and Player:HealthPct() < 60 and Hemostasis:stack() <= (5 - Player.enemies) then
 			return BloodBoil
 		end
 		if BloodPlague:down() or BloodPlague:ticking() < Player.enemies then
 			return BloodBoil
 		end
 	end
-	if Ossuary.known and Marrowrend:usable() and self.bs_stack < 5 and RunicPowerDeficit() >= 15 then
+	if Ossuary.known and Marrowrend:usable() and self.bs_stack < 5 and Player:RunicPowerDeficit() >= 15 then
 		return Marrowrend
 	end
-	if Player.pooling_for_bonestorm and Bonestorm:usable() and RunicPower() >= 100 then
+	if Player.pooling_for_bonestorm and Bonestorm:usable() and Player:RunicPower() >= 100 then
 		UseCooldown(Bonestorm)
 	end
 	if DeathStrike:usable() then
@@ -1288,27 +1318,27 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 			return DeathStrike
 		end
 		if Hemostasis.known then
-			if HealthPct() < 60 and Hemostasis:stack() >= 5 then
+			if Player:HealthPct() < 60 and Hemostasis:stack() >= 5 then
 				return DeathStrike
 			end
-			if HealthPct() < 40 and not BloodBoil:ready() then
+			if Player:HealthPct() < 40 and not BloodBoil:ready() then
 				return DeathStrike
 			end
-		elseif HealthPct() < 40 then
+		elseif Player:HealthPct() < 40 then
 			return DeathStrike
 		end
 	end
 	if DeathAndDecay:usable() and Player.enemies >= 3 then
 		return DeathAndDecay
 	end
-	if DeathStrike:usable() and not Player.pooling_for_bonestorm and RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:targets() * 2 or 0)) then
+	if DeathStrike:usable() and not Player.pooling_for_bonestorm and Player:RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:targets() * 2 or 0)) then
 		return DeathStrike
 	end
-	if RuneStrike:usable() and RuneTimeTo(3) >= Player.gcd and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
+	if RuneStrike:usable() and Player:RuneTimeTo(3) >= Player.gcd and (RuneStrike:chargesFractional() >= 1.8 or self.drw_up) then
 		return RuneStrike
 	end
 	if HeartStrike:usable() then
-		if self.drw_up or RuneTimeTo(4) < Player.gcd then
+		if self.drw_up or Player:RuneTimeTo(4) < Player.gcd then
 			return HeartStrike
 		end
 		if HeartStrike:targets() >= 4 then
@@ -1319,14 +1349,14 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 		if self.drw_up then
 			return BloodBoil
 		end
-		if Hemostasis.known and HealthPct() < 60 and Hemostasis:stack() <= (5 - Player.enemies) then
+		if Hemostasis.known and Player:HealthPct() < 60 and Hemostasis:stack() <= (5 - Player.enemies) then
 			return BloodBoil
 		end
 	end
 	if DeathAndDecay:usable() and (Player.enemies >= 2 or Target.timeToDie > 4 and (RapidDecomposition.known or CrimsonScourge:up())) then
 		return DeathAndDecay
 	end
-	if Player.use_cds and Bonestorm:usable() and Player.enemies >= 2 and Target.timeToDie > 8 and RunicPower() >= 100 then
+	if Player.use_cds and Bonestorm:usable() and Player.enemies >= 2 and Target.timeToDie > 8 and Player:RunicPower() >= 100 then
 		UseCooldown(Bonestorm)
 	end
 	if Player.use_cds and Consumption:usable() then
@@ -1335,25 +1365,25 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if BloodBoil:usable() then
 		return BloodBoil
 	end
-	if HeartStrike:usable() and (RuneTimeTo(3) < Player.gcd or self.bs_stack > 6) then
+	if HeartStrike:usable() and (Player:RuneTimeTo(3) < Player.gcd or self.bs_stack > 6) then
 		return HeartStrike
 	end
 	if RuneStrike:usable() then
 		return RuneStrike
 	end
-	if not Player.pooling_for_bonestorm and DeathStrike:usable() and RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (Player.gcd + RuneTimeTo(3)) then
+	if not Player.pooling_for_bonestorm and DeathStrike:usable() and Player:RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (Player.gcd + Player:RuneTimeTo(3)) then
 		return DeathStrike
 	end
 	if HeartStrike:usable() and Player.enemies == 1 and self.bs_stack >= 5 and self.bs_remains > Target.timeToDie then
 		return HeartStrike
 	end
-	if ArcaneTorrent:usable() and RunicPowerDeficit() > 20 then
+	if ArcaneTorrent:usable() and Player:RunicPowerDeficit() > 20 then
 		UseExtra(ArcaneTorrent)
 	end
 end
 
 APL[SPEC.FROST].main = function(self)
-	if TimeInCombat() == 0 then
+	if Player:TimeInCombat() == 0 then
 		if Opt.pot and not InArenaOrBattleground() then
 			if FlaskOfTheUndertow:usable() and FlaskOfTheUndertow.buff:remains() < 300 then
 				UseCooldown(FlaskOfTheUndertow)
@@ -1373,7 +1403,7 @@ APL[SPEC.UNHOLY].main = function(self)
 	if not Player.pet_active and RaiseDead:usable() then
 		UseExtra(RaiseDead)
 	end
-	if TimeInCombat() == 0 then
+	if Player:TimeInCombat() == 0 then
 --[[
 actions.precombat=flask
 actions.precombat+=/food
@@ -1411,7 +1441,7 @@ actions+=/call_action_list,name=cooldowns
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=generic
 ]]
-	if ArcaneTorrent:usable() and RunicPowerDeficit() > 65 and (SummonGargoyle:up() or not SummonGargoyle.known) and RuneDeficit() >= 5 then
+	if ArcaneTorrent:usable() and Player:RunicPowerDeficit() > 65 and (SummonGargoyle:up() or not SummonGargoyle.known) and Player:RuneDeficit() >= 5 then
 		UseExtra(ArcaneTorrent)
 	end
 	if Opt.pot and BattlePotionOfStrength:usable() and (ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up()) then
@@ -1453,7 +1483,7 @@ actions.cooldowns+=/unholy_blight
 		if DarkTransformation:usable() then
 			return UseCooldown(DarkTransformation)
 		end
-		if SummonGargoyle:usable() and RunicPowerDeficit() < 14 then
+		if SummonGargoyle:usable() and Player:RunicPowerDeficit() < 14 then
 			return UseCooldown(SummonGargoyle)
 		end
 		if UnholyFrenzy:usable() then
@@ -1473,7 +1503,7 @@ actions.cooldowns+=/unholy_blight
 		if between(Target.timeToDie, 4, 8) then
 			return UseCooldown(SoulReaper)
 		end
-		if Player.enemies == 1 and Runes() <= (UnholyFrenzy:up() and 1 or 0) then
+		if Player.enemies == 1 and Player:Runes() <= (UnholyFrenzy:up() and 1 or 0) then
 			return UseCooldown(SoulReaper)
 		end
 	end
@@ -1513,7 +1543,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		return Defile
 	end
 	if DeathAndDecay:up() then
-		if not Player.pooling_for_gargoyle and Runes() < 2 then
+		if not Player.pooling_for_gargoyle and Player:Runes() < 2 then
 			if Epidemic:usable() and VirulentPlague:ticking() >= 2 then
 				return Epidemic
 			end
@@ -1543,13 +1573,13 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 	end
 	local apocalypse_not_ready_5 = not Player.use_cds or not Apocalypse.known or not Apocalypse:ready(5)
 	if DeathCoil:usable() then
-		if SuddenDoom:up() and (RuneDeficit() >= 4 or not Player.pooling_for_gargoyle) then
+		if SuddenDoom:up() and (Player:RuneDeficit() >= 4 or not Player.pooling_for_gargoyle) then
 			return DeathCoil
 		end
 		if SummonGargoyle:up() then
 			return DeathCoil
 		end
-		if not Player.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
+		if not Player.pooling_for_gargoyle and Player:RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
 			return DeathCoil
 		end
 	end
@@ -1561,8 +1591,8 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return ClawingShadows
 		end
 	end
-	if RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
-		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+	if Player:RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
+		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
 		if DeathCoil:usable() then
@@ -1576,7 +1606,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
-		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
 		if DeathCoil:usable() then
@@ -1584,7 +1614,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		end
 	end
 	if SoulReaper:usable() then
-		if Runes() <= (UnholyFrenzy:up() and 1 or 0) then
+		if Player:Runes() <= (UnholyFrenzy:up() and 1 or 0) then
 			return SoulReaper
 		end
 	end
@@ -1610,7 +1640,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		if SummonGargoyle:up() or (SuddenDoom:up() and not Player.pooling_for_gargoyle) then
 			return DeathCoil
 		end
-		if not Player.pooling_for_gargoyle and RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
+		if not Player.pooling_for_gargoyle and Player:RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:stack() > 4) then
 			return DeathCoil
 		end
 	end
@@ -1631,8 +1661,8 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return ClawingShadows
 		end
 	end
-	if RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
-		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+	if Player:RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
+		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
 		if DeathCoil:usable() then
@@ -1646,7 +1676,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
-		if HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
+		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:usable() then
 			return DeathStrike
 		end
 		if DeathCoil:usable() then
@@ -1657,7 +1687,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		return ConcentratedFlame
 	end
 	if SoulReaper:usable() then
-		if Runes() <= (UnholyFrenzy:up() and 1 or 0) then
+		if Player:Runes() <= (UnholyFrenzy:up() and 1 or 0) then
 			return SoulReaper
 		end
 	end
@@ -2000,10 +2030,8 @@ local function UpdateCombat()
 	Player.health_max = UnitHealthMax('player')
 	_, Player.rune_regen = GetRuneCooldown(1)
 	Player.runic_power = UnitPower('player', 6)
-	Player.pet = UnitGUID('pet')
-	Player.pet_alive = Player.pet and not UnitIsDead('pet') and true
-	Player.pet_active = (Player.pet_alive and not Player.pet_stuck or IsFlying()) and true
-	UpdateRunes()
+	Player:UpdatePet()
+	Player:UpdateRunes()
 
 	trackAuras:purge()
 	if Opt.auto_aoe then
@@ -2338,29 +2366,40 @@ local function UpdateAbilityData()
 	Player.rune_max = UnitPowerMax('player', 5)
 	Player.runic_power_max = UnitPowerMax('player', 6)
 	local _, ability
+
 	for _, ability in next, abilities.all do
 		ability.name, _, ability.icon = GetSpellInfo(ability.spellId)
-		ability.known = (IsPlayerSpell(ability.spellId) or (ability.spellId2 and IsPlayerSpell(ability.spellId2)) or Azerite.traits[ability.spellId]) and true or false
+		ability.known = false
+		if IsPlayerSpell(ability.spellId) or (ability.spellId2 and IsPlayerSpell(ability.spellId2)) then
+			ability.known = true
+		elseif Azerite.traits[ability.spellId] then
+			ability.known = true
+		elseif ability.essence_id and Azerite.essences[ability.essence_id] then
+			if ability.essence_major then
+				ability.known = Azerite.essences[ability.essence_id].major
+			else
+				ability.known = true
+			end
+		end
 	end
-	if Player.spec == SPEC.BLOOD then
-		BloodPlague.known = BloodBoil.known
-		BoneShield.known = Marrowrend.known
-		Bonestorm.damage.known = Bonestorm.known
-	elseif Player.spec == SPEC.UNHOLY then
-		VirulentPlague.known = Outbreak.known
-		VirulentEruption.known = VirulentPlague.known
-		FesteringWound.known = FesteringStrike.known
-		if Defile.known then
-			DeathAndDecay.known = false
-		end
-		if ClawingShadows.known then
-			ScourgeStrike.known = false
-		end
-		if RaiseAbomination.known then
-			ArmyOfTheDead.known = false
-		end
+
+	BloodPlague.known = BloodBoil.known
+	BoneShield.known = Marrowrend.known
+	Bonestorm.damage.known = Bonestorm.known
+	VirulentPlague.known = Outbreak.known
+	VirulentEruption.known = VirulentPlague.known
+	FesteringWound.known = FesteringStrike.known
+	if Defile.known then
+		DeathAndDecay.known = false
+	end
+	if ClawingShadows.known then
+		ScourgeStrike.known = false
+	end
+	if RaiseAbomination.known then
+		ArmyOfTheDead.known = false
 	end
 	DeathAndDecay.damage.known = DeathAndDecay.known
+
 	abilities.bySpellId = {}
 	abilities.velocity = {}
 	abilities.autoAoe = {}
@@ -2385,11 +2424,17 @@ local function UpdateAbilityData()
 end
 
 function events:PLAYER_EQUIPMENT_CHANGED()
-	Azerite:update()
-	UpdateAbilityData()
+	local _, i, equipType, hasCooldown
 	Trinket1.itemId = GetInventoryItemID('player', 13) or 0
 	Trinket2.itemId = GetInventoryItemID('player', 14) or 0
-	local _, i, equipType, hasCooldown
+	for _, i in next, Trinket do -- use custom APL lines for these trinkets
+		if Trinket1.itemId == i.itemId then
+			Trinket1.itemId = 0
+		end
+		if Trinket2.itemId == i.itemId then
+			Trinket2.itemId = 0
+		end
+	end
 	for i = 1, #inventoryItems do
 		inventoryItems[i].name, _, _, _, _, _, _, _, equipType, inventoryItems[i].icon = GetItemInfo(inventoryItems[i].itemId or 0)
 		inventoryItems[i].can_use = inventoryItems[i].name and true or false
@@ -2401,7 +2446,12 @@ function events:PLAYER_EQUIPMENT_CHANGED()
 			end
 			inventoryItems[i].can_use = hasCooldown == 1
 		end
+		if Player.item_use_blacklist[inventoryItems[i].itemId] then
+			inventoryItems[i].can_use = false
+		end
 	end
+	Azerite:update()
+	UpdateAbilityData()
 end
 
 function events:PLAYER_SPECIALIZATION_CHANGED(unitName)
@@ -2417,6 +2467,11 @@ function events:PLAYER_SPECIALIZATION_CHANGED(unitName)
 end
 
 function events:PLAYER_PVP_TALENT_UPDATE()
+	UpdateAbilityData()
+end
+
+function events:AZERITE_ESSENCE_UPDATE()
+	Azerite:update()
 	UpdateAbilityData()
 end
 
@@ -2664,7 +2719,7 @@ function SlashCmdList.Braindead(msg, editbox)
 	if msg[1] == 'aoe' then
 		if msg[2] then
 			Opt.aoe = msg[2] == 'on'
-			Braindead_SetTargetMode(1)
+			SetTargetMode(1)
 			UpdateDraggable()
 		end
 		return Status('Allow clicking main ability icon to toggle amount of targets (disables moving)', Opt.aoe)
@@ -2759,7 +2814,7 @@ function SlashCmdList.Braindead(msg, editbox)
 		'interrupt |cFF00C000on|r/|cFFC00000off|r - show an icon for interruptable spells',
 		'auto |cFF00C000on|r/|cFFC00000off|r  - automatically change target mode on AoE spells',
 		'ttl |cFFFFD000[seconds]|r  - time target exists in auto AoE after being hit (default is 10 seconds)',
-		'pot |cFF00C000on|r/|cFFC00000off|r - show Battle potions in cooldown UI',
+		'pot |cFF00C000on|r/|cFFC00000off|r - show flasks and battle potions in cooldown UI',
 		'trinket |cFF00C000on|r/|cFFC00000off|r - show on-use trinkets in cooldown UI',
 		'ds |cFFFFD000[percent]|r - health percentage threshold to recommend Death Strike',
 		'|cFFFFD000reset|r - reset the location of the Braindead UI to default',
