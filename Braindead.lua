@@ -2231,6 +2231,10 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 		end
 		if ability == Outbreak then
 			VirulentPlague:refreshAuraAll()
+		elseif ability == VirulentPlague and eventType == 'SPELL_PERIODIC_DAMAGE' then
+			if not ability.aura_targets[dstGUID] then
+				ability:applyAura(dstGUID) -- BUG: VP tick on unrecorded target, assume freshly applied (possibly by Raise Abomination?)
+			end
 		end
 	end
 	if Opt.auto_aoe then
