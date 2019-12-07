@@ -115,6 +115,7 @@ local Player = {
 	ctime = 0,
 	combat_start = 0,
 	spec = 0,
+	target_mode = 0,
 	gcd = 1.5,
 	health = 0,
 	health_max = 0,
@@ -237,7 +238,6 @@ braindeadExtraPanel.border:SetTexture('Interface\\AddOns\\Braindead\\border.blp'
 
 -- Start AoE
 
-Player.target_mode = 0
 Player.target_modes = {
 	[SPEC.NONE] = {
 		{1, ''}
@@ -509,6 +509,10 @@ function Ability:ticking()
 	return self:up() and 1 or 0
 end
 
+function Ability:tickTime()
+	return self.hasted_ticks and (Player.haste_factor * self.tick_interval) or self.tick_interval
+end
+
 function Ability:cooldownDuration()
 	return self.hasted_cooldown and (Player.haste_factor * self.cooldown_duration) or self.cooldown_duration
 end
@@ -589,10 +593,6 @@ function Ability:castTime()
 		return self.triggers_gcd and Player.gcd or 0
 	end
 	return castTime / 1000
-end
-
-function Ability:tickTime()
-	return self.hasted_ticks and (Player.haste_factor * self.tick_interval) or self.tick_interval
 end
 
 function Ability:previous(n)
@@ -973,11 +973,11 @@ function InventoryItem:usable(seconds)
 end
 
 -- Inventory Items
-local FlaskOfTheUndertow = InventoryItem.add(152641)
-FlaskOfTheUndertow.buff = Ability.add(251839, true, true)
-local BattlePotionOfStrength = InventoryItem.add(163224)
-BattlePotionOfStrength.buff = Ability.add(279153, true, true)
-BattlePotionOfStrength.buff.triggers_gcd = false
+local GreaterFlaskOfTheUndertow = InventoryItem.add(168654)
+GreaterFlaskOfTheUndertow.buff = Ability.add(298841, true, true)
+local PotionOfUnbridledFury = InventoryItem.add(169299)
+PotionOfUnbridledFury.buff = Ability.add(300714, true, true)
+PotionOfUnbridledFury.buff.triggers_gcd = false
 -- Equipment
 local Trinket1 = InventoryItem.add(0)
 local Trinket2 = InventoryItem.add(0)
@@ -1214,12 +1214,12 @@ actions.precombat+=/augmentation
 actions.precombat+=/snapshot_stats
 actions.precombat+=/potion
 ]]
-		if Opt.pot and not InArenaOrBattleground() then
-			if FlaskOfTheUndertow:usable() and FlaskOfTheUndertow.buff:remains() < 300 then
-				UseCooldown(FlaskOfTheUndertow)
+		if Opt.pot and not Player:InArenaOrBattleground() then
+			if GreaterFlaskOfTheUndertow:usable() and GreaterFlaskOfTheUndertow.buff:remains() < 300 then
+				UseCooldown(GreaterFlaskOfTheUndertow)
 			end
-			if BattlePotionOfStrength:usable() then
-				UseCooldown(BattlePotionOfStrength)
+			if Target.boss and PotionOfUnbridledFury:usable() then
+				UseCooldown(PotionOfUnbridledFury)
 			end
 		end
 		if DeathAndDecay:usable() then
@@ -1249,8 +1249,8 @@ actions+=/call_action_list,name=standard
 			UseCooldown(Trinket2)
 		end
 	end
-	if Opt.pot and BattlePotionOfStrength:usable() and self.drw_up then
-		UseCooldown(BattlePotionOfStrength)
+	if Opt.pot and Target.boss and PotionOfUnbridledFury:usable() and self.drw_up then
+		UseCooldown(PotionOfUnbridledFury)
 	end
 	if Player.use_cds and not self.drw_up and DancingRuneWeapon:usable() and not Player.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:ready()) then
 		UseCooldown(DancingRuneWeapon)
@@ -1384,12 +1384,12 @@ end
 
 APL[SPEC.FROST].main = function(self)
 	if Player:TimeInCombat() == 0 then
-		if Opt.pot and not InArenaOrBattleground() then
-			if FlaskOfTheUndertow:usable() and FlaskOfTheUndertow.buff:remains() < 300 then
-				UseCooldown(FlaskOfTheUndertow)
+		if Opt.pot and not Player:InArenaOrBattleground() then
+			if GreaterFlaskOfTheUndertow:usable() and GreaterFlaskOfTheUndertow.buff:remains() < 300 then
+				UseCooldown(GreaterFlaskOfTheUndertow)
 			end
-			if BattlePotionOfStrength:usable() then
-				UseCooldown(BattlePotionOfStrength)
+			if Target.boss and PotionOfUnbridledFury:usable() then
+				UseCooldown(PotionOfUnbridledFury)
 			end
 		end
 	end
@@ -1414,12 +1414,12 @@ actions.precombat+=/potion
 actions.precombat+=/raise_dead
 actions.precombat+=/army_of_the_dead,delay=2
 ]]
-		if Opt.pot and not InArenaOrBattleground() then
-			if FlaskOfTheUndertow:usable() and FlaskOfTheUndertow.buff:remains() < 300 then
-				UseCooldown(FlaskOfTheUndertow)
+		if Opt.pot and not Player:InArenaOrBattleground() then
+			if GreaterFlaskOfTheUndertow:usable() and GreaterFlaskOfTheUndertow.buff:remains() < 300 then
+				UseCooldown(GreaterFlaskOfTheUndertow)
 			end
-			if BattlePotionOfStrength:usable() then
-				UseCooldown(BattlePotionOfStrength)
+			if Target.boss and PotionOfUnbridledFury:usable() then
+				UseCooldown(PotionOfUnbridledFury)
 			end
 		end
 		if Target.boss then
@@ -1444,8 +1444,8 @@ actions+=/call_action_list,name=generic
 	if ArcaneTorrent:usable() and Player:RunicPowerDeficit() > 65 and (SummonGargoyle:up() or not SummonGargoyle.known) and Player:RuneDeficit() >= 5 then
 		UseExtra(ArcaneTorrent)
 	end
-	if Opt.pot and BattlePotionOfStrength:usable() and (ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up()) then
-		UseExtra(BattlePotionOfStrength)
+	if Opt.pot and Target.boss and PotionOfUnbridledFury:usable() and (ArmyOfTheDead:ready() or SummonGargoyle:up() or UnholyFrenzy:up()) then
+		UseExtra(PotionOfUnbridledFury)
 	end
 	if Outbreak:usable() and Outbreak:ticking() < 1 and VirulentPlague:remains() <= Player.gcd and Target.timeToDie > (VirulentPlague:remains() + 1) then
 		return Outbreak
@@ -2111,11 +2111,11 @@ function events:ADDON_LOADED(name)
 	if name == 'Braindead' then
 		Opt = Braindead
 		if not Opt.frequency then
-			print('It looks like this is your first time running Braindead, why don\'t you take some time to familiarize yourself with the commands?')
-			print('Type |cFFFFD000' .. SLASH_Braindead1 .. '|r for a list of commands.')
+			print('It looks like this is your first time running ' .. name .. ', why don\'t you take some time to familiarize yourself with the commands?')
+			print('Type |cFFFFD000' .. SLASH_Doomed1 .. '|r for a list of commands.')
 		end
 		if UnitLevel('player') < 110 then
-			print('[|cFFFFD000Warning|r] Braindead is not designed for players under level 110, and almost certainly will not operate properly!')
+			print('[|cFFFFD000Warning|r] ' .. name .. ' is not designed for players under level 110, and almost certainly will not operate properly!')
 		end
 		InitializeOpts()
 		Azerite:initialize()
@@ -2712,7 +2712,7 @@ function SlashCmdList.Braindead(msg, editbox)
 		if msg[2] then
 			Opt.dimmer = msg[2] == 'on'
 		end
-		return Status('Dim main ability icon when you don\'t have enough mana to use it', Opt.dimmer)
+		return Status('Dim main ability icon when you don\'t have enough resources to use it', Opt.dimmer)
 	end
 	if msg[1] == 'miss' then
 		if msg[2] then
