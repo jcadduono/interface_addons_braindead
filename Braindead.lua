@@ -1022,7 +1022,7 @@ function Azerite:update()
 			end
 		end
 	end
-	for _, loc in next, C_AzeriteEssence.GetMilestones() do
+	for _, loc in next, C_AzeriteEssence.GetMilestones() or {} do
 		if loc.slot then
 			pid = C_AzeriteEssence.GetMilestoneEssence(loc.ID)
 			if pid then
@@ -2112,7 +2112,7 @@ function events:ADDON_LOADED(name)
 		Opt = Braindead
 		if not Opt.frequency then
 			print('It looks like this is your first time running ' .. name .. ', why don\'t you take some time to familiarize yourself with the commands?')
-			print('Type |cFFFFD000' .. SLASH_Doomed1 .. '|r for a list of commands.')
+			print('Type |cFFFFD000' .. SLASH_Braindead1 .. '|r for a list of commands.')
 		end
 		if UnitLevel('player') < 110 then
 			print('[|cFFFFD000Warning|r] ' .. name .. ' is not designed for players under level 110, and almost certainly will not operate properly!')
