@@ -918,9 +918,81 @@ local SuddenDoom = Ability:Add(49530, true, true, 81340)
 SuddenDoom.buff_duration = 10
 local VirulentEruption = Ability:Add(191685, false, true)
 -- Azerite Traits
-local ConcentratedFlame = Ability:Add(295373, false, true)
-ConcentratedFlame.cooldown_duration = 30
 local MagusOfTheDead = Ability:Add(288417, true, true)
+-- Heart of Azeroth
+---- Major Essences
+local ConcentratedFlame = Ability:Add(295373, true, true, 295378)
+ConcentratedFlame.buff_duration = 180
+ConcentratedFlame.cooldown_duration = 30
+ConcentratedFlame.requires_charge = true
+ConcentratedFlame.essence_id = 12
+ConcentratedFlame.essence_major = true
+ConcentratedFlame:SetVelocity(40)
+ConcentratedFlame.dot = Ability:Add(295368, false, true)
+ConcentratedFlame.dot.buff_duration = 6
+ConcentratedFlame.dot.tick_interval = 2
+ConcentratedFlame.dot.essence_id = 12
+ConcentratedFlame.dot.essence_major = true
+local GuardianOfAzeroth = Ability:Add(295840, false, true)
+GuardianOfAzeroth.cooldown_duration = 180
+GuardianOfAzeroth.essence_id = 14
+GuardianOfAzeroth.essence_major = true
+local FocusedAzeriteBeam = Ability:Add(295258, false, true)
+FocusedAzeriteBeam.cooldown_duration = 90
+FocusedAzeriteBeam.essence_id = 5
+FocusedAzeriteBeam.essence_major = true
+local MemoryOfLucidDreams = Ability:Add(298357, true, true)
+MemoryOfLucidDreams.buff_duration = 15
+MemoryOfLucidDreams.cooldown_duration = 120
+MemoryOfLucidDreams.essence_id = 27
+MemoryOfLucidDreams.essence_major = true
+local PurifyingBlast = Ability:Add(295337, false, true, 295338)
+PurifyingBlast.cooldown_duration = 60
+PurifyingBlast.essence_id = 6
+PurifyingBlast.essence_major = true
+PurifyingBlast:AutoAoe(true)
+local RippleInSpace = Ability:Add(302731, true, true)
+RippleInSpace.buff_duration = 2
+RippleInSpace.cooldown_duration = 60
+RippleInSpace.essence_id = 15
+RippleInSpace.essence_major = true
+local TheUnboundForce = Ability:Add(298452, false, true)
+TheUnboundForce.cooldown_duration = 45
+TheUnboundForce.essence_id = 28
+TheUnboundForce.essence_major = true
+local VisionOfPerfection = Ability:Add(299370, true, true, 303345)
+VisionOfPerfection.buff_duration = 10
+VisionOfPerfection.essence_id = 22
+VisionOfPerfection.essence_major = true
+local WorldveinResonance = Ability:Add(295186, true, true)
+WorldveinResonance.cooldown_duration = 60
+WorldveinResonance.essence_id = 4
+WorldveinResonance.essence_major = true
+---- Minor Essences
+local AncientFlame = Ability:Add(295367, false, true)
+AncientFlame.buff_duration = 10
+AncientFlame.essence_id = 12
+local CondensedLifeForce = Ability:Add(295367, false, true)
+CondensedLifeForce.essence_id = 14
+local FocusedEnergy = Ability:Add(295248, true, true)
+FocusedEnergy.buff_duration = 4
+FocusedEnergy.essence_id = 5
+local Lifeblood = Ability:Add(295137, true, true)
+Lifeblood.essence_id = 4
+local LucidDreams = Ability:Add(298343, true, true)
+LucidDreams.buff_duration = 8
+LucidDreams.essence_id = 27
+local PurificationProtocol = Ability:Add(295305, false, true)
+PurificationProtocol.essence_id = 6
+PurificationProtocol:AutoAoe()
+local RealityShift = Ability:Add(302952, true, true)
+RealityShift.buff_duration = 20
+RealityShift.cooldown_duration = 30
+RealityShift.essence_id = 15
+local RecklessForce = Ability:Add(302917, true, true)
+RecklessForce.essence_id = 28
+local StriveForPerfection = Ability:Add(299369, true, true)
+StriveForPerfection.essence_id = 22
 -- Racials
 local ArcaneTorrent = Ability:Add(50613, true, true) -- Blood Elf
 -- Trinket Effects
@@ -1306,6 +1378,13 @@ end
 -- End Target API
 
 -- Start Ability Modifications
+
+function ConcentratedFlame.dot:Remains()
+	if ConcentratedFlame:Traveling() then
+		return self:Duration()
+	end
+	return Ability.Remains(self)
+end
 
 function DeathAndDecay:RuneCost()
 	if CrimsonScourge.known and CrimsonScourge:Up() then
@@ -1790,7 +1869,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return SoulReaper
 		end
 	end
-	if ConcentratedFlame:Usable() then
+	if ConcentratedFlame:Usable() and ConcentratedFlame.dot:Down() then
 		return ConcentratedFlame
 	end
 end
@@ -1855,7 +1934,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if ConcentratedFlame:Usable() then
+	if ConcentratedFlame:Usable() and ConcentratedFlame.dot:Down() then
 		return ConcentratedFlame
 	end
 	if SoulReaper:Usable() then
