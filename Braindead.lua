@@ -133,8 +133,10 @@ local Player = {
 	rune_max = 6,
 	rune_regen = 0,
 	group_size = 1,
+	last_swing_taken = 0,
 	previous_gcd = {},-- list of previous GCD abilities
 	item_use_blacklist = { -- list of item IDs with on-use effects we should mark unusable
+		[174044] = true, -- Humming Black Dragonscale (parachute)
 	},
 }
 
@@ -171,9 +173,22 @@ braindeadPanel.swipe = CreateFrame('Cooldown', nil, braindeadPanel, 'CooldownFra
 braindeadPanel.swipe:SetAllPoints(braindeadPanel)
 braindeadPanel.text = CreateFrame('Frame', nil, braindeadPanel)
 braindeadPanel.text:SetAllPoints(braindeadPanel)
+braindeadPanel.text.tl = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
+braindeadPanel.text.tl:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
+braindeadPanel.text.tl:SetPoint('TOPLEFT', braindeadPanel, 'TOPLEFT', 2.5, -3)
+braindeadPanel.text.tl:SetJustifyH('LEFT')
+braindeadPanel.text.tr = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
+braindeadPanel.text.tr:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
+braindeadPanel.text.tr:SetPoint('TOPRIGHT', braindeadPanel, 'TOPRIGHT', -2.5, -3)
+braindeadPanel.text.tr:SetJustifyH('RIGHT')
+braindeadPanel.text.bl = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
+braindeadPanel.text.bl:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
+braindeadPanel.text.bl:SetPoint('BOTTOMLEFT', braindeadPanel, 'BOTTOMLEFT', 2.5, 3)
+braindeadPanel.text.bl:SetJustifyH('LEFT')
 braindeadPanel.text.br = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
 braindeadPanel.text.br:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
-braindeadPanel.text.br:SetPoint('BOTTOMRIGHT', braindeadPanel, 'BOTTOMRIGHT', -1.5, 3)
+braindeadPanel.text.br:SetPoint('BOTTOMRIGHT', braindeadPanel, 'BOTTOMRIGHT', -2.5, 3)
+braindeadPanel.text.br:SetJustifyH('RIGHT')
 braindeadPanel.text.center = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
 braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 9, 'OUTLINE')
 braindeadPanel.text.center:SetAllPoints(braindeadPanel.text)
@@ -310,6 +325,7 @@ local autoAoe = {
 	blacklist = {},
 	ignored_units = {
 		[120651] = true, -- Explosives (Mythic+ affix)
+		[161895] = true, -- Thing From Beyond (40+ Corruption)
 	},
 }
 
@@ -395,7 +411,8 @@ local abilities = {
 
 function Ability:Add(spellId, buff, player, spellId2)
 	local ability = {
-		spellId = spellId,
+		spellIds = type(spellId) == 'table' and spellId or { spellId },
+		spellId = 0,
 		spellId2 = spellId2,
 		name = false,
 		icon = false,
@@ -921,7 +938,17 @@ local VirulentEruption = Ability:Add(191685, false, true)
 local MagusOfTheDead = Ability:Add(288417, true, true)
 -- Heart of Azeroth
 ---- Major Essences
-local ConcentratedFlame = Ability:Add(295373, true, true, 295378)
+local AnimaOfDeath = Ability:Add({294926, 300002, 300003}, false, true)
+AnimaOfDeath.cooldown_duration = 120
+AnimaOfDeath.essence_id = 24
+AnimaOfDeath.essence_major = true
+local BloodOfTheEnemy = Ability:Add({297108, 298273, 298277} , false, true)
+BloodOfTheEnemy.buff_duration = 10
+BloodOfTheEnemy.cooldown_duration = 120
+BloodOfTheEnemy.essence_id = 23
+BloodOfTheEnemy.essence_major = true
+BloodOfTheEnemy:AutoAoe(true)
+local ConcentratedFlame = Ability:Add({295373, 299349, 299353}, true, true, 295378)
 ConcentratedFlame.buff_duration = 180
 ConcentratedFlame.cooldown_duration = 30
 ConcentratedFlame.requires_charge = true
@@ -933,38 +960,43 @@ ConcentratedFlame.dot.buff_duration = 6
 ConcentratedFlame.dot.tick_interval = 2
 ConcentratedFlame.dot.essence_id = 12
 ConcentratedFlame.dot.essence_major = true
-local GuardianOfAzeroth = Ability:Add(295840, false, true)
+local GuardianOfAzeroth = Ability:Add({295840, 299355, 299358}, false, true)
 GuardianOfAzeroth.cooldown_duration = 180
 GuardianOfAzeroth.essence_id = 14
 GuardianOfAzeroth.essence_major = true
-local FocusedAzeriteBeam = Ability:Add(295258, false, true)
+local FocusedAzeriteBeam = Ability:Add({295258, 299336, 299338}, false, true)
 FocusedAzeriteBeam.cooldown_duration = 90
 FocusedAzeriteBeam.essence_id = 5
 FocusedAzeriteBeam.essence_major = true
-local MemoryOfLucidDreams = Ability:Add(298357, true, true)
+FocusedAzeriteBeam:AutoAoe()
+local MemoryOfLucidDreams = Ability:Add({298357, 299372, 299374}, true, true)
 MemoryOfLucidDreams.buff_duration = 15
 MemoryOfLucidDreams.cooldown_duration = 120
 MemoryOfLucidDreams.essence_id = 27
 MemoryOfLucidDreams.essence_major = true
-local PurifyingBlast = Ability:Add(295337, false, true, 295338)
+local PurifyingBlast = Ability:Add({295337, 299345, 299347}, false, true, 295338)
 PurifyingBlast.cooldown_duration = 60
 PurifyingBlast.essence_id = 6
 PurifyingBlast.essence_major = true
 PurifyingBlast:AutoAoe(true)
-local RippleInSpace = Ability:Add(302731, true, true)
+local ReapingFlames = Ability:Add({310690, 311194, 311195}, false, true)
+ReapingFlames.cooldown_duration = 45
+ReapingFlames.essence_id = 35
+ReapingFlames.essence_major = true
+local RippleInSpace = Ability:Add({302731, 302982, 302983}, true, true)
 RippleInSpace.buff_duration = 2
 RippleInSpace.cooldown_duration = 60
 RippleInSpace.essence_id = 15
 RippleInSpace.essence_major = true
-local TheUnboundForce = Ability:Add(298452, false, true)
+local TheUnboundForce = Ability:Add({298452, 299376,299378}, false, true)
 TheUnboundForce.cooldown_duration = 45
 TheUnboundForce.essence_id = 28
 TheUnboundForce.essence_major = true
-local VisionOfPerfection = Ability:Add(299370, true, true, 303345)
+local VisionOfPerfection = Ability:Add({296325, 299368, 299370}, true, true, 303345)
 VisionOfPerfection.buff_duration = 10
 VisionOfPerfection.essence_id = 22
 VisionOfPerfection.essence_major = true
-local WorldveinResonance = Ability:Add(295186, true, true)
+local WorldveinResonance = Ability:Add({295186, 298628, 299334}, true, true)
 WorldveinResonance.cooldown_duration = 60
 WorldveinResonance.essence_id = 4
 WorldveinResonance.essence_major = true
@@ -989,12 +1021,17 @@ local RealityShift = Ability:Add(302952, true, true)
 RealityShift.buff_duration = 20
 RealityShift.cooldown_duration = 30
 RealityShift.essence_id = 15
-local RecklessForce = Ability:Add(302917, true, true)
+local RecklessForce = Ability:Add(302932, true, true)
+RecklessForce.buff_duration = 3
 RecklessForce.essence_id = 28
+RecklessForce.counter = Ability:Add(302917, true, true)
+RecklessForce.counter.essence_id = 28
 local StriveForPerfection = Ability:Add(299369, true, true)
 StriveForPerfection.essence_id = 22
 -- Racials
 local ArcaneTorrent = Ability:Add(50613, true, true) -- Blood Elf
+-- PvP talents
+
 -- Trinket Effects
 
 -- End Abilities
@@ -1095,7 +1132,7 @@ function Azerite:Update()
 		self.essences[pid] = nil
 	end
 	if UnitEffectiveLevel('player') < 110 then
-		print('disabling azerite, player is effectively level', UnitEffectiveLevel('player'))
+		--print('disabling azerite, player is effectively level', UnitEffectiveLevel('player'))
 		return -- disable all Azerite/Essences for players scaled under 110
 	end
 	for _, loc in next, self.locations do
@@ -1107,6 +1144,7 @@ function Azerite:Update()
 							self.traits[pid] = 1 + (self.traits[pid] or 0)
 							pinfo = C_AzeriteEmpoweredItem.GetPowerInfo(pid)
 							if pinfo and pinfo.spellID then
+								--print('Azerite found:', pinfo.azeritePowerID, GetSpellInfo(pinfo.spellID))
 								self.traits[pinfo.spellID] = self.traits[pid]
 							end
 						end
@@ -1170,6 +1208,10 @@ function Player:RunicPowerDeficit()
 	return self.runic_power_max - self.runic_power
 end
 
+function Player:UnderAttack()
+	return (Player.time - self.last_swing_taken) < 3
+end
+
 function Player:TimeInCombat()
 	if self.combat_start > 0 then
 		return self.time - self.combat_start
@@ -1218,17 +1260,20 @@ end
 function Player:UpdateAbilities()
 	self.rune_max = UnitPowerMax('player', 5)
 	self.runic_power_max = UnitPowerMax('player', 6)
-	local _, ability
+
+	local _, ability, spellId
 
 	for _, ability in next, abilities.all do
-		ability.name, _, ability.icon = GetSpellInfo(ability.spellId)
 		ability.known = false
-		if C_LevelLink.IsSpellLocked(ability.spellId) or (ability.spellId2 and C_LevelLink.IsSpellLocked(ability.spellId2)) then
-			-- spell is locked, do not mark as known
-		elseif IsPlayerSpell(ability.spellId) or (ability.spellId2 and IsPlayerSpell(ability.spellId2)) then
-			ability.known = true
-		elseif Azerite.traits[ability.spellId] then
-			ability.known = true
+		for _, spellId in next, ability.spellIds do
+			ability.spellId, ability.name, _, ability.icon = spellId, GetSpellInfo(spellId)
+			if IsPlayerSpell(spellId) or Azerite.traits[spellId] then
+				ability.known = true
+				break
+			end
+		end
+		if C_LevelLink.IsSpellLocked(ability.spellId) then
+			ability.known = false -- spell is locked, do not mark as known
 		elseif ability.essence_id and Azerite.essences[ability.essence_id] then
 			if ability.essence_major then
 				ability.known = Azerite.essences[ability.essence_id].major
@@ -1307,11 +1352,12 @@ end
 function Target:UpdateHealth()
 	timer.health = 0
 	self.health = UnitHealth('target')
+	self.health_max = UnitHealthMax('target')
 	table.remove(self.healthArray, 1)
-	self.healthArray[15] = self.health
-	self.timeToDieMax = self.health / UnitHealthMax('player') * 15
-	self.healthPercentage = self.healthMax > 0 and (self.health / self.healthMax * 100) or 100
-	self.healthLostPerSec = (self.healthArray[1] - self.health) / 3
+	self.healthArray[25] = self.health
+	self.timeToDieMax = self.health / Player.health_max * 15
+	self.healthPercentage = self.health_max > 0 and (self.health / self.health_max * 100) or 100
+	self.healthLostPerSec = (self.healthArray[1] - self.health) / 5
 	self.timeToDie = self.healthLostPerSec > 0 and min(self.timeToDieMax, self.health / self.healthLostPerSec) or self.timeToDieMax
 end
 
@@ -1328,14 +1374,13 @@ function Target:Update()
 		self.classification = 'normal'
 		self.player = false
 		self.level = UnitLevel('player')
-		self.healthMax = 0
 		self.hostile = true
 		local i
-		for i = 1, 15 do
+		for i = 1, 25 do
 			self.healthArray[i] = 0
 		end
+		self:UpdateHealth()
 		if Opt.always_on then
-			self:UpdateHealth()
 			UI:UpdateCombat()
 			braindeadPanel:Show()
 			return true
@@ -1348,7 +1393,7 @@ function Target:Update()
 	if guid ~= self.guid then
 		self.guid = guid
 		local i
-		for i = 1, 15 do
+		for i = 1, 25 do
 			self.healthArray[i] = UnitHealth('target')
 		end
 	end
@@ -1357,18 +1402,17 @@ function Target:Update()
 	self.classification = UnitClassification('target')
 	self.player = UnitIsPlayer('target')
 	self.level = UnitLevel('target')
-	self.healthMax = UnitHealthMax('target')
 	self.hostile = UnitCanAttack('player', 'target') and not UnitIsDead('target')
+	self:UpdateHealth()
 	if not self.player and self.classification ~= 'minus' and self.classification ~= 'normal' then
 		if self.level == -1 or (Player.instance == 'party' and self.level >= UnitLevel('player') + 2) then
 			self.boss = true
 			self.stunnable = false
-		elseif Player.instance == 'raid' or (self.healthMax > Player.health_max * 10) then
+		elseif Player.instance == 'raid' or (self.health_max > Player.health_max * 10) then
 			self.stunnable = false
 		end
 	end
 	if self.hostile or Opt.always_on then
-		self:UpdateHealth()
 		UI:UpdateCombat()
 		braindeadPanel:Show()
 		return true
@@ -2143,7 +2187,7 @@ function UI.OnResourceFrameHide()
 end
 
 function UI.OnResourceFrameShow()
-	if Opt.snap then
+	if Opt.snap and UI.anchor.points then
 		local p = UI.anchor.points[Player.spec][Opt.snap]
 		braindeadPanel:ClearAllPoints()
 		braindeadPanel:SetPoint(p[1], UI.anchor.frame, p[2], p[3], p[4])
@@ -2197,17 +2241,15 @@ function UI:UpdateDisplay()
 		           (Player.main.itemId and IsUsableItem(Player.main.itemId)))
 	end
 	if Player.pooling_for_bonestorm then
-		braindeadPanel.text.center:SetText('Pool for\n' .. Bonestorm.name)
-		text_center = true
+		text_center = 'Pool for\n' .. Bonestorm.name
 	elseif Player.pooling_for_aotd then
-		braindeadPanel.text.center:SetText('Pool for\n' .. ArmyOfTheDead.name)
-		text_center = true
+		text_center = 'Pool for\n' .. ArmyOfTheDead.name
 	elseif Player.pooling_for_gargoyle then
-		braindeadPanel.text.center:SetText('Pool for\n' .. SummonGargoyle.name)
-		text_center = true
+		text_center = 'Pool for\n' .. SummonGargoyle.name
 	end
 	braindeadPanel.dimmer:SetShown(dim)
-	braindeadPanel.text.center:SetShown(text_center)
+	braindeadPanel.text.center:SetText(text_center)
+	--braindeadPanel.text.bl:SetText(format('%.1fs', Target.timeToDie))
 end
 
 function UI:UpdateCombat()
@@ -2318,11 +2360,16 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 			autoAoe:Remove(dstGUID)
 		end
 	end
-	if Opt.auto_aoe and (eventType == 'SWING_DAMAGE' or eventType == 'SWING_MISSED') then
-		if dstGUID == Player.guid or dstGUID == Player.pet then
-			autoAoe:Add(srcGUID, true)
-		elseif (srcGUID == Player.guid or srcGUID == Player.pet) and not (missType == 'EVADE' or missType == 'IMMUNE') then
-			autoAoe:Add(dstGUID, true)
+	if eventType == 'SWING_DAMAGE' or eventType == 'SWING_MISSED' then
+		if dstGUID == Player.guid then
+			Player.last_swing_taken = Player.time
+		end
+		if Opt.auto_aoe then
+			if dstGUID == Player.guid or dstGUID == Player.pet then
+				autoAoe:Add(srcGUID, true)
+			elseif (srcGUID == Player.guid or srcGUID == Player.pet) and not (missType == 'EVADE' or missType == 'IMMUNE') then
+				autoAoe:Add(dstGUID, true)
+			end
 		end
 	end
 
@@ -2350,6 +2397,7 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 	   eventType == 'SPELL_CAST_FAILED' or
 	   eventType == 'SPELL_AURA_REMOVED' or
 	   eventType == 'SPELL_DAMAGE' or
+	   eventType == 'SPELL_ABSORBED' or
 	   eventType == 'SPELL_PERIODIC_DAMAGE' or
 	   eventType == 'SPELL_MISSED' or
 	   eventType == 'SPELL_AURA_APPLIED' or
@@ -2412,11 +2460,11 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 			autoAoe:Remove(dstGUID)
 		elseif ability.auto_aoe and (eventType == ability.auto_aoe.trigger or ability.auto_aoe.trigger == 'SPELL_AURA_APPLIED' and eventType == 'SPELL_AURA_REFRESH') then
 			ability:RecordTargetHit(dstGUID)
-		elseif BurstingSores.known and ability == FesteringWound and eventType == 'SPELL_DAMAGE' then
+		elseif BurstingSores.known and ability == FesteringWound and (eventType == 'SPELL_DAMAGE' or eventType == 'SPELL_ABSORBED') then
 			BurstingSores:RecordTargetHit(dstGUID)
 		end
 	end
-	if eventType == 'SPELL_MISSED' or eventType == 'SPELL_DAMAGE' or eventType == 'SPELL_AURA_APPLIED' or eventType == 'SPELL_AURA_REFRESH' then
+	if eventType == 'SPELL_ABSORBED' or eventType == 'SPELL_MISSED' or eventType == 'SPELL_DAMAGE' or eventType == 'SPELL_AURA_APPLIED' or eventType == 'SPELL_AURA_REFRESH' then
 		if ability.travel_start and ability.travel_start[dstGUID] then
 			ability.travel_start[dstGUID] = nil
 		end
@@ -2448,6 +2496,7 @@ end
 
 function events:PLAYER_REGEN_ENABLED()
 	Player.combat_start = 0
+	Player.last_swing_taken = 0
 	Player.pet_stuck = false
 	Target.estimated_range = 30
 	Player.previous_gcd = {}
@@ -2674,7 +2723,7 @@ function SlashCmdList.Braindead(msg, editbox)
 			end
 			UI.OnResourceFrameShow()
 		end
-		return Status('Snap to Blizzard combat resources frame', Opt.snap)
+		return Status('Snap to the Personal Resource Display frame', Opt.snap)
 	end
 	if msg[1] == 'scale' then
 		if startsWith(msg[2], 'prev') then
@@ -2899,7 +2948,7 @@ function SlashCmdList.Braindead(msg, editbox)
 	local _, cmd
 	for _, cmd in next, {
 		'locked |cFF00C000on|r/|cFFC00000off|r - lock the Braindead UI so that it can\'t be moved',
-		'snap |cFF00C000above|r/|cFF00C000below|r/|cFFC00000off|r - snap the Braindead UI to the Blizzard combat resources frame',
+		'snap |cFF00C000above|r/|cFF00C000below|r/|cFFC00000off|r - snap the Braindead UI to the Personal Resource Display',
 		'scale |cFFFFD000prev|r/|cFFFFD000main|r/|cFFFFD000cd|r/|cFFFFD000interrupt|r/|cFFFFD000extra|r/|cFFFFD000glow|r - adjust the scale of the Braindead UI icons',
 		'alpha |cFFFFD000[percent]|r - adjust the transparency of the Braindead UI icons',
 		'frequency |cFFFFD000[number]|r - set the calculation frequency (default is every 0.2 seconds)',
