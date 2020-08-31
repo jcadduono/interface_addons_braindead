@@ -869,6 +869,7 @@ local DarkTransformation = Ability:Add(63560, true, true)
 DarkTransformation.buff_duration = 15
 DarkTransformation.cooldown_duration = 60
 DarkTransformation.requires_pet = true
+DarkTransformation.auraTarget = 'pet'
 local DeathCoil = Ability:Add(47541, false, true, 47632)
 DeathCoil.runic_power_cost = 40
 DeathCoil:SetVelocity(35)
@@ -992,6 +993,10 @@ local TheUnboundForce = Ability:Add({298452, 299376,299378}, false, true)
 TheUnboundForce.cooldown_duration = 45
 TheUnboundForce.essence_id = 28
 TheUnboundForce.essence_major = true
+local VigilantProtector = Ability:Add({310592, 310601, 310602}, false, true)
+VigilantProtector.cooldown_duration = 120
+VigilantProtector.essence_id = 34
+VigilantProtector.essence_major = true
 local VisionOfPerfection = Ability:Add({296325, 299368, 299370}, true, true, 303345)
 VisionOfPerfection.buff_duration = 10
 VisionOfPerfection.essence_id = 22
@@ -1405,7 +1410,7 @@ function Target:Update()
 	self.hostile = UnitCanAttack('player', 'target') and not UnitIsDead('target')
 	self:UpdateHealth()
 	if not self.player and self.classification ~= 'minus' and self.classification ~= 'normal' then
-		if self.level == -1 or (Player.instance == 'party' and self.level >= UnitLevel('player') + 2) then
+		if self.level == -1 or (Player.instance == 'party' and self.level >= UnitLevel('player') + 3) then
 			self.boss = true
 			self.stunnable = false
 		elseif Player.instance == 'raid' or (self.health_max > Player.health_max * 10) then
@@ -1547,6 +1552,9 @@ actions+=/call_action_list,name=standard
 	if Opt.pot and Target.boss and PotionOfUnbridledFury:Usable() and self.drw_up then
 		UseCooldown(PotionOfUnbridledFury)
 	end
+	if Player.use_cds and VigilantProtector:Usable() and (Bonestorm:Up() or DancingRuneWeapon:Up()) then
+		UseCooldown(VigilantProtector)
+	end
 	if Player.use_cds and not self.drw_up and DancingRuneWeapon:Usable() and not Player.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:Ready()) then
 		UseCooldown(DancingRuneWeapon)
 	end
@@ -1675,6 +1683,9 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if ArcaneTorrent:Usable() and Player:RunicPowerDeficit() > 20 then
 		UseExtra(ArcaneTorrent)
 	end
+	if ConcentratedFlame:Usable() and ConcentratedFlame.dot:Down() and ConcentratedFlame:FullRechargeTime() < Player.gcd then
+		return ConcentratedFlame
+	end
 end
 
 APL[SPEC.FROST].main = function(self)
@@ -1793,6 +1804,19 @@ actions.cooldowns+=/unholy_blight
 				return UseCooldown(UnholyFrenzy)
 			end
 		end
+		if BloodOfTheEnemy:Usable() and (DarkTransformation:Up() or UnholyFrenzy:Up()) then
+			UseCooldown(BloodOfTheEnemy)
+		elseif FocusedAzeriteBeam:Usable() then
+			UseCooldown(FocusedAzeriteBeam)
+		elseif PurifyingBlast:Usable() then
+			UseCooldown(PurifyingBlast)
+		elseif GuardianOfAzeroth:Usable() then
+			UseCooldown(GuardianOfAzeroth)
+		elseif MemoryOfLucidDreams:Usable() then
+			UseCooldown(MemoryOfLucidDreams)
+		elseif WorldveinResonance:Usable() and Lifeblood:Stack() < 4 then
+			UseCooldown(WorldveinResonance)
+		end
 	end
 	if SoulReaper:Usable() then
 		if between(Target.timeToDie, 4, 8) then
@@ -1804,6 +1828,15 @@ actions.cooldowns+=/unholy_blight
 	end
 	if UnholyBlight:Usable() then
 		return UseCooldown(UnholyBlight)
+	end
+	if RippleInSpace:Usable() then
+		UseCooldown(RippleInSpace)
+	elseif ConcentratedFlame:Usable() and ConcentratedFlame.dot:Down() and ConcentratedFlame:FullRechargeTime() < Player.gcd then
+		UseCooldown(ConcentratedFlame)
+	elseif TheUnboundForce:Usable() and (RecklessForce:Up() or RecklessForce.counter:Stack() < 10) then
+		UseCooldown(TheUnboundForce)
+	elseif ReapingFlames:Usable() then
+		UseCooldown(ReapingFlames)
 	end
 end
 
