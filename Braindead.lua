@@ -1552,7 +1552,7 @@ actions+=/call_action_list,name=standard
 	if Opt.pot and Target.boss and PotionOfUnbridledFury:Usable() and self.drw_up then
 		UseCooldown(PotionOfUnbridledFury)
 	end
-	if Player.use_cds and VigilantProtector:Usable() and (Bonestorm:Up() or DancingRuneWeapon:Up()) then
+	if Player.use_cds and VigilantProtector:Usable() and (Bonestorm:Up() or ((not Bonestorm.known or Player.enemies <= 2) and DancingRuneWeapon:Up())) then
 		UseCooldown(VigilantProtector)
 	end
 	if Player.use_cds and not self.drw_up and DancingRuneWeapon:Usable() and not Player.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:Ready()) then
