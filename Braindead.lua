@@ -814,6 +814,7 @@ HeartStrike.buff_duration = 8
 HeartStrike.rune_cost = 1
 local Marrowrend = Ability:Add(195182, false, true)
 Marrowrend.rune_cost = 2
+local Ossuary = Ability:Add(219786, true, true, 219788)
 ------ Talents
 local Blooddrinker = Ability:Add(206931, false, true)
 Blooddrinker.buff_duration = 3
@@ -835,12 +836,7 @@ Consumption:AutoAoe()
 local Heartbreaker = Ability:Add(210738, false, true)
 local Hemostasis = Ability:Add(273946, true, true, 273947)
 Hemostasis.buff_duration = 15
-local Ossuary = Ability:Add(219786, true, true, 219788)
 local RapidDecomposition = Ability:Add(194662, false, true)
-local RuneStrike = Ability:Add(210764, false, true)
-RuneStrike.cooldown_duration = 60
-RuneStrike.rune_cost = 1
-RuneStrike.requires_charge = true
 local Tombstone = Ability:Add(219809, false, true)
 Tombstone.buff_duration = 8
 Tombstone.cooldown_duration = 60
@@ -861,7 +857,7 @@ Apocalypse.cooldown_duration = 90
 local ArmyOfTheDead = Ability:Add(42650, true, true, 42651)
 ArmyOfTheDead.buff_duration = 4
 ArmyOfTheDead.cooldown_duration = 480
-ArmyOfTheDead.rune_cost = 3
+ArmyOfTheDead.rune_cost = 1
 local ControlUndead = Ability:Add(111673, true, true)
 ControlUndead.buff_duration = 300
 ControlUndead.rune_cost = 1
@@ -873,21 +869,23 @@ DarkTransformation.auraTarget = 'pet'
 local DeathCoil = Ability:Add(47541, false, true, 47632)
 DeathCoil.runic_power_cost = 40
 DeathCoil:SetVelocity(35)
+local Epidemic = Ability:Add(207317, false, true, 212739)
+Epidemic.runic_power_cost = 30
+Epidemic.splash = Ability:Add(215969, false, true)
+Epidemic.splash:AutoAoe(true)
 local FesteringStrike = Ability:Add(85948, false, true)
 FesteringStrike.rune_cost = 2
 local FesteringWound = Ability:Add(194310, false, true, 194311)
 FesteringWound.buff_duration = 30
-local Outbreak = Ability:Add(77575, false, true, 196782)
-Outbreak.buff_duration = 6
+local Outbreak = Ability:Add(77575, false, true)
 Outbreak.rune_cost = 1
-Outbreak:TrackAuras()
 local RaiseDead = Ability:Add(46584, false, true)
 RaiseDead.cooldown_duration = 30
 local ScourgeStrike = Ability:Add(55090, false, true, 70890)
 ScourgeStrike.rune_cost = 1
 local VirulentPlague = Ability:Add(191587, false, true)
-VirulentPlague.buff_duration = 21
-VirulentPlague.tick_interval = 1.5
+VirulentPlague.buff_duration = 27
+VirulentPlague.tick_interval = 3
 VirulentPlague:AutoAoe(false, 'apply')
 VirulentPlague:TrackAuras()
 ------ Talents
@@ -905,17 +903,14 @@ Defile.rune_cost = 1
 Defile.tick_interval = 1
 Defile:AutoAoe()
 local EbonFever = Ability:Add(207269, false, true)
-local Epidemic = Ability:Add(207317, false, true, 212739)
-Epidemic.runic_power_cost = 30
-Epidemic.splash = Ability:Add(215969, false, true)
-Epidemic.splash:AutoAoe(true)
 local Pestilence = Ability:Add(277234, false, true)
 local RaiseAbomination = Ability:Add(288853, true, true)
 RaiseAbomination.buff_duration = 25
 RaiseAbomination.cooldown_duration = 90
-local SoulReaper = Ability:Add(130736, false, true)
-SoulReaper.buff_duration = 8
-SoulReaper.cooldown_duration = 45
+local SoulReaper = Ability:Add(343294, false, true)
+SoulReaper.rune_cost = 1
+SoulReaper.buff_duration = 5
+SoulReaper.cooldown_duration = 6
 local UnholyBlight = Ability:Add(115989, true, true)
 UnholyBlight.buff_duration = 6
 UnholyBlight.cooldown_duration = 45
@@ -924,9 +919,9 @@ UnholyBlight.dot = Ability:Add(115994, false, true)
 UnholyBlight.dot.buff_duration = 14
 UnholyBlight.dot.tick_interval = 2
 UnholyBlight:AutoAoe(true)
-local UnholyFrenzy = Ability:Add(207289, true, true)
-UnholyFrenzy.buff_duration = 12
-UnholyFrenzy.cooldown_duration = 75
+local UnholyAssault = Ability:Add(207289, true, true)
+UnholyAssault.buff_duration = 12
+UnholyAssault.cooldown_duration = 75
 ------ Procs
 local DarkSuccor = Ability:Add(101568, true, true)
 DarkSuccor.buff_duration = 20
@@ -1135,10 +1130,6 @@ function Azerite:Update()
 	end
 	for pid in next, self.essences do
 		self.essences[pid] = nil
-	end
-	if UnitEffectiveLevel('player') < 110 then
-		--print('disabling azerite, player is effectively level', UnitEffectiveLevel('player'))
-		return -- disable all Azerite/Essences for players scaled under 110
 	end
 	for _, loc in next, self.locations do
 		if GetInventoryItemID('player', loc:GetEquipmentSlot()) and C_AzeriteEmpoweredItem.IsAzeriteEmpoweredItem(loc) then
@@ -1449,6 +1440,13 @@ function DeathCoil:RunicPowerCost()
 	return Ability.RunicPowerCost(self)
 end
 
+function Epidemic:RunicPowerCost()
+	if SuddenDoom:Up() then
+		return 0
+	end
+	return Ability.RunicPowerCost(self)
+end
+
 function DeathStrike:RunicPowerCost()
 	if DarkSuccor:Up() then
 		return 0
@@ -1574,15 +1572,12 @@ actions.standard+=/marrowrend,if=buff.bone_shield.stack<5&talent.ossuary.enabled
 actions.standard+=/bonestorm,if=runic_power>=100&!buff.dancing_rune_weapon.up
 actions.standard+=/death_strike,if=runic_power.deficit<=(15+buff.dancing_rune_weapon.up*5+spell_targets.heart_strike*talent.heartbreaker.enabled*2)|target.time_to_die<10
 actions.standard+=/death_and_decay,if=spell_targets.death_and_decay>=3
-actions.standard+=/rune_strike,if=(charges_fractional>=1.8|buff.dancing_rune_weapon.up)&rune.time_to_3>=gcd
 actions.standard+=/heart_strike,if=buff.dancing_rune_weapon.up|rune.time_to_4<gcd
 actions.standard+=/blood_boil,if=buff.dancing_rune_weapon.up
 actions.standard+=/death_and_decay,if=buff.crimson_scourge.up|talent.rapid_decomposition.enabled|spell_targets.death_and_decay>=2
 actions.standard+=/consumption
 actions.standard+=/blood_boil
 actions.standard+=/heart_strike,if=rune.time_to_3<gcd|buff.bone_shield.stack>6
-actions.standard+=/use_item,name=grongs_primal_rage
-actions.standard+=/rune_strike
 actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 ]]
 	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= 10 and (not Player.pooling_for_bonestorm or not Bonestorm:Ready(2)) then
@@ -1637,9 +1632,6 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	if DeathStrike:Usable() and not Player.pooling_for_bonestorm and Player:RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) then
 		return DeathStrike
 	end
-	if RuneStrike:Usable() and Player:RuneTimeTo(3) >= Player.gcd and (RuneStrike:ChargesFractional() >= 1.8 or self.drw_up) then
-		return RuneStrike
-	end
 	if HeartStrike:Usable() then
 		if self.drw_up or Player:RuneTimeTo(4) < Player.gcd then
 			return HeartStrike
@@ -1670,9 +1662,6 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	end
 	if HeartStrike:Usable() and (Player:RuneTimeTo(3) < Player.gcd or self.bs_stack > 6) then
 		return HeartStrike
-	end
-	if RuneStrike:Usable() then
-		return RuneStrike
 	end
 	if not Player.pooling_for_bonestorm and DeathStrike:Usable() and Player:RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (Player.gcd + Player:RuneTimeTo(3)) then
 		return DeathStrike
@@ -1740,7 +1729,7 @@ actions.precombat+=/army_of_the_dead,delay=2
 --[[
 actions+=/variable,name=pooling_for_gargoyle,value=cooldown.summon_gargoyle.remains<5&talent.summon_gargoyle.enabled
 actions+=/arcane_torrent,if=runic_power.deficit>65&(pet.gargoyle.active|!talent.summon_gargoyle.enabled)&rune.deficit>=5
-actions+=/potion,if=cooldown.army_of_the_dead.ready|pet.gargoyle.active|buff.unholy_frenzy.up
+actions+=/potion,if=cooldown.army_of_the_dead.ready|pet.gargoyle.active|buff.unholy_assault.up
 # Maintaining Virulent Plague is a priority
 actions+=/outbreak,target_if=dot.virulent_plague.remains<=gcd
 actions+=/call_action_list,name=cooldowns
@@ -1750,10 +1739,10 @@ actions+=/call_action_list,name=generic
 	if ArcaneTorrent:Usable() and Player:RunicPowerDeficit() > 65 and (SummonGargoyle:Up() or not SummonGargoyle.known) and Player:RuneDeficit() >= 5 then
 		UseExtra(ArcaneTorrent)
 	end
-	if Opt.pot and Target.boss and PotionOfUnbridledFury:Usable() and (ArmyOfTheDead:Ready() or SummonGargoyle:Up() or UnholyFrenzy:Up()) then
+	if Opt.pot and Target.boss and PotionOfUnbridledFury:Usable() and (ArmyOfTheDead:Ready() or SummonGargoyle:Up() or UnholyAssault:Up()) then
 		UseExtra(PotionOfUnbridledFury)
 	end
-	if Outbreak:Usable() and Outbreak:Ticking() < 1 and VirulentPlague:Remains() <= Player.gcd and Target.timeToDie > (VirulentPlague:Remains() + 1) then
+	if Outbreak:Usable() and VirulentPlague:Remains() <= Player.gcd and Target.timeToDie > (VirulentPlague:Remains() + 1) then
 		return Outbreak
 	end
 	self:cooldowns()
@@ -1769,11 +1758,9 @@ actions.cooldowns=army_of_the_dead
 actions.cooldowns+=/apocalypse,if=debuff.festering_wound.stack>=4
 actions.cooldowns+=/dark_transformation,if=!raid_event.adds.exists|raid_event.adds.in>15
 actions.cooldowns+=/summon_gargoyle,if=runic_power.deficit<14
-actions.cooldowns+=/unholy_frenzy,if=debuff.festering_wound.stack<4&!(equipped.ramping_amplitude_gigavolt_engine|azerite.magus_of_the_dead.enabled)
-actions.cooldowns+=/unholy_frenzy,if=cooldown.apocalypse.remains<2&(equipped.ramping_amplitude_gigavolt_engine|azerite.magus_of_the_dead.enabled)
-actions.cooldowns+=/unholy_frenzy,if=active_enemies>=2&((cooldown.death_and_decay.remains<=gcd&!talent.defile.enabled)|(cooldown.defile.remains<=gcd&talent.defile.enabled))
-actions.cooldowns+=/soul_reaper,target_if=target.time_to_die<8&target.time_to_die>4
-actions.cooldowns+=/soul_reaper,if=(!raid_event.adds.exists|raid_event.adds.in>20)&rune<=(1-buff.unholy_frenzy.up)
+actions.cooldowns+=/unholy_assault,if=debuff.festering_wound.stack<4&!(equipped.ramping_amplitude_gigavolt_engine|azerite.magus_of_the_dead.enabled)
+actions.cooldowns+=/unholy_assault,if=cooldown.apocalypse.remains<2&(equipped.ramping_amplitude_gigavolt_engine|azerite.magus_of_the_dead.enabled)
+actions.cooldowns+=/unholy_assault,if=active_enemies>=2&((cooldown.death_and_decay.remains<=gcd&!talent.defile.enabled)|(cooldown.defile.remains<=gcd&talent.defile.enabled))
 actions.cooldowns+=/unholy_blight
 ]]
 	if Player.use_cds then
@@ -1792,19 +1779,19 @@ actions.cooldowns+=/unholy_blight
 		if SummonGargoyle:Usable() and Player:RunicPowerDeficit() < 14 then
 			return UseCooldown(SummonGargoyle)
 		end
-		if UnholyFrenzy:Usable() then
+		if UnholyAssault:Usable() then
 			if MagusOfTheDead.known or (Trinket1.itemId == 165580 or Trinket2.itemId == 165580) then
 				if Apocalypse:Ready(2) then
-					return UseCooldown(UnholyFrenzy)
+					return UseCooldown(UnholyAssault)
 				end
 			elseif FesteringWound:Stack() < 4 then
-				return UseCooldown(UnholyFrenzy)
+				return UseCooldown(UnholyAssault)
 			end
 			if Player.enemies >= 2 and ((DeathAndDecay:Ready(Player.gcd) and not Defile.known) or (Defile.known and Defile:Ready(Player.gcd))) then
-				return UseCooldown(UnholyFrenzy)
+				return UseCooldown(UnholyAssault)
 			end
 		end
-		if BloodOfTheEnemy:Usable() and (DarkTransformation:Up() or UnholyFrenzy:Up()) then
+		if BloodOfTheEnemy:Usable() and (DarkTransformation:Up() or UnholyAssault:Up()) then
 			UseCooldown(BloodOfTheEnemy)
 		elseif FocusedAzeriteBeam:Usable() then
 			UseCooldown(FocusedAzeriteBeam)
@@ -1816,14 +1803,6 @@ actions.cooldowns+=/unholy_blight
 			UseCooldown(MemoryOfLucidDreams)
 		elseif WorldveinResonance:Usable() and Lifeblood:Stack() < 4 then
 			UseCooldown(WorldveinResonance)
-		end
-	end
-	if SoulReaper:Usable() then
-		if between(Target.timeToDie, 4, 8) then
-			return UseCooldown(SoulReaper)
-		end
-		if Player.enemies == 1 and Player:Runes() <= (UnholyFrenzy:Up() and 1 or 0) then
-			return UseCooldown(SoulReaper)
 		end
 	end
 	if UnholyBlight:Usable() then
@@ -1857,10 +1836,10 @@ actions.aoe+=/death_coil,if=runic_power.deficit<14&(cooldown.apocalypse.remains>
 actions.aoe+=/scourge_strike,if=((debuff.festering_wound.up&cooldown.apocalypse.remains>5)|debuff.festering_wound.stack>4)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/clawing_shadows,if=((debuff.festering_wound.up&cooldown.apocalypse.remains>5)|debuff.festering_wound.stack>4)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gargoyle
-actions.aoe+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
+actions.aoe+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_assault.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	if Outbreak:Usable() and Outbreak:Ticking() < 1 and VirulentPlague:Ticking() < Player.enemies then
+	if Outbreak:Usable() and not Outbreak:Previous() and VirulentPlague:Ticking() < Player.enemies then
 		return Outbreak
 	end
 	local apocalypse_not_ready = not Player.use_cds or not Apocalypse.known or not Apocalypse:Ready()
@@ -1927,7 +1906,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if not Player.pooling_for_aotd and FesteringStrike:Usable() and ((((FesteringWound:Stack() < 4 and UnholyFrenzy:Down()) or FesteringWound:Stack() < 3) and Apocalypse:Ready(3)) or FesteringWound:Stack() < 1) then
+	if not Player.pooling_for_aotd and FesteringStrike:Usable() and ((((FesteringWound:Stack() < 4 and UnholyAssault:Down()) or FesteringWound:Stack() < 3) and Apocalypse:Ready(3)) or FesteringWound:Stack() < 1) then
 		return FesteringStrike
 	end
 	if DeathStrike:Usable() and DarkSuccor:Up() then
@@ -1939,11 +1918,6 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		end
 		if DeathCoil:Usable() then
 			return DeathCoil
-		end
-	end
-	if SoulReaper:Usable() then
-		if Player:Runes() <= (UnholyFrenzy:Up() and 1 or 0) then
-			return SoulReaper
 		end
 	end
 	if ConcentratedFlame:Usable() and ConcentratedFlame.dot:Down() then
@@ -1960,7 +1934,7 @@ actions.generic+=/defile,if=cooldown.apocalypse.remains
 actions.generic+=/scourge_strike,if=((debuff.festering_wound.up&cooldown.apocalypse.remains>5)|debuff.festering_wound.stack>4)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/clawing_shadows,if=((debuff.festering_wound.up&cooldown.apocalypse.remains>5)|debuff.festering_wound.stack>4)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gargoyle
-actions.generic+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_frenzy.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
+actions.generic+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_assault.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
 	local apocalypse_not_ready_5 = not Player.use_cds or not Apocalypse.known or not Apocalypse:Ready(5)
@@ -1997,7 +1971,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	if not Player.pooling_for_aotd and FesteringStrike:Usable() and ((((FesteringWound:Stack() < 4 and UnholyFrenzy:Down()) or FesteringWound:Stack() < 3) and Apocalypse:Ready(3)) or FesteringWound:Stack() < 1) then
+	if not Player.pooling_for_aotd and FesteringStrike:Usable() and ((((FesteringWound:Stack() < 4 and UnholyAssault:Down()) or FesteringWound:Stack() < 3) and Apocalypse:Ready(3)) or FesteringWound:Stack() < 1) then
 		return FesteringStrike
 	end
 	if DeathStrike:Usable() and DarkSuccor:Up() then
@@ -2013,11 +1987,6 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 	end
 	if ConcentratedFlame:Usable() and ConcentratedFlame.dot:Down() then
 		return ConcentratedFlame
-	end
-	if SoulReaper:Usable() then
-		if Player:Runes() <= (UnholyFrenzy:Up() and 1 or 0) then
-			return SoulReaper
-		end
 	end
 end
 
@@ -2369,8 +2338,8 @@ function events:ADDON_LOADED(name)
 			print('It looks like this is your first time running ' .. name .. ', why don\'t you take some time to familiarize yourself with the commands?')
 			print('Type |cFFFFD000' .. SLASH_Braindead1 .. '|r for a list of commands.')
 		end
-		if UnitLevel('player') < 110 then
-			print('[|cFFFFD000Warning|r] ' .. name .. ' is not designed for players under level 110, and almost certainly will not operate properly!')
+		if UnitLevel('player') < 10 then
+			print('[|cFFFFD000Warning|r] ' .. name .. ' is not designed for players under level 10, and almost certainly will not operate properly!')
 		end
 		InitOpts()
 		Azerite:Init()
@@ -2480,12 +2449,8 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 		elseif eventType == 'SPELL_AURA_REMOVED' then
 			ability:RemoveAura(dstGUID)
 		end
-		if ability == Outbreak then
-			VirulentPlague:RefreshAuraAll()
-		elseif ability == VirulentPlague and eventType == 'SPELL_PERIODIC_DAMAGE' then
-			if not ability.aura_targets[dstGUID] then
-				ability:ApplyAura(dstGUID) -- BUG: VP tick on unrecorded target, assume freshly applied (possibly by Raise Abomination?)
-			end
+		if ability == VirulentPlague and eventType == 'SPELL_PERIODIC_DAMAGE' and not ability.aura_targets[dstGUID] then
+			ability:ApplyAura(dstGUID) -- BUG: VP tick on unrecorded target, assume freshly applied (possibly by Raise Abomination?)
 		end
 	end
 	if Opt.auto_aoe then
@@ -2503,6 +2468,9 @@ function events:COMBAT_LOG_EVENT_UNFILTERED()
 		end
 		if Opt.previous and Opt.miss_effect and eventType == 'SPELL_MISSED' and braindeadPanel:IsVisible() and ability == braindeadPreviousPanel.ability then
 			braindeadPreviousPanel.border:SetTexture('Interface\\AddOns\\Braindead\\misseffect.blp')
+		end
+		if ability == Outbreak and (eventType == 'SPELL_DAMAGE' or eventType == 'SPELL_ABSORBED') then
+			VirulentPlague:RefreshAuraAll()
 		end
 	end
 end
