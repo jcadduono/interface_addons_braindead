@@ -877,6 +877,10 @@ local Outbreak = Ability:Add(77575, false, true)
 Outbreak.rune_cost = 1
 local RaiseDead = Ability:Add(46584, false, true)
 RaiseDead.cooldown_duration = 30
+local SacrificialPact = Ability:Add(327574, false, true)
+SacrificialPact.cooldown_duration = 120
+SacrificialPact.runic_power_cost = 20
+SacrificialPact.requires_pet = true
 local ScourgeStrike = Ability:Add(55090, false, true, 70890)
 ScourgeStrike.rune_cost = 1
 local VirulentPlague = Ability:Add(191587, false, true)
@@ -1398,7 +1402,7 @@ actions+=/dancing_rune_weapon,if=!talent.blooddrinker.enabled|!cooldown.blooddri
 actions+=/tombstone,if=buff.bone_shield.stack>=7
 actions+=/call_action_list,name=standard
 ]]
-	Player.use_cds = Target.boss or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DancingRuneWeapon:Up()
+	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DancingRuneWeapon:Up()
 	Player.pooling_for_bonestorm = Bonestorm.known and Player.enemies >= 3 and not self.drw_up and Bonestorm:Ready(4)
 	self.bs_remains = BoneShield:Remains()
 	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:Stack()
@@ -1548,7 +1552,7 @@ APL[SPEC.FROST].main = function(self)
 end
 
 APL[SPEC.UNHOLY].main = function(self)
-	Player.use_cds = Target.boss or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DarkTransformation:Up() or (ArmyOfTheDead.known and ArmyOfTheDead:Up()) or (UnholyAssault.known and UnholyAssault:Up()) or (SummonGargoyle.known and SummonGargoyle:Up())
+	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DarkTransformation:Up() or (ArmyOfTheDead.known and ArmyOfTheDead:Up()) or (UnholyAssault.known and UnholyAssault:Up()) or (SummonGargoyle.known and SummonGargoyle:Up())
 	Player.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:Ready(5)
 	Player.pooling_for_gargoyle = Player.use_cds and SummonGargoyle.known and SummonGargoyle:Ready(5)
 
@@ -1645,7 +1649,7 @@ actions.cooldowns+=/unholy_blight
 				return UseCooldown(UnholyAssault)
 			end
 		end
-		if SwarmingMist:Usable() and Player:RunicPower() < 20 then
+		if SwarmingMist:Usable() and (Player:RunicPower() < 60 or Player.enemies >= 3) then
 			UseCooldown(SwarmingMist)
 		end
 	end
@@ -1734,6 +1738,9 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		end
 	end
 	if Player:RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
+		if SacrificialPact:Usable() and RaiseDead:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
+			UseCooldown(SacrificialPact)
+		end
 		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
 			return DeathStrike
 		end
@@ -1748,6 +1755,9 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
+		if SacrificialPact:Usable() and RaiseDead:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
+			UseCooldown(SacrificialPact)
+		end
 		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
 			return DeathStrike
 		end
