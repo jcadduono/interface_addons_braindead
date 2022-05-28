@@ -961,6 +961,8 @@ MindFreeze.triggers_gcd = false
 local RaiseAlly = Ability:Add(61999, false, true)
 RaiseAlly.cooldown_duration = 600
 RaiseAlly.runic_power_cost = 30
+local RaiseDead = Ability:Add(46585, false, true)
+RaiseDead.cooldown_duration = 120
 ------ Procs
 
 ------ Talents
@@ -1055,8 +1057,8 @@ local FesteringWound = Ability:Add(194310, false, true, 194311)
 FesteringWound.buff_duration = 30
 local Outbreak = Ability:Add(77575, false, true)
 Outbreak.rune_cost = 1
-local RaiseDead = Ability:Add(46584, false, true)
-RaiseDead.cooldown_duration = 30
+local RaiseDeadUnholy = Ability:Add(46584, false, true)
+RaiseDeadUnholy.cooldown_duration = 30
 local SacrificialPact = Ability:Add(327574, false, true)
 SacrificialPact.cooldown_duration = 120
 SacrificialPact.runic_power_cost = 20
@@ -1140,6 +1142,113 @@ Proliferation.conduit_id = 128
 -- Trinket effects
 
 -- End Abilities
+
+-- Start Summoned Pets
+
+local SummonedPet, Pet = {}, {}
+SummonedPet.__index = SummonedPet
+local summonedPets = {
+	all = {},
+	known = {},
+	byNpcId = {},
+}
+
+function summonedPets:Find(guid)
+	local npcId = guid:match('^Creature%-0%-%d+%-%d+%-%d+%-(%d+)')
+	return npcId and self.byNpcId[tonumber(npcId)]
+end
+
+function summonedPets:Purge()
+	local _, pet, guid, unit
+	for _, pet in next, self.known do
+		for guid, unit in next, pet.active_units do
+			if unit.expires <= Player.time then
+				pet.active_units[guid] = nil
+			end
+		end
+	end
+end
+
+function summonedPets:Count()
+	local _, pet, guid, unit
+	local count = 0
+	for _, pet in next, self.known do
+		count = count + pet:Count()
+	end
+	return count
+end
+
+function SummonedPet:Add(npcId, duration, summonSpell)
+	local pet = {
+		npcId = npcId,
+		duration = duration,
+		active_units = {},
+		summon_spell = summonSpell,
+		known = false,
+	}
+	setmetatable(pet, self)
+	summonedPets.all[#summonedPets.all + 1] = pet
+	return pet
+end
+
+function SummonedPet:Remains(initial)
+	local expires_max, guid, unit = 0
+	for guid, unit in next, self.active_units do
+		if (not initial or unit.initial) and unit.expires > expires_max then
+			expires_max = unit.expires
+		end
+	end
+	return max(0, expires_max - Player.time - Player.execute_remains)
+end
+
+function SummonedPet:Up(...)
+	return self:Remains(...) > 0
+end
+
+function SummonedPet:Down(...)
+	return self:Remains(...) <= 0
+end
+
+function SummonedPet:Count()
+	local count, guid, unit = 0
+	for guid, unit in next, self.active_units do
+		if unit.expires - Player.time > Player.execute_remains then
+			count = count + 1
+		end
+	end
+	return count
+end
+
+function SummonedPet:Expiring(seconds)
+	local count, guid, unit = 0
+	for guid, unit in next, self.active_units do
+		if unit.expires - Player.time <= (seconds or Player.execute_remains) then
+			count = count + 1
+		end
+	end
+	return count
+end
+
+function SummonedPet:AddUnit(guid)
+	local unit = {
+		guid = guid,
+		expires = Player.time + self.duration,
+	}
+	self.active_units[guid] = unit
+	return unit
+end
+
+function SummonedPet:RemoveUnit(guid)
+	if self.active_units[guid] then
+		self.active_units[guid] = nil
+	end
+end
+
+-- Summoned Pets
+Pet.RisenGhoul = SummonedPet:Add(26125, 60, RaiseDead)
+Pet.ArmyOfTheDead = SummonedPet:Add(24207, 30, ArmyOfTheDead)
+Pet.MagusOfTheDead = SummonedPet:Add(163366, 30, ArmyOfTheDead)
+-- End Summoned Pets
 
 -- Start Inventory Items
 
@@ -1411,6 +1520,16 @@ function Player:UpdateAbilities()
 			end
 		end
 	end
+
+	wipe(summonedPets.known)
+	wipe(summonedPets.byNpcId)
+	for _, pet in next, summonedPets.all do
+		pet.known = pet.summon_spell and pet.summon_spell.known
+		if pet.known then
+			summonedPets.known[#summonedPets.known + 1] = pet
+			summonedPets.byNpcId[pet.npcId] = pet
+		end
+	end
 end
 
 function Player:UpdateThreat()
@@ -1469,6 +1588,7 @@ function Player:Update()
 	self:UpdateThreat()
 	self:UpdatePet()
 
+	summonedPets:Purge()
 	trackAuras:Purge()
 	if Opt.auto_aoe then
 		for _, ability in next, abilities.autoAoe do
@@ -1580,6 +1700,13 @@ end
 
 -- Start Ability Modifications
 
+function ArmyOfTheDead:CastSuccess(...)
+	Ability.CastSuccess(self, ...)
+	Pet.ArmyOfTheDead.summoned_by = self
+	Pet.MagusOfTheDead.summoned_by = self
+end
+Apocalypse.CastSuccess = ArmyOfTheDead.CastSuccess
+
 function DeathAndDecay:RuneCost()
 	if CrimsonScourge.known and CrimsonScourge:Up() then
 		return 0
@@ -1646,6 +1773,20 @@ end
 
 -- End Ability Modifications
 
+-- Start Summoned Pet Modifications
+
+function Pet.ArmyOfTheDead:AddUnit(guid)
+	local unit = SummonedPet.AddUnit(self, guid)
+	unit.summoned_by = self.summoned_by or ArmyOfTheDead
+	if unit.summoned_by == Apocalypse then
+		unit.expires = Player.time + 15
+	end
+	return unit
+end
+Pet.MagusOfTheDead.AddUnit = Pet.ArmyOfTheDead.AddUnit
+
+-- End Summoned Pet Modifications
+
 local function UseCooldown(ability, overwrite)
 	if Opt.cooldown and (not Opt.boss_only or Target.boss) and (not Player.cd or overwrite) then
 		Player.cd = ability
@@ -1704,35 +1845,49 @@ actions.precombat+=/potion
 		end
 	end
 --[[
-actions+=/blood_fury,if=cooldown.dancing_rune_weapon.ready&(!cooldown.blooddrinker.ready|!talent.blooddrinker.enabled)
-actions+=/berserking
-actions+=/use_items,if=cooldown.dancing_rune_weapon.remains>90
-actions+=/use_item,name=razdunks_big_red_button
-actions+=/use_item,name=merekthas_fang
+actions=auto_attack
+actions+=/variable,name=death_strike_dump_amount,if=!covenant.night_fae,value=70
+actions+=/variable,name=death_strike_dump_amount,if=covenant.night_fae,value=55
+# Interrupt
+actions+=/mind_freeze,if=target.debuff.casting.react
+# Since the potion cooldown has changed, we'll sync with DRW
 actions+=/potion,if=buff.dancing_rune_weapon.up
-actions+=/shackle_the_unworthy,if=rune<3&runic_power<100
-actions+=/dancing_rune_weapon,if=!talent.blooddrinker.enabled|!cooldown.blooddrinker.ready
-actions+=/tombstone,if=buff.bone_shield.stack>=7
+actions+=/use_items
+actions+=/use_item,name=gavel_of_the_first_arbiter
+actions+=/raise_dead
+actions+=/blooddrinker,if=!buff.dancing_rune_weapon.up&(!covenant.night_fae|buff.deaths_due.remains>7)
+actions+=/call_action_list,name=racials
+# Attempt to sacrifice the ghoul if we predictably will not do much in the near future
+actions+=/sacrificial_pact,if=(!covenant.night_fae|buff.deaths_due.remains>6)&buff.dancing_rune_weapon.remains>4&(pet.ghoul.remains<2|target.time_to_die<gcd)
+actions+=/call_action_list,name=covenants
+actions+=/blood_tap,if=(rune<=2&rune.time_to_4>gcd&charges_fractional>=1.8)|rune.time_to_3>gcd
+actions+=/dancing_rune_weapon,if=!buff.dancing_rune_weapon.up
+actions+=/run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=standard
 ]]
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DancingRuneWeapon:Up()
 	Player.pooling_for_bonestorm = Bonestorm.known and Player.enemies >= 3 and not self.drw_up and Bonestorm:Ready(4)
+	self.death_strike_dump_amount = 70 - (DeathsDue.known and 15 or 0)
 	self.bs_remains = BoneShield:Remains()
 	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:Stack()
 	self.drw_up = DancingRuneWeapon:Up()
-	if Opt.trinket then
-		if Trinket1:Usable() and (not DancingRuneWeapon:Ready(90) or Trinket1.itemId == 159611 or Trinket1.itemId == 158367) then
-			UseCooldown(Trinket1)
-		elseif Trinket2:Usable() and (not DancingRuneWeapon:Ready(90) or Trinket2.itemId == 159611 or Trinket2.itemId == 158367) then
-			UseCooldown(Trinket2)
-		end
-	end
 	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and self.drw_up then
 		UseCooldown(PotionOfSpectralStrength)
 	end
-	if ShackleTheUnworthy:Usable() and Player:Runes() < 3 and Player:RunicPower() < 100 then
-		UseCooldown(ShackleTheUnworthy)
+	if Opt.trinket then
+		if Trinket1:Usable() then
+			UseCooldown(Trinket1)
+		elseif Trinket2:Usable() then
+			UseCooldown(Trinket2)
+		end
 	end
+	if RaiseDead:Usable() then
+		UseExtra(RaiseDead)
+	end
+	if Blooddrinker:Usable() and not self.drw_up and (not DeathsDue.known or DeathsDue:Remains() > 7) then
+		UseCooldown(Blooddrinker)
+	end
+
 	if Player.use_cds and not self.drw_up and DancingRuneWeapon:Usable() and not Player.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:Ready()) then
 		UseCooldown(DancingRuneWeapon)
 	end
@@ -1742,23 +1897,53 @@ actions+=/call_action_list,name=standard
 	return self:standard()
 end
 
+APL[SPEC.BLOOD].covenants = function(self)
+--[[
+actions.covenants=deaths_due,if=!buff.deaths_due.up|buff.deaths_due.remains<4|buff.crimson_scourge.up
+actions.covenants+=/swarming_mist,if=cooldown.dancing_rune_weapon.remains>3&runic_power>=(90-(spell_targets.swarming_mist*3))
+actions.covenants+=/abomination_limb
+actions.covenants+=/fleshcraft,if=soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up,interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
+actions.covenants+=/shackle_the_unworthy,if=rune<3&runic_power<100
+]]
+	if SwarmingMist:Usable() and (Player.pooling_for_bonestorm or Bonestorm:Up() or Player.enemies >= 3) and Player:RunicPower() < 60 then
+		UseCooldown(SwarmingMist)
+	end
+	if ShackleTheUnworthy:Usable() and Player:Runes() < 3 and Player:RunicPower() < 100 then
+		UseCooldown(ShackleTheUnworthy)
+	end
+end
+
+APL[SPEC.BLOOD].drw_up = function(self)
+--[[
+actions.drw_up=tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&runeforge.crimson_rune_weapon
+actions.drw_up+=/marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|(buff.bone_shield.stack<2&(!covenant.necrolord|buff.abomination_limb.up)))&runic_power.deficit>20
+actions.drw_up+=/blood_boil,if=((charges>=2&rune<=1)|dot.blood_plague.remains<=2)|(spell_targets.blood_boil>5&charges_fractional>=1.1)&!(covenant.venthyr&buff.swarming_mist.up)
+actions.drw_up+=/variable,name=heart_strike_rp_drw,value=(25+spell_targets.heart_strike*talent.heartbreaker.enabled*2)
+actions.drw_up+=/death_strike,if=((runic_power.deficit<=variable.heart_strike_rp_drw)|(runic_power.deficit<=variable.death_strike_dump_amount&covenant.venthyr))&!(talent.bonestorm.enabled&cooldown.bonestorm.remains<2)
+actions.drw_up+=/death_and_decay,if=(spell_targets.death_and_decay==3&buff.crimson_scourge.up)|spell_targets.death_and_decay>=4
+actions.drw_up+=/bonestorm,if=runic_power>=100&buff.endless_rune_waltz.stack>4&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
+actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variable.heart_strike_rp_drw
+actions.drw_up+=/consumption
+]]
+end
+
 APL[SPEC.BLOOD].standard = function(self)
 --[[
-actions.standard=death_strike,if=runic_power.deficit<=10
-actions.standard+=/blooddrinker,if=!buff.dancing_rune_weapon.up
-actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|buff.bone_shield.remains<=(gcd+cooldown.blooddrinker.ready*talent.blooddrinker.enabled*2)|buff.bone_shield.stack<3)&runic_power.deficit>=20
+actions.standard=heart_strike,if=covenant.night_fae&death_and_decay.ticking&(buff.deaths_due.up&buff.deaths_due.remains<6)
+actions.standard+=/tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
+actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|buff.bone_shield.remains<=(gcd+cooldown.blooddrinker.ready*talent.blooddrinker.enabled*4)|buff.bone_shield.stack<6|((!covenant.night_fae|buff.deaths_due.remains>5)&buff.bone_shield.remains<7))&runic_power.deficit>20&!(runeforge.crimson_rune_weapon&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)
+actions.standard+=/death_strike,if=runic_power.deficit<=variable.death_strike_dump_amount&!(talent.bonestorm.enabled&cooldown.bonestorm.remains<2)&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
 actions.standard+=/blood_boil,if=charges_fractional>=1.8&(buff.hemostasis.stack<=(5-spell_targets.blood_boil)|spell_targets.blood_boil>2)
-actions.standard+=/marrowrend,if=buff.bone_shield.stack<5&talent.ossuary.enabled&runic_power.deficit>=15
-actions.standard+=/bonestorm,if=runic_power>=100&!buff.dancing_rune_weapon.up
-actions.standard+=/death_strike,if=runic_power.deficit<=(15+buff.dancing_rune_weapon.up*5+spell_targets.heart_strike*talent.heartbreaker.enabled*2)|target.time_to_die<10
+actions.standard+=/death_and_decay,if=buff.crimson_scourge.up&talent.relish_in_blood.enabled&runic_power.deficit>10
+actions.standard+=/bonestorm,if=runic_power>=100&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
+actions.standard+=/variable,name=heart_strike_rp,value=(15+spell_targets.heart_strike*talent.heartbreaker.enabled*2),op=setif,condition=covenant.night_fae&death_and_decay.ticking,value_else=(15+spell_targets.heart_strike*talent.heartbreaker.enabled*2)*1.2
+actions.standard+=/death_strike,if=(runic_power.deficit<=variable.heart_strike_rp)|target.time_to_die<10
 actions.standard+=/death_and_decay,if=spell_targets.death_and_decay>=3
-actions.standard+=/heart_strike,if=buff.dancing_rune_weapon.up|rune.time_to_4<gcd
-actions.standard+=/blood_boil,if=buff.dancing_rune_weapon.up
-actions.standard+=/death_and_decay,if=buff.crimson_scourge.up|talent.rapid_decomposition.enabled|spell_targets.death_and_decay>=2
+actions.standard+=/heart_strike,if=rune.time_to_4<gcd
+actions.standard+=/death_and_decay,if=buff.crimson_scourge.up|talent.rapid_decomposition.enabled
 actions.standard+=/consumption
-actions.standard+=/blood_boil
-actions.standard+=/heart_strike,if=rune.time_to_3<gcd|buff.bone_shield.stack>6
-actions.standard+=/arcane_torrent,if=runic_power.deficit>20
+actions.standard+=/blood_boil,if=charges_fractional>=1.1
+actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7))
 ]]
 	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= 10 and (not Player.pooling_for_bonestorm or not Bonestorm:Ready(2)) then
 		return DeathStrike
@@ -1790,9 +1975,6 @@ actions.standard+=/arcane_torrent,if=runic_power.deficit>20
 	end
 	if Player.pooling_for_bonestorm and Bonestorm:Usable() and Player:RunicPower() >= 100 then
 		UseCooldown(Bonestorm)
-	end
-	if SwarmingMist:Usable() and (Player.pooling_for_bonestorm or Bonestorm:Up() or Player.enemies >= 3) and Player:RunicPower() < 60 then
-		UseCooldown(SwarmingMist)
 	end
 	if DeathStrike:Usable() then
 		if Player.enemies == 1 and Target.timeToDie < 2 then
@@ -1884,8 +2066,8 @@ APL[SPEC.UNHOLY].Main = function(self)
 	Player.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:Ready(5)
 	Player.pooling_for_gargoyle = Player.use_cds and SummonGargoyle.known and SummonGargoyle:Ready(5)
 
-	if not Player.pet_active and RaiseDead:Usable() then
-		UseExtra(RaiseDead)
+	if not Player.pet_active and RaiseDeadUnholy:Usable() then
+		UseExtra(RaiseDeadUnholy)
 	end
 	if Player:TimeInCombat() == 0 then
 --[[
@@ -2078,7 +2260,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		end
 	end
 	if Player:RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
-		if SacrificialPact:Usable() and RaiseDead:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
+		if SacrificialPact:Usable() and RaiseDeadUnholy:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
 			UseCooldown(SacrificialPact)
 		end
 		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
@@ -2095,7 +2277,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
-		if SacrificialPact:Usable() and RaiseDead:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
+		if SacrificialPact:Usable() and RaiseDeadUnholy:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
 			UseCooldown(SacrificialPact)
 		end
 		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
@@ -2574,6 +2756,10 @@ CombatEvent.UNIT_DIED = function(event, srcGUID, dstGUID)
 	if Opt.auto_aoe then
 		autoAoe:Remove(dstGUID)
 	end
+	local pet = summonedPets:Find(dstGUID)
+	if pet then
+		pet:RemoveUnit(dstGUID)
+	end
 end
 
 CombatEvent.SWING_DAMAGE = function(event, srcGUID, dstGUID, amount, overkill, spellSchool, resisted, blocked, absorbed, critical, glancing, crushing, offHand)
@@ -2600,7 +2786,35 @@ CombatEvent.SWING_MISSED = function(event, srcGUID, dstGUID, missType, offHand, 
 	end
 end
 
+CombatEvent.SPELL_SUMMON = function(event, srcGUID, dstGUID)
+	if srcGUID ~= Player.guid then
+		return
+	end
+	local pet = summonedPets:Find(dstGUID)
+	if pet then
+		pet:AddUnit(dstGUID)
+	end
+end
+
 CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellSchool, missType, overCap, powerType)
+	local pet = summonedPets:Find(srcGUID)
+	if pet then
+		local unit = pet.active_units[srcGUID]
+		if unit then
+			if event == 'SPELL_CAST_SUCCESS' and pet.CastSuccess then
+				pet:CastSuccess(unit, spellId, dstGUID)
+			elseif event == 'SPELL_CAST_START' and pet.CastStart then
+				pet:CastStart(unit, spellId, dstGUID)
+			elseif event == 'SPELL_CAST_FAILED' and pet.CastFailed then
+				pet:CastFailed(unit, spellId, dstGUID, missType)
+			elseif event == 'SPELL_DAMAGE' and pet.SpellDamage then
+				pet:SpellDamage(unit, spellId, dstGUID)
+			end
+			--print(format('PET %d EVENT %s SPELL %s ID %d', pet.npcId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+		end
+		return
+	end
+
 	if not (srcGUID == Player.guid or srcGUID == Player.pet.guid) then
 		return
 	end
