@@ -1116,6 +1116,12 @@ Fleshcraft.buff_duration = 120
 Fleshcraft.cooldown_duration = 120
 local LeadByExample = Ability:Add(342156, true, true, 342181) -- Necrolord (Emeni Soulbind)
 LeadByExample.buff_duration = 10
+local ShackleTheUnworthy = Ability:Add(312202, false, true) -- Kyrian
+ShackleTheUnworthy.cooldown_duration = 60
+ShackleTheUnworthy.buff_duration = 14
+ShackleTheUnworthy.tick_interval = 2
+ShackleTheUnworthy.hasted_ticks = true
+ShackleTheUnworthy:TrackAuras()
 local SwarmingMist = Ability:Add(311648, true, true) -- Venthyr
 SwarmingMist.cooldown_duration = 60
 SwarmingMist.buff_duration = 8
@@ -1123,7 +1129,8 @@ SwarmingMist.rune_cost = 1
 local SummonSteward = Ability:Add(324739, false, true) -- Kyrian
 SummonSteward.cooldown_duration = 300
 -- Soulbind conduits
-
+local Proliferation = Ability:Add(338664, true, true)
+Proliferation.conduit_id = 128
 -- Legendary effects
 
 -- PvP talents
@@ -1629,6 +1636,14 @@ function Asphyxiate:Usable()
 	return Ability.Usable(self)
 end
 
+function ShackleTheUnworthy:Duration()
+	local duration = Ability.Duration(self)
+	if Proliferation.known then
+		duration = duration + 3
+	end
+	return duration
+end
+
 -- End Ability Modifications
 
 local function UseCooldown(ability, overwrite)
@@ -1695,6 +1710,7 @@ actions+=/use_items,if=cooldown.dancing_rune_weapon.remains>90
 actions+=/use_item,name=razdunks_big_red_button
 actions+=/use_item,name=merekthas_fang
 actions+=/potion,if=buff.dancing_rune_weapon.up
+actions+=/shackle_the_unworthy,if=rune<3&runic_power<100
 actions+=/dancing_rune_weapon,if=!talent.blooddrinker.enabled|!cooldown.blooddrinker.ready
 actions+=/tombstone,if=buff.bone_shield.stack>=7
 actions+=/call_action_list,name=standard
@@ -1713,6 +1729,9 @@ actions+=/call_action_list,name=standard
 	end
 	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and self.drw_up then
 		UseCooldown(PotionOfSpectralStrength)
+	end
+	if ShackleTheUnworthy:Usable() and Player:Runes() < 3 and Player:RunicPower() < 100 then
+		UseCooldown(ShackleTheUnworthy)
 	end
 	if Player.use_cds and not self.drw_up and DancingRuneWeapon:Usable() and not Player.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:Ready()) then
 		UseCooldown(DancingRuneWeapon)
