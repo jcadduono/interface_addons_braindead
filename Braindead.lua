@@ -196,6 +196,10 @@ local Player = {
 	item_use_blacklist = { -- list of item IDs with on-use effects we should mark unusable
 	},
 	main_freecast = false,
+	use_cds = false,
+	drw_remains = 0,
+	pooling_for_aotd = false,
+	pooling_for_gargoyle = false,
 }
 
 -- current target information
@@ -970,7 +974,7 @@ local Asphyxiate = Ability:Add(108194, false, true)
 Asphyxiate.buff_duration = 4
 Asphyxiate.cooldown_duration = 45
 local SummonGargoyle = Ability:Add(49206, true, true)
-SummonGargoyle.buff_duration = 35
+SummonGargoyle.buff_duration = 30
 SummonGargoyle.cooldown_duration = 180
 ---- Blood
 local BloodBoil = Ability:Add(50842, false, true)
@@ -1264,6 +1268,7 @@ end
 Pet.RisenGhoul = SummonedPet:Add(26125, 60, RaiseDead)
 Pet.ArmyOfTheDead = SummonedPet:Add(24207, 30, ArmyOfTheDead)
 Pet.MagusOfTheDead = SummonedPet:Add(163366, 30, ArmyOfTheDead)
+Pet.EbonGargoyle = SummonedPet:Add(27829, 30, SummonGargoyle)
 -- End Summoned Pets
 
 -- Start Inventory Items
@@ -2094,11 +2099,11 @@ APL[SPEC.FROST].Main = function(self)
 end
 
 APL[SPEC.UNHOLY].Main = function(self)
-	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DarkTransformation:Up() or (ArmyOfTheDead.known and ArmyOfTheDead:Up()) or (UnholyAssault.known and UnholyAssault:Up()) or (SummonGargoyle.known and SummonGargoyle:Up())
+	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DarkTransformation:Up() or (ArmyOfTheDead.known and ArmyOfTheDead:Up()) or (UnholyAssault.known and UnholyAssault:Up()) or (SummonGargoyle.known and Pet.EbonGargoyle:Up())
 	Player.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:Ready(5)
 	Player.pooling_for_gargoyle = Player.use_cds and SummonGargoyle.known and SummonGargoyle:Ready(5)
 
-	if not Player.pet_active and RaiseDeadUnholy:Usable() then
+	if not Player.pet.active and RaiseDeadUnholy:Usable() then
 		UseExtra(RaiseDeadUnholy)
 	end
 	if Player:TimeInCombat() == 0 then
@@ -2151,7 +2156,7 @@ actions+=/call_action_list,name=cooldowns
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=generic
 ]]
-	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and (ArmyOfTheDead:Ready() or SummonGargoyle:Up() or UnholyAssault:Up()) then
+	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and (ArmyOfTheDead:Ready() or Pet.EbonGargoyle:Up() or UnholyAssault:Up()) then
 		UseExtra(PotionOfSpectralStrength)
 	end
 	if Outbreak:Usable() and VirulentPlague:Remains() <= Player.gcd and Target.timeToDie > (VirulentPlague:Remains() + 1) then
@@ -2276,7 +2281,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		if SuddenDoom:Up() and (Player:RuneDeficit() >= 4 or not Player.pooling_for_gargoyle) then
 			return DeathCoil
 		end
-		if SummonGargoyle:Up() then
+		if Pet.EbonGargoyle:Up() then
 			return DeathCoil
 		end
 		if not Player.pooling_for_gargoyle and Player:RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:Stack() > 4) then
@@ -2335,7 +2340,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
 	local apocalypse_not_ready_5 = not Player.use_cds or not Apocalypse.known or not Apocalypse:Ready(5)
 	if DeathCoil:Usable() then
-		if SummonGargoyle:Up() or (SuddenDoom:Up() and not Player.pooling_for_gargoyle) then
+		if Pet.EbonGargoyle:Up() or (SuddenDoom:Up() and not Player.pooling_for_gargoyle) then
 			return DeathCoil
 		end
 		if not Player.pooling_for_gargoyle and Player:RunicPowerDeficit() < 14 and (apocalypse_not_ready_5 or FesteringWound:Stack() > 4) then
@@ -2659,11 +2664,9 @@ function UI:UpdateDisplay()
 		braindeadPanel.freeCastOverlayOn = false
 		braindeadPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
 	end
-	if Player.pooling_for_bonestorm then
-		text_center = 'Pool for\n' .. Bonestorm.name
-	elseif Player.pooling_for_aotd then
+	if ArmyOfTheDead.known and Player.pooling_for_aotd then
 		text_center = 'Pool for\n' .. ArmyOfTheDead.name
-	elseif Player.pooling_for_gargoyle then
+	elseif SummonGargoyle.known and Player.pooling_for_gargoyle then
 		text_center = 'Pool for\n' .. SummonGargoyle.name
 	end
 	if DancingRuneWeapon.known and Player.drw_remains > 0 then
@@ -2997,9 +3000,6 @@ function events:PLAYER_REGEN_ENABLED()
 		autoAoe:Clear()
 		autoAoe:Update()
 	end
-	Player.pooling_for_bonestorm = false
-	Player.pooling_for_aotd = false
-	Player.pooling_for_gargoyle = false
 end
 
 function events:PLAYER_EQUIPMENT_CHANGED()
