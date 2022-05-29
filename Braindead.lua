@@ -344,8 +344,8 @@ Player.target_modes = {
 		{1, ''},
 		{2, '2'},
 		{3, '3'},
-		{4, '4'},
-		{5, '5+'},
+		{4, '4+'},
+		{6, '6+'},
 	},
 	[SPEC.FROST] = {
 		{1, ''},
@@ -1001,6 +1001,9 @@ Blooddrinker.rune_cost = 1
 Blooddrinker.tick_interval = 1
 Blooddrinker.hasted_duration = true
 Blooddrinker.hasted_ticks = true
+local BloodTap = Ability:Add(221699, true, true)
+BloodTap.cooldown_duration = 60
+BloodTap.requires_charge = true
 local Bonestorm = Ability:Add(194844, true, true)
 Bonestorm.buff_duration = 1
 Bonestorm.cooldown_duration = 60
@@ -1008,14 +1011,14 @@ Bonestorm.runic_power_cost = 10
 Bonestorm.tick_interval = 1
 Bonestorm.damage = Ability:Add(196528, false, true)
 Bonestorm.damage:AutoAoe()
-local Consumption = Ability:Add(274156, false, true)
-Consumption.cooldown_duration = 45
+local Consumption = Ability:Add(274156, false, true, 274893)
+Consumption.cooldown_duration = 30
 Consumption:AutoAoe()
 local Heartbreaker = Ability:Add(210738, false, true)
 local Hemostasis = Ability:Add(273946, true, true, 273947)
 Hemostasis.buff_duration = 15
 local RapidDecomposition = Ability:Add(194662, false, true)
-local Tombstone = Ability:Add(219809, false, true)
+local Tombstone = Ability:Add(219809, true, true)
 Tombstone.buff_duration = 8
 Tombstone.cooldown_duration = 60
 ------ Procs
@@ -1023,6 +1026,8 @@ local BoneShield = Ability:Add(195181, true, true)
 BoneShield.buff_duration = 30
 local CrimsonScourge = Ability:Add(81136, true, true, 81141)
 CrimsonScourge.buff_duration = 15
+------ Tier Bonuses
+local EndlessRuneWaltz = Ability:Add(364399, true, true) -- T28 2 piece
 ---- Frost
 
 ------ Talents
@@ -1062,7 +1067,6 @@ RaiseDeadUnholy.cooldown_duration = 30
 local SacrificialPact = Ability:Add(327574, false, true)
 SacrificialPact.cooldown_duration = 120
 SacrificialPact.runic_power_cost = 20
-SacrificialPact.requires_pet = true
 local ScourgeStrike = Ability:Add(55090, false, true, 70890)
 ScourgeStrike.rune_cost = 1
 local VirulentPlague = Ability:Add(191587, false, true)
@@ -1113,6 +1117,15 @@ local SuddenDoom = Ability:Add(49530, true, true, 81340)
 SuddenDoom.buff_duration = 10
 local VirulentEruption = Ability:Add(191685, false, true)
 -- Covenant abilities
+local AbominationLimb = Ability:Add(315443, true, true) -- Necrolord
+AbominationLimb.buff_duration = 12
+AbominationLimb.cooldown_duration = 120
+AbominationLimb.tick_interval = 1
+local DeathsDue = Ability:Add(324128, false, true) -- Night Fae
+DeathsDue.buff_duration = 10
+DeathsDue.cooldown_duration = 30
+DeathsDue.rune_cost = 1
+DeathsDue.tick_interval = 1
 local Fleshcraft = Ability:Add(324631, true, true) -- Necrolord
 Fleshcraft.buff_duration = 120
 Fleshcraft.cooldown_duration = 120
@@ -1134,7 +1147,9 @@ SummonSteward.cooldown_duration = 300
 local Proliferation = Ability:Add(338664, true, true)
 Proliferation.conduit_id = 128
 -- Legendary effects
-
+local CrimsonRuneWeapon = Ability:Add(334525, true, true, 334526)
+CrimsonRuneWeapon.buff_duration = 10
+CrimsonRuneWeapon.bonus_id = 6941
 -- PvP talents
 
 -- Racials
@@ -1488,7 +1503,7 @@ function Player:UpdateAbilities()
 	VirulentPlague.known = Outbreak.known
 	VirulentEruption.known = VirulentPlague.known
 	FesteringWound.known = FesteringStrike.known
-	if Defile.known then
+	if Defile.known or DeathsDue.known then
 		DeathAndDecay.known = false
 	end
 	if ClawingShadows.known then
@@ -1498,6 +1513,7 @@ function Player:UpdateAbilities()
 		ArmyOfTheDead.known = false
 	end
 	DeathAndDecay.damage.known = DeathAndDecay.known
+	EndlessRuneWaltz.known = self.set_bonus.t28 >= 2
 
 	wipe(abilities.bySpellId)
 	wipe(abilities.velocity)
@@ -1771,6 +1787,16 @@ function ShackleTheUnworthy:Duration()
 	return duration
 end
 
+function SacrificialPact:Usable()
+	if RaiseDeadUnholy.known and not Player.pet.active then
+		return false
+	end
+	if RaiseDead.known and Pet.RisenGhoul:Down() then
+		return false
+	end
+	return Ability.Usable(self)
+end
+
 -- End Ability Modifications
 
 -- Start Summoned Pet Modifications
@@ -1865,13 +1891,14 @@ actions+=/dancing_rune_weapon,if=!buff.dancing_rune_weapon.up
 actions+=/run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=standard
 ]]
+	Player.drw_remains = DancingRuneWeapon:Remains()
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DancingRuneWeapon:Up()
-	Player.pooling_for_bonestorm = Bonestorm.known and Player.enemies >= 3 and not self.drw_up and Bonestorm:Ready(4)
+	Player.pooling_for_bonestorm = Bonestorm.known and Player.enemies >= 3 and Player.drw_remains == 0 and Bonestorm:Ready(4)
 	self.death_strike_dump_amount = 70 - (DeathsDue.known and 15 or 0)
 	self.bs_remains = BoneShield:Remains()
 	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:Stack()
-	self.drw_up = DancingRuneWeapon:Up()
-	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and self.drw_up then
+
+	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and Player.drw_remains > 0 then
 		UseCooldown(PotionOfSpectralStrength)
 	end
 	if Opt.trinket then
@@ -1884,15 +1911,24 @@ actions+=/call_action_list,name=standard
 	if RaiseDead:Usable() then
 		UseExtra(RaiseDead)
 	end
-	if Blooddrinker:Usable() and not self.drw_up and (not DeathsDue.known or DeathsDue:Remains() > 7) then
+	if Blooddrinker:Usable() and Player.drw_remains == 0 and (not DeathsDue.known or DeathsDue:Remains() > 7) then
 		UseCooldown(Blooddrinker)
 	end
-
-	if Player.use_cds and not self.drw_up and DancingRuneWeapon:Usable() and not Player.pooling_for_bonestorm and (not Blooddrinker.known or not Blooddrinker:Ready()) then
+	if SacrificialPact:Usable() and (not DeathsDue.known or DeathsDue:Remains() > 6) and DancingRuneWeapon:Remains() > 4 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
+		UseExtra(SacrificialPact)
+	end
+	if not Player.cd then
+		self:covenants()
+	end
+	if BloodTap:Usable() and (Player:RuneTimeTo(3) > Player.gcd or (Player:Runes() <= 2 and Player:RuneTimeTo(4) > Player.gcd and BloodTap:ChargesFractional() >= 1.8)) then
+		UseCooldown(BloodTap)
+	end
+	if DancingRuneWeapon:Usable() and Player.drw_remains == 0 then
 		UseCooldown(DancingRuneWeapon)
 	end
-	if Player.use_cds and Tombstone:Usable() and self.bs_stack >= 7 then
-		UseCooldown(Tombstone)
+	if Player.drw_remains > 0 then
+		local apl = self:drw_up()
+		if apl then return apl end
 	end
 	return self:standard()
 end
@@ -1925,6 +1961,31 @@ actions.drw_up+=/bonestorm,if=runic_power>=100&buff.endless_rune_waltz.stack>4&!
 actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variable.heart_strike_rp_drw
 actions.drw_up+=/consumption
 ]]
+	if CrimsonRuneWeapon.known and Tombstone:Usable() and BoneShield:Stack() > 5 and Player:Runes() >= 2 and Player:RunicPowerDeficit() >= 30 then
+		UseCooldown(Tombstone)
+	end
+	if Marrowrend:Usable() and Player:RunicPowerDeficit() > 20 and (BoneShield:Remains() <= Player:RuneTimeTo(3) or (BoneShield:Stack() < 2 and (not AbominationLimb.known or AbominationLimb:Up()))) then
+		return Marrowrend
+	end
+	if BloodBoil:Usable() and (((BloodBoil:Charges() >= 2 and Player:Runes() <= 1) or BloodPlague:Remains() <= 2) or ((Player.enemies > 5 and BloodBoil:ChargesFractional() >= 1.1) and (not SwarmingMist.known or SwarmingMist:Down()))) then
+		return BloodBoil
+	end
+	self.heart_strike_rp_drw = 25 + (HeartStrike:Targets() * (Heartbreaker.known and 1 or 0) * 2)
+	if DeathStrike:Usable() and ((Player:RunicPowerDeficit() <= self.heart_strike_rp_drw) or (SwarmingMist.known and Player:RunicPowerDeficit() <= self.death_strike_dump_amount)) and not (Bonestorm.known and Bonestorm:Ready(2)) then
+		return DeathStrike
+	end
+	if DeathAndDecay:Usable() and Player.enemies >= (CrimsonScourge:Up() and 3 or 4) then
+		return DeathAndDecay
+	end
+	if Bonestorm:Usable() and Player:RunicPower() >= 100 and EndlessRuneWaltz:Stack() > 4 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+		UseCooldown(Bonestorm)
+	end
+	if HeartStrike:Usable() and (Player:RuneTimeTo(2) < Player.gcd or Player:RunicPowerDeficit() >= self.heart_strike_rp_drw) then
+		return HeartStrike
+	end
+	if Consumption:Usable() then
+		UseCooldown(Consumption)
+	end
 end
 
 APL[SPEC.BLOOD].standard = function(self)
@@ -1948,7 +2009,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= 10 and (not Player.pooling_for_bonestorm or not Bonestorm:Ready(2)) then
 		return DeathStrike
 	end
-	if Blooddrinker:Usable() and not self.drw_up and Player:HealthPct() < 80 then
+	if Blooddrinker:Usable() and Player.drw_remains == 0 and Player:HealthPct() < 80 then
 		return Blooddrinker
 	end
 	if Marrowrend:Usable() then
@@ -1994,11 +2055,11 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if DeathAndDecay:Usable() and Player.enemies >= 3 then
 		return DeathAndDecay
 	end
-	if DeathStrike:Usable() and not Player.pooling_for_bonestorm and Player:RunicPowerDeficit() <= (15 + (self.drw_up and 5 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) then
+	if DeathStrike:Usable() and not Player.pooling_for_bonestorm and Player:RunicPowerDeficit() <= (15 + (Player.drw_remains > 0 and 5 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) then
 		return DeathStrike
 	end
 	if HeartStrike:Usable() then
-		if self.drw_up or Player:RuneTimeTo(4) < Player.gcd then
+		if Player.drw_remains > 0 or Player:RuneTimeTo(4) < Player.gcd then
 			return HeartStrike
 		end
 		if HeartStrike:Targets() >= 4 then
@@ -2006,7 +2067,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 		end
 	end
 	if BloodBoil:Usable() then
-		if self.drw_up then
+		if Player.drw_remains > 0 then
 			return BloodBoil
 		end
 		if Hemostasis.known and Player:HealthPct() < 60 and Hemostasis:Stack() <= (5 - Player.enemies) then
@@ -2596,7 +2657,7 @@ end
 
 function UI:UpdateDisplay()
 	timer.display = 0
-	local dim, dim_cd, text_center, text_cd
+	local dim, dim_cd, text_center, text_cd, text_tr
 
 	if Opt.dimmer then
 		dim = not ((not Player.main) or
@@ -2634,9 +2695,13 @@ function UI:UpdateDisplay()
 	elseif Player.pooling_for_gargoyle then
 		text_center = 'Pool for\n' .. SummonGargoyle.name
 	end
+	if DancingRuneWeapon.known and Player.drw_remains > 0 then
+		text_tr = format('%.1fs', Player.drw_remains)
+	end
 
 	braindeadPanel.dimmer:SetShown(dim)
 	braindeadPanel.text.center:SetText(text_center)
+	braindeadPanel.text.tr:SetText(text_tr)
 	--braindeadPanel.text.bl:SetText(format('%.1fs', Target.timeToDie))
 	braindeadCooldownPanel.text:SetText(text_cd)
 	braindeadCooldownPanel.dimmer:SetShown(dim_cd)
