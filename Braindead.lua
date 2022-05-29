@@ -2050,7 +2050,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	else
 		self.heart_strike_rp = (15 + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) * 1.2
 	end
-	if DeathStrike:Usable() and (Player:RunicPowerDeficit() <= self.heart_strike_rp or (Player.enemies == 1 and Target.timeToDie < 10)) then
+	if DeathStrike:Usable() and (Player:RunicPowerDeficit() <= self.heart_strike_rp or (Target.boss and Player.enemies == 1 and Target.timeToDie < 6)) then
 		return DeathStrike
 	end
 	if DeathAndDecay:Usable() and Player.enemies >= 3 then
