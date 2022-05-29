@@ -993,6 +993,7 @@ HeartStrike.rune_cost = 1
 local Marrowrend = Ability:Add(195182, false, true)
 Marrowrend.rune_cost = 2
 local Ossuary = Ability:Add(219786, true, true, 219788)
+local RelishInBlood = Ability:Add(317610, true, true)
 ------ Talents
 local Blooddrinker = Ability:Add(206931, false, true)
 Blooddrinker.buff_duration = 3
@@ -1759,6 +1760,13 @@ function HeartStrike:Targets()
 	return min(Player.enemies, DeathAndDecay:Up() and 5 or 2)
 end
 
+function Tombstone:Usable()
+	if BoneShield:Down() then
+		return false
+	end
+	return Ability.Usable(self)
+end
+
 function VirulentPlague:Duration()
 	local duration = Ability.Duration(self)
 	if EbonFever.known then
@@ -1844,7 +1852,7 @@ actions.precombat+=/food
 actions.precombat+=/augmentation
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/potion
+actions.precombat+=/fleshcraft
 ]]
 		if Trinket.SoleahsSecretTechnique.can_use and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Trinket.SoleahsSecretTechnique:Usable() and Player.group_size > 1 then
 			UseCooldown(Trinket.SoleahsSecretTechnique)
@@ -1892,39 +1900,38 @@ actions+=/run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=standard
 ]]
 	Player.drw_remains = DancingRuneWeapon:Remains()
-	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DancingRuneWeapon:Up()
-	Player.pooling_for_bonestorm = Bonestorm.known and Player.enemies >= 3 and Player.drw_remains == 0 and Bonestorm:Ready(4)
+	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.drw_remains > 0
 	self.death_strike_dump_amount = 70 - (DeathsDue.known and 15 or 0)
-	self.bs_remains = BoneShield:Remains()
-	self.bs_stack = self.bs_remains == 0 and 0 or BoneShield:Stack()
 
-	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and Player.drw_remains > 0 then
-		UseCooldown(PotionOfSpectralStrength)
-	end
-	if Opt.trinket then
-		if Trinket1:Usable() then
-			UseCooldown(Trinket1)
-		elseif Trinket2:Usable() then
-			UseCooldown(Trinket2)
+	if Player.use_cds then
+		if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and Player.drw_remains > 0 then
+			UseCooldown(PotionOfSpectralStrength)
 		end
-	end
-	if RaiseDead:Usable() then
-		UseExtra(RaiseDead)
-	end
-	if Blooddrinker:Usable() and Player.drw_remains == 0 and (not DeathsDue.known or DeathsDue:Remains() > 7) then
-		UseCooldown(Blooddrinker)
-	end
-	if SacrificialPact:Usable() and (not DeathsDue.known or DeathsDue:Remains() > 6) and DancingRuneWeapon:Remains() > 4 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
-		UseExtra(SacrificialPact)
-	end
-	if not Player.cd then
-		self:covenants()
-	end
-	if BloodTap:Usable() and (Player:RuneTimeTo(3) > Player.gcd or (Player:Runes() <= 2 and Player:RuneTimeTo(4) > Player.gcd and BloodTap:ChargesFractional() >= 1.8)) then
-		UseCooldown(BloodTap)
-	end
-	if DancingRuneWeapon:Usable() and Player.drw_remains == 0 then
-		UseCooldown(DancingRuneWeapon)
+		if Opt.trinket then
+			if Trinket1:Usable() then
+				UseCooldown(Trinket1)
+			elseif Trinket2:Usable() then
+				UseCooldown(Trinket2)
+			end
+		end
+		if RaiseDead:Usable() then
+			UseExtra(RaiseDead)
+		end
+		if Blooddrinker:Usable() and Player.drw_remains == 0 and (not DeathsDue.known or DeathsDue:Remains() > 7) then
+			UseCooldown(Blooddrinker)
+		end
+		if SacrificialPact:Usable() and (not DeathsDue.known or DeathsDue:Remains() > 6) and DancingRuneWeapon:Remains() > 4 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
+			UseExtra(SacrificialPact)
+		end
+		if not Player.cd then
+			self:covenants()
+		end
+		if BloodTap:Usable() and (Player:RuneTimeTo(3) > Player.gcd or (Player:Runes() <= 2 and Player:RuneTimeTo(4) > Player.gcd and BloodTap:ChargesFractional() >= 1.8)) then
+			UseCooldown(BloodTap)
+		end
+		if DancingRuneWeapon:Usable() and Player.drw_remains == 0 then
+			UseCooldown(DancingRuneWeapon)
+		end
 	end
 	if Player.drw_remains > 0 then
 		local apl = self:drw_up()
@@ -1941,8 +1948,14 @@ actions.covenants+=/abomination_limb
 actions.covenants+=/fleshcraft,if=soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up,interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
 actions.covenants+=/shackle_the_unworthy,if=rune<3&runic_power<100
 ]]
-	if SwarmingMist:Usable() and (Player.pooling_for_bonestorm or Bonestorm:Up() or Player.enemies >= 3) and Player:RunicPower() < 60 then
+	if DeathsDue:Usable() and (DeathsDue:Remains() < 4 or CrimsonScourge:Up()) then
+		UseCooldown(DeathsDue)
+	end
+	if SwarmingMist:Usable() and not DancingRuneWeapon:Ready(3) and Player:RunicPower() >= (90 - (Player.enemies * 3)) then
 		UseCooldown(SwarmingMist)
+	end
+	if AbominationLimb:Usable() then
+		UseCooldown(AbominationLimb)
 	end
 	if ShackleTheUnworthy:Usable() and Player:Runes() < 3 and Player:RunicPower() < 100 then
 		UseCooldown(ShackleTheUnworthy)
@@ -2006,93 +2019,51 @@ actions.standard+=/consumption
 actions.standard+=/blood_boil,if=charges_fractional>=1.1
 actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7))
 ]]
-	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= 10 and (not Player.pooling_for_bonestorm or not Bonestorm:Ready(2)) then
-		return DeathStrike
+	if DeathsDue.known and HeartStrike:Usable() and DeathAndDecay.damage:Up() and DeathsDue:Up() and DeathsDue:Remains() < 6 then
+		return HeartStrike
 	end
-	if Blooddrinker:Usable() and Player.drw_remains == 0 and Player:HealthPct() < 80 then
-		return Blooddrinker
+	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and Player:Runes() >= 2 and Player:RunicPowerDeficit() >= 30 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+		UseCooldown(Tombstone)
 	end
-	if Marrowrend:Usable() then
-		if Player:RunicPowerDeficit() >= 20 and (self.bs_remains <= Player:RuneTimeTo(3) or self.bs_stack < 3) then
-			return Marrowrend
-		end
-		if self.bs_stack < 1 or self.bs_remains <= (Player.gcd * 2 + (Blooddrinker.known and Blooddrinker:Ready() and 3 or 0)) then
-			return Marrowrend
-		end
-	end
-	if BloodBoil:Usable() then
-		if BloodBoil:ChargesFractional() >= 1.8 and (Player.enemies > 2 or (Hemostasis.known and Hemostasis:Stack() <= (5 - Player.enemies))) then
-			return BloodBoil
-		end
-		if Hemostasis.known and DeathStrike:Usable() and Player:HealthPct() < 60 and Hemostasis:Stack() <= (5 - Player.enemies) then
-			return BloodBoil
-		end
-		if BloodPlague:Down() or BloodPlague:Ticking() < Player.enemies then
-			return BloodBoil
-		end
-	end
-	if Ossuary.known and Marrowrend:Usable() and self.bs_stack < 5 and Player:RunicPowerDeficit() >= 15 then
+	if Marrowrend:Usable() and Player:RunicPowerDeficit() > 20 and not (CrimsonRuneWeapon.known and DancingRuneWeapon:Ready(BoneShield:Remains())) and (BoneShield:Stack() < 6 or BoneShield:Remains() <= Player:RuneTimeTo(3) or BoneShield:Remains() <= (Player.gcd + (Blooddrinker.known and Blooddrinker:Ready() and 4 or 0)) or ((not DeathsDue.known or DeathsDue:Remains() > 5) and BoneShield:Remains() < 7)) then
 		return Marrowrend
 	end
-	if Player.pooling_for_bonestorm and Bonestorm:Usable() and Player:RunicPower() >= 100 then
+	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_dump_amount and not (Bonestorm.known and Bonestorm:Ready(2)) and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+		return DeathStrike
+	end
+	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.8 and (Player.enemies > 2 or (Hemostasis.known and Hemostasis:Stack() <= (5 - Player.enemies))) then
+		return BloodBoil
+	end
+	if RelishInBlood.known and DeathAndDecay:Usable() and CrimsonScourge:Up() and Player:RunicPowerDeficit() > 10 then
+		return DeathAndDecay
+	end
+	if Player.use_cds and Bonestorm:Usable() and Player:RunicPower() >= 100 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
 		UseCooldown(Bonestorm)
 	end
-	if DeathStrike:Usable() then
-		if Player.enemies == 1 and Target.timeToDie < 2 then
-			return DeathStrike
-		end
-		if Hemostasis.known then
-			if Player:HealthPct() < 60 and Hemostasis:Stack() >= 5 then
-				return DeathStrike
-			end
-			if Player:HealthPct() < 40 and not BloodBoil:Ready() then
-				return DeathStrike
-			end
-		elseif Player:HealthPct() < 40 then
-			return DeathStrike
-		end
+	if DeathsDue.known and DeathAndDecay.damage:Up() then
+		self.heart_strike_rp = 15 + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)
+	else
+		self.heart_strike_rp = (15 + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) * 1.2
+	end
+	if DeathStrike:Usable() and (Player:RunicPowerDeficit() <= self.heart_strike_rp or (Player.enemies == 1 and Target.timeToDie < 10)) then
+		return DeathStrike
 	end
 	if DeathAndDecay:Usable() and Player.enemies >= 3 then
 		return DeathAndDecay
 	end
-	if DeathStrike:Usable() and not Player.pooling_for_bonestorm and Player:RunicPowerDeficit() <= (15 + (Player.drw_remains > 0 and 5 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) then
-		return DeathStrike
+	if HeartStrike:Usable() and Player:RuneTimeTo(4) < Player.gcd then
+		return HeartStrike
 	end
-	if HeartStrike:Usable() then
-		if Player.drw_remains > 0 or Player:RuneTimeTo(4) < Player.gcd then
-			return HeartStrike
-		end
-		if HeartStrike:Targets() >= 4 then
-			return HeartStrike
-		end
-	end
-	if BloodBoil:Usable() then
-		if Player.drw_remains > 0 then
-			return BloodBoil
-		end
-		if Hemostasis.known and Player:HealthPct() < 60 and Hemostasis:Stack() <= (5 - Player.enemies) then
-			return BloodBoil
-		end
-	end
-	if DeathAndDecay:Usable() and (Player.enemies >= 2 or Target.timeToDie > 4 and (RapidDecomposition.known or CrimsonScourge:Up())) then
+	if DeathAndDecay:Usable() and (RapidDecomposition.known or CrimsonScourge:Up()) then
 		return DeathAndDecay
-	end
-	if Player.use_cds and Bonestorm:Usable() and Player.enemies >= 2 and Target.timeToDie > 8 and Player:RunicPower() >= 100 then
-		UseCooldown(Bonestorm)
 	end
 	if Player.use_cds and Consumption:Usable() then
 		UseCooldown(Consumption)
 	end
-	if BloodBoil:Usable() then
+	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.1 then
 		return BloodBoil
 	end
-	if HeartStrike:Usable() and (Player:RuneTimeTo(3) < Player.gcd or self.bs_stack > 6) then
-		return HeartStrike
-	end
-	if not Player.pooling_for_bonestorm and DeathStrike:Usable() and Player:RunicPowerDeficit() <= 30 and self.bs_stack >= 5 and self.bs_remains > (Player.gcd + Player:RuneTimeTo(3)) then
-		return DeathStrike
-	end
-	if HeartStrike:Usable() and Player.enemies == 1 and self.bs_stack >= 5 and self.bs_remains > Target.timeToDie then
+	if HeartStrike:Usable() and Player:Runes() > 1 and (Player:RuneTimeTo(3) < Player.gcd or BoneShield:Stack() > 7) then
 		return HeartStrike
 	end
 end
