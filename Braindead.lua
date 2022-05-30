@@ -1032,7 +1032,7 @@ BoneShield.buff_duration = 30
 local CrimsonScourge = Ability:Add(81136, true, true, 81141)
 CrimsonScourge.buff_duration = 15
 ------ Tier Bonuses
-local EndlessRuneWaltz = Ability:Add(364399, true, true) -- T28 2 piece
+local EndlessRuneWaltz = Ability:Add(364399, true, true, 366008) -- T28 2 piece
 ---- Frost
 
 ------ Talents
@@ -1906,6 +1906,8 @@ actions+=/call_action_list,name=standard
 ]]
 	Player.drw_remains = DancingRuneWeapon:Remains()
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.drw_remains > 0
+	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) * (DeathsDue.known and DeathAndDecay.damage:Up() and 1 or 1.2)
+	self.death_strike_prio_amount = self.heart_strike_rp + (67 - (Player:HealthPct() / 1.5))
 	self.death_strike_dump_amount = 70 - (DeathsDue.known and 15 or 0)
 
 	if Player.use_cds then
@@ -1937,6 +1939,9 @@ actions+=/call_action_list,name=standard
 		if DancingRuneWeapon:Usable() and Player.drw_remains == 0 then
 			UseCooldown(DancingRuneWeapon)
 		end
+	end
+	if DeathStrike:Usable() and Player:HealthPct() < 30 then
+		return DeathStrike
 	end
 	if Player.drw_remains > 0 then
 		local apl = self:drw_up()
@@ -1988,8 +1993,7 @@ actions.drw_up+=/consumption
 	if BloodBoil:Usable() and (((BloodBoil:Charges() >= 2 and Player:Runes() <= 1) or BloodPlague:Remains() <= 2) or ((Player.enemies > 5 and BloodBoil:ChargesFractional() >= 1.1) and (not SwarmingMist.known or SwarmingMist:Down()))) then
 		return BloodBoil
 	end
-	self.heart_strike_rp_drw = 25 + (HeartStrike:Targets() * (Heartbreaker.known and 1 or 0) * 2)
-	if DeathStrike:Usable() and ((Player:RunicPowerDeficit() <= self.heart_strike_rp_drw) or (SwarmingMist.known and Player:RunicPowerDeficit() <= self.death_strike_dump_amount)) and not (Bonestorm.known and Bonestorm:Ready(2)) then
+	if DeathStrike:Usable() and ((Player:RunicPowerDeficit() <= self.heart_strike_rp) or (SwarmingMist.known and Player:RunicPowerDeficit() <= self.death_strike_prio_amount)) and not (Bonestorm.known and Bonestorm:Ready(2)) then
 		return DeathStrike
 	end
 	if DeathAndDecay:Usable() and Player.enemies >= (CrimsonScourge:Up() and 3 or 4) then
@@ -1998,7 +2002,7 @@ actions.drw_up+=/consumption
 	if Bonestorm:Usable() and Player:RunicPower() >= 100 and EndlessRuneWaltz:Stack() > 4 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
 		UseCooldown(Bonestorm)
 	end
-	if HeartStrike:Usable() and (Player:RuneTimeTo(2) < Player.gcd or Player:RunicPowerDeficit() >= self.heart_strike_rp_drw) then
+	if HeartStrike:Usable() and (Player:RuneTimeTo(2) < Player.gcd or Player:RunicPowerDeficit() >= self.heart_strike_rp) then
 		return HeartStrike
 	end
 	if Consumption:Usable() then
@@ -2033,7 +2037,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if Marrowrend:Usable() and Player:RunicPowerDeficit() > 20 and not (CrimsonRuneWeapon.known and DancingRuneWeapon:Ready(BoneShield:Remains())) and (BoneShield:Stack() < 6 or BoneShield:Remains() <= Player:RuneTimeTo(3) or BoneShield:Remains() <= (Player.gcd + (Blooddrinker.known and Blooddrinker:Ready() and 4 or 0)) or ((not DeathsDue.known or DeathsDue:Remains() > 5) and BoneShield:Remains() < 7)) then
 		return Marrowrend
 	end
-	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_dump_amount and not (Bonestorm.known and Bonestorm:Ready(2)) and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_prio_amount and not (Bonestorm.known and Bonestorm:Ready(2)) and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
 		return DeathStrike
 	end
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.8 and (Player.enemies > 2 or (Hemostasis.known and Hemostasis:Stack() <= (5 - Player.enemies))) then
@@ -2045,12 +2049,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if Player.use_cds and Bonestorm:Usable() and Player:RunicPower() >= 100 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
 		UseCooldown(Bonestorm)
 	end
-	if DeathsDue.known and DeathAndDecay.damage:Up() then
-		self.heart_strike_rp = 15 + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)
-	else
-		self.heart_strike_rp = (15 + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) * 1.2
-	end
-	if DeathStrike:Usable() and (Player:RunicPowerDeficit() <= self.heart_strike_rp or (Target.boss and Player.enemies == 1 and Target.timeToDie < 6)) then
+	if DeathStrike:Usable() and (Player:RunicPowerDeficit() <= self.heart_strike_rp or (Target.boss and Player.enemies == 1 and Target.timeToDie < (Player.gcd * 2))) then
 		return DeathStrike
 	end
 	if DeathAndDecay:Usable() and Player.enemies >= 3 then
@@ -2067,6 +2066,9 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	end
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.1 then
 		return BloodBoil
+	end
+	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_dump_amount and not (Bonestorm.known and Bonestorm:Ready(2)) and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+		return DeathStrike
 	end
 	if HeartStrike:Usable() and Player:Runes() > 1 and (Player:RuneTimeTo(3) < Player.gcd or BoneShield:Stack() > 7) then
 		return HeartStrike
