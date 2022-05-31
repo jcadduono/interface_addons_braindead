@@ -1800,8 +1800,15 @@ function ShackleTheUnworthy:Duration()
 	return duration
 end
 
+function RaiseDead:Usable()
+	if Player.pet.alive then
+		return false
+	end
+	return Ability.Usable(self)
+end
+
 function SacrificialPact:Usable()
-	if RaiseDeadUnholy.known and not Player.pet.active then
+	if RaiseDeadUnholy.known and not Player.pet.alive then
 		return false
 	end
 	if RaiseDead.known and Pet.RisenGhoul:Down() then
