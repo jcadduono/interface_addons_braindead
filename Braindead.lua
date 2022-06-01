@@ -984,7 +984,6 @@ BloodBoil:AutoAoe(true)
 local BloodPlague = Ability:Add(55078, false, true)
 BloodPlague.buff_duration = 24
 BloodPlague.tick_interval = 3
-BloodPlague:AutoAoe()
 BloodPlague:TrackAuras()
 local DancingRuneWeapon = Ability:Add(49028, true, true, 81256)
 DancingRuneWeapon.buff_duration = 8
@@ -1963,7 +1962,7 @@ actions.covenants=deaths_due,if=!buff.deaths_due.up|buff.deaths_due.remains<4|bu
 actions.covenants+=/swarming_mist,if=cooldown.dancing_rune_weapon.remains>3&runic_power>=(90-(spell_targets.swarming_mist*3))
 actions.covenants+=/abomination_limb
 actions.covenants+=/fleshcraft,if=soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up,interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
-actions.covenants+=/shackle_the_unworthy,if=rune<3&runic_power<100
+actions.covenants+=/shackle_the_unworthy,if=runic_power<100&active_dot.shackle_the_unworthy=0&dot.blood_plague.remains
 ]]
 	if DeathsDue:Usable() and (DeathsDue:Remains() < 4 or CrimsonScourge:Up()) then
 		UseCooldown(DeathsDue)
@@ -1974,7 +1973,7 @@ actions.covenants+=/shackle_the_unworthy,if=rune<3&runic_power<100
 	if AbominationLimb:Usable() then
 		UseCooldown(AbominationLimb)
 	end
-	if ShackleTheUnworthy:Usable() and Player:Runes() < 3 and Player:RunicPower() < 100 then
+	if ShackleTheUnworthy:Usable() and Player:RunicPower() < 100 and ShackleTheUnworthy:Ticking() == 0 and BloodPlague:Up() then
 		UseCooldown(ShackleTheUnworthy)
 	end
 end
@@ -2033,7 +2032,7 @@ actions.standard+=/heart_strike,if=rune.time_to_4<gcd
 actions.standard+=/death_and_decay,if=buff.crimson_scourge.up|talent.rapid_decomposition.enabled
 actions.standard+=/consumption
 actions.standard+=/blood_boil,if=charges_fractional>=1.1
-actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7))
+actions.standard+=/heart_strike,if=rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7)
 ]]
 	if DeathsDue.known and HeartStrike:Usable() and DeathAndDecay.damage:Up() and DeathsDue:Up() and DeathsDue:Remains() < 6 then
 		return HeartStrike
