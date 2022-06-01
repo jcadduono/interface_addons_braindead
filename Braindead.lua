@@ -1579,7 +1579,7 @@ function Player:UpdateRunes()
 	local start, duration
 	for i = 1, self.runes.max do
 		start, duration = GetRuneCooldown(i)
-		self.runes.remains[i] = max(start + duration - self.ctime, 0)
+		self.runes.remains[i] = max(0, (start or 0) + (duration or 0) - self.ctime)
 		if self.runes.remains[i] <= self.execute_remains then
 			self.runes.ready = self.runes.ready + 1
 		end
