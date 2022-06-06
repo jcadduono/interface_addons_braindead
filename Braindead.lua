@@ -1865,7 +1865,7 @@ actions.precombat+=/augmentation
 actions.precombat+=/snapshot_stats
 actions.precombat+=/fleshcraft
 ]]
-		if Trinket.SoleahsSecretTechnique.can_use and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Trinket.SoleahsSecretTechnique:Usable() and Player.group_size > 1 then
+		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Player.group_size > 1 then
 			UseCooldown(Trinket.SoleahsSecretTechnique)
 		end
 		if SummonSteward:Usable() and PhialOfSerenity:Charges() < 1 then
@@ -1887,6 +1887,10 @@ actions.precombat+=/fleshcraft
 		end
 		if DeathAndDecay:Usable() then
 			UseCooldown(DeathAndDecay)
+		end
+	else
+		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 10 and Player.group_size > 1 then
+			UseExtra(Trinket.SoleahsSecretTechnique)
 		end
 	end
 --[[
@@ -2083,7 +2087,7 @@ end
 
 APL[SPEC.FROST].Main = function(self)
 	if Player:TimeInCombat() == 0 then
-		if Trinket.SoleahsSecretTechnique.can_use and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Trinket.SoleahsSecretTechnique:Usable() and Player.group_size > 1 then
+		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Player.group_size > 1 then
 			UseCooldown(Trinket.SoleahsSecretTechnique)
 		end
 		if SummonSteward:Usable() and PhialOfSerenity:Charges() < 1 then
@@ -2102,6 +2106,10 @@ APL[SPEC.FROST].Main = function(self)
 			if Opt.pot and SpectralFlaskOfPower:Usable() and SpectralFlaskOfPower.buff:Remains() < 300 and EternalFlask.buff:Remains() < 300 then
 				UseCooldown(SpectralFlaskOfPower)
 			end
+		end
+	else
+		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 10 and Player.group_size > 1 then
+			UseExtra(Trinket.SoleahsSecretTechnique)
 		end
 	end
 end
@@ -2125,7 +2133,7 @@ actions.precombat+=/potion
 actions.precombat+=/raise_dead
 actions.precombat+=/army_of_the_dead,delay=2
 ]]
-		if Trinket.SoleahsSecretTechnique.can_use and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Trinket.SoleahsSecretTechnique:Usable() and Player.group_size > 1 then
+		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Player.group_size > 1 then
 			UseCooldown(Trinket.SoleahsSecretTechnique)
 		end
 		if SummonSteward:Usable() and PhialOfSerenity:Charges() < 1 then
@@ -2152,6 +2160,10 @@ actions.precombat+=/army_of_the_dead,delay=2
 			if RaiseAbomination:Usable() then
 				UseCooldown(RaiseAbomination)
 			end
+		end
+	else
+		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 10 and Player.group_size > 1 then
+			UseExtra(Trinket.SoleahsSecretTechnique)
 		end
 	end
 --[[
