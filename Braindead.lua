@@ -1350,6 +1350,8 @@ local Trinket1 = InventoryItem:Add(0)
 local Trinket2 = InventoryItem:Add(0)
 Trinket.SoleahsSecretTechnique = InventoryItem:Add(190958)
 Trinket.SoleahsSecretTechnique.buff = Ability:Add(368512, true, true)
+Trinket.InscrutableQuantumDevice = InventoryItem:Add(179350)
+Trinket.OverwhelmingPowerCrystal = InventoryItem:Add(179342)
 -- End Inventory Items
 
 -- Start Player API
@@ -1925,7 +1927,11 @@ actions+=/call_action_list,name=standard
 			UseCooldown(PotionOfSpectralStrength)
 		end
 		if Opt.trinket then
-			if Trinket1:Usable() then
+			if Trinket.InscrutableQuantumDevice:Usable() and DancingRuneWeapon:Up() then
+				UseCooldown(Trinket.InscrutableQuantumDevice)
+			elseif Trinket.OverwhelmingPowerCrystal:Usable() and ((ShackleTheUnworthy.known and ShackleTheUnworthy:Ticking() > 0) or (not ShackleTheUnworthy.known and DancingRuneWeapon:Up())) then
+				UseCooldown(Trinket.OverwhelmingPowerCrystal)
+			elseif Trinket1:Usable() then
 				UseCooldown(Trinket1)
 			elseif Trinket2:Usable() then
 				UseCooldown(Trinket2)
