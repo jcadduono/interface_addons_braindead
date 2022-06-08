@@ -1553,6 +1553,12 @@ function Player:UpdateAbilities()
 			summonedPets.byNpcId[pet.npcId] = pet
 		end
 	end
+
+	if DancingRuneWeapon.known then
+		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 14, 'OUTLINE')
+	else
+		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 9, 'OUTLINE')
+	end
 end
 
 function Player:UpdateThreat()
@@ -2659,7 +2665,7 @@ end
 
 function UI:UpdateDisplay()
 	timer.display = 0
-	local dim, dim_cd, text_center, text_cd, text_tr
+	local dim, dim_cd, text_center, text_cd
 
 	if Opt.dimmer then
 		dim = not ((not Player.main) or
@@ -2690,18 +2696,16 @@ function UI:UpdateDisplay()
 		braindeadPanel.freeCastOverlayOn = false
 		braindeadPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
 	end
-	if ArmyOfTheDead.known and Player.pooling_for_aotd then
-		text_center = 'Pool for\n' .. ArmyOfTheDead.name
-	elseif SummonGargoyle.known and Player.pooling_for_gargoyle then
-		text_center = 'Pool for\n' .. SummonGargoyle.name
-	end
 	if DancingRuneWeapon.known and Player.drw_remains > 0 then
-		text_tr = format('%.1fs', Player.drw_remains)
+		text_center = format('%.1fs', Player.drw_remains)
+	elseif ArmyOfTheDead.known and Player.pooling_for_aotd then
+		text_center = format('Pool for\n%s', ArmyOfTheDead.name)
+	elseif SummonGargoyle.known and Player.pooling_for_gargoyle then
+		text_center = format('Pool for\n%s', SummonGargoyle.name)
 	end
 
 	braindeadPanel.dimmer:SetShown(dim)
 	braindeadPanel.text.center:SetText(text_center)
-	braindeadPanel.text.tr:SetText(text_tr)
 	--braindeadPanel.text.bl:SetText(format('%.1fs', Target.timeToDie))
 	braindeadCooldownPanel.text:SetText(text_cd)
 	braindeadCooldownPanel.dimmer:SetShown(dim_cd)
