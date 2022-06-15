@@ -2553,7 +2553,7 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 	if RaiseDead:Usable() and PillarOfFrost:Ready(5) then
 		UseExtra(RaiseDead)
 	end
-	if SacrificialPact:Usable() and Player.enemies >= 2 and ((Target.boss and Target.timeToDie < 3) or not BreathOfSindragosa.known or BreathOfSindragosa:Down()) then
+	if SacrificialPact:Usable() and Player.enemies >= 2 and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (Pet.RisenGhoul:Remains() < 3 or (EmpowerRuneWeapon:Down() and PillarOfFrost:Down())))) then
 		UseExtra(SacrificialPact)
 	end
 	if DeathAndDecay:Usable() and (Player.enemies > 5 or Phearomones.known) then
