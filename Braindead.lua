@@ -2388,7 +2388,7 @@ actions.aoe+=/frostscythe,if=talent.gathering_storm&buff.remorseless_winter.up&a
 actions.aoe+=/obliterate,if=variable.deaths_due_active&buff.deaths_due.stack<4|talent.gathering_storm&buff.remorseless_winter.up
 actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit<(15+talent.runic_attenuation*5)
 actions.aoe+=/frostscythe,if=!variable.deaths_due_active
-actions.aoe+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>(25+talent.runic_attenuation*5)
+actions.aoe+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>(25+talent.runic_attenuation*5)&(!covenant.night_fae|variable.deaths_due_active|cooldown.deaths_due.remains>gcd*3)
 actions.aoe+=/glacial_advance
 actions.aoe+=/frostscythe
 actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
@@ -2428,7 +2428,7 @@ actions.aoe+=/arcane_torrent
 	if Frostscythe:Usable() and not self.deaths_due_active then
 		return Frostscythe
 	end
-	if Obliterate:Usable() and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)) then
+	if Obliterate:Usable() and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)) and (not DeathsDue.known or self.deaths_due_active or not DeathsDue:Ready(Player.gcd * 3)) then
 		return Obliterate
 	end
 	if GlacialAdvance:Usable() then
@@ -2564,7 +2564,7 @@ end
 APL[SPEC.FROST].covenants = function(self)
 --[[
 # Covenant Abilities
-actions.covenants=deaths_due,if=(!talent.obliteration|talent.obliteration&active_enemies>=2&cooldown.pillar_of_frost.remains|active_enemies=1)&(variable.st_planning|variable.adds_remain)
+actions.covenants=deaths_due,if=(!talent.obliteration|buff.pillar_of_frost.up|rune.time_to_3<gcd*2&(active_enemies=1|cooldown.pillar_of_frost.remains))&(variable.st_planning|variable.adds_remain)
 actions.covenants+=/swarming_mist,if=runic_power.deficit>13&cooldown.pillar_of_frost.remains<3&!talent.breath_of_sindragosa&variable.st_planning
 actions.covenants+=/swarming_mist,if=!talent.breath_of_sindragosa&variable.adds_remain
 actions.covenants+=/swarming_mist,if=talent.breath_of_sindragosa&(buff.breath_of_sindragosa.up&(variable.st_planning&runic_power.deficit>40|variable.adds_remain&runic_power.deficit>60|variable.adds_remain&raid_event.adds.remains<9&raid_event.adds.exists)|!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains)
@@ -2574,7 +2574,7 @@ actions.covenants+=/shackle_the_unworthy,if=variable.st_planning&(cooldown.pilla
 actions.covenants+=/shackle_the_unworthy,if=variable.adds_remain
 actions.covenants+=/fleshcraft,if=!buff.pillar_of_frost.up&(soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up),interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
 ]]
-	if DeathsDue:Usable() and (not Obliteration.known or (Player.enemies == 1 or (Player.enemies >= 2 and not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
+	if DeathsDue:Usable() and (not Obliteration.known or PillarOfFrost:Up() or (Player:RuneTimeTo(3) < (Player.gcd * 2) and (Player.enemies == 1 or not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
 		return UseCooldown(DeathsDue)
 	end
 end
