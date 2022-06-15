@@ -2538,9 +2538,8 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 	end
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
-		(Player.enemies >= 2 and PillarOfFrost:Up()) or
-		(not Obliteration.known and Player.enemies == 1 and PillarOfFrost:Remains() < (Player.gcd * 2) and PillarOfFrost:Up()) or
-		(Obliteration.known and (PillarOfFrost:Up() or not PillarOfFrost:Ready(6)) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5))
+		(PillarOfFrost:Up() and PillarOfFrost:Remains() < (Player.gcd * 2)) or
+		(Obliteration.known and (PillarOfFrost:Up() or not PillarOfFrost:Ready(6)) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5) and (not DeathsDue.known or DeathAndDecay.buff:Down() or DeathsDue.buff:Stack() >= 3))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
