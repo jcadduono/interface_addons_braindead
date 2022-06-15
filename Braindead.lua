@@ -189,6 +189,10 @@ local Player = {
 		pct = 0,
 		lead = 0,
 	},
+	equipped = {
+		twohand = false,
+		offhand = false,
+	},
 	set_bonus = {
 		t28 = 0,
 	},
@@ -1232,6 +1236,7 @@ Fleshcraft.buff_duration = 120
 Fleshcraft.cooldown_duration = 120
 local LeadByExample = Ability:Add(342156, true, true, 342181) -- Necrolord (Emeni Soulbind)
 LeadByExample.buff_duration = 10
+local PustuleEruption = Ability:Add(351094, true, true) -- Necrolord (Emeni Soulbind)
 local ShackleTheUnworthy = Ability:Add(312202, false, true) -- Kyrian
 ShackleTheUnworthy.cooldown_duration = 60
 ShackleTheUnworthy.buff_duration = 14
@@ -1245,11 +1250,17 @@ SwarmingMist.rune_cost = 1
 local SummonSteward = Ability:Add(324739, false, true) -- Kyrian
 SummonSteward.cooldown_duration = 300
 -- Soulbind conduits
+local EradicatingBlow = Ability:Add(337934, false, true, 337936)
+EradicatingBlow.buff_duration = 10
+EradicatingBlow.conduit_id = 83
 local Everfrost = Ability:Add(337988, false, true, 337989)
 Everfrost.buff_duration = 8
 Everfrost.conduit_id = 91
 local Proliferation = Ability:Add(338664, true, true)
 Proliferation.conduit_id = 128
+local UnleashedFrenzy = Ability:Add(338492, false, true, 338501)
+UnleashedFrenzy.buff_duration = 6
+UnleashedFrenzy.conduit_id = 122
 -- Legendary effects
 local BitingCold = Ability:Add(334678, true, true)
 BitingCold.bonus_id = 6945
@@ -1940,6 +1951,7 @@ function Asphyxiate:Usable()
 	end
 	return Ability.Usable(self)
 end
+BlindingSleet.Usable = Asphyxiate.Usable
 
 function ShackleTheUnworthy:Duration()
 	local duration = Ability.Duration(self)
@@ -2240,6 +2252,14 @@ actions.standard+=/heart_strike,if=rune>1&(rune.time_to_3<gcd|buff.bone_shield.s
 end
 
 APL[SPEC.FROST].Main = function(self)
+	self.rw_buffs = GatheringStorm.known or Everfrost.known or BitingCold.known
+	self.st_planning = Player.enemies == 1
+	self.adds_remain = Player.enemies >= 2
+	self.rotfc_rime = Rime:Up() and (not RageOfTheFrozenChampion.known or Player:RunicPowerDeficit() > 8)
+	self.frost_strike_conduits = (EradicatingBlow.known and EradicatingBlow:Stack() == 2) or (UnleashedFrenzy.known and UnleashedFrenzy:Remains() < (Player.gcd * 2))
+	self.deaths_due_active = DeathsDue.known and DeathAndDecay.buff:Up()
+	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up())
+
 	if Player:TimeInCombat() == 0 then
 --[[
 actions.precombat=flask
@@ -2310,7 +2330,48 @@ actions+=/run_action_list,name=obliteration_pooling,if=!set_bonus.tier28_4pc&!ru
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=standard
 ]]
-
+	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and Everfrost.known and GatheringStorm.known and ((not Obliteration.known and not PillarOfFrost:Ready()) or (Player.set_bonus.t28 >= 4 and Obliteration.known and PillarOfFrost:Down())) then
+		return RemorselessWinter
+	end
+	if HowlingBlast:Usable() and FrostFever:Down() and (Icecap.known or (BreathOfSindragosa.known and BreathOfSindragosa:Down()) or (Obliteration.known and not PillarOfFrost:Ready() and KillingMachine:Down())) then
+		return HowlingBlast
+	end
+	if IcyTalons.known and IcyTalons:Remains() <= (Player.gcd * 2) then
+		if GlacialAdvance:Usable() and Player.enemies >= 2 and (Icecap.known or (BreathOfSindragosa.known and not BreathOfSindragosa:Ready(15)) or (Obliteration.known and PillarOfFrost:Down())) then
+			return GlacialAdvance
+		end
+		if FrostStrike:Usable() and (Icecap.known or (BreathOfSindragosa.known and not BreathOfSindragosa:Ready(10)) or (Obliteration.known and PillarOfFrost:Down())) then
+			return FrostStrike
+		end
+	end
+	if DeathsDue.known and Obliterate:Usable() and DeathAndDecay.buff:Remains() < (Player.gcd * 1.5) and (not Obliteration.known or PillarOfFrost:Down()) then
+		return Obliterate
+	end
+	if Player.use_cds then
+		self:covenants()
+		self:trinkets()
+		self:cooldowns()
+	end
+	if BreathOfSindragosa.known then
+		if BreathOfSindragosa:Up() then
+			return self:bos_ticking()
+		end
+		if Player.use_cds and BreathOfSindragosa:Ready(10) then
+			return self:bos_pooling()
+		end
+	end
+	if Obliteration.known then
+		if PillarOfFrost:Up() then
+			return self:obliteration()
+		end
+		if Player.use_cds and Player.set_bonus.t28 < 4 and not RageOfTheFrozenChampion.known and PillarOfFrost:Ready(10) then
+			return self:obliteration_pooling()
+		end
+	end
+	if Player.enemies >= 2 then
+		return self:aoe()
+	end
+	return self:standard()
 end
 
 APL[SPEC.FROST].aoe = function(self)
@@ -2334,7 +2395,54 @@ actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razor
 actions.aoe+=/horn_of_winter
 actions.aoe+=/arcane_torrent
 ]]
-
+	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() then
+		return RemorselessWinter
+	end
+	if GlacialAdvance:Usable() and Frostscythe.known then
+		return GlacialAdvance
+	end
+	if Frostscythe:Usable() and KillingMachine:Up() and not self.deaths_due_active then
+		return Frostscythe
+	end
+	if HowlingBlast:Usable() and self.rotfc_rime and Avalanche.known then
+		return HowlingBlast
+	end
+	if GlacialAdvance:Usable() and (Player.enemies > 3 or Rime:Down()) then
+		return GlacialAdvance
+	end
+	if FrostStrike:Usable() and GatheringStorm.known and RemorselessWinter:Ready(2 * Player.gcd) then
+		return FrostStrike
+	end
+	if HowlingBlast:Usable() and self.rotfc_rime then
+		return HowlingBlast
+	end
+	if Frostscythe:Usable() and GatheringStorm.known and RemorselessWinter:Up() and Player.enemies > 2 and not self.deaths_due_active then
+		return Frostscythe
+	end
+	if Obliterate:Usable() and ((self.deaths_due_active and DeathsDue.buff:Stack() < 4) or (GatheringStorm.known and RemorselessWinter:Up())) then
+		return Obliterate
+	end
+	if FrostStrike:Usable() and Player:RunicPowerDeficit() < (15 + (RunicAttenuation.known and 5 or 0)) then
+		return FrostStrike
+	end
+	if Frostscythe:Usable() and not self.deaths_due_active then
+		return Frostscythe
+	end
+	if Obliterate:Usable() and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)) then
+		return Obliterate
+	end
+	if GlacialAdvance:Usable() then
+		return GlacialAdvance
+	end
+	if Frostscythe:Usable() then
+		return Frostscythe
+	end
+	if FrostStrike:Usable() then
+		return FrostStrike
+	end
+	if HornOfWinter:Usable() then
+		return HornOfWinter
+	end
 end
 
 APL[SPEC.FROST].bos_pooling = function(self)
@@ -2407,7 +2515,50 @@ actions.cooldowns+=/raise_dead,if=cooldown.pillar_of_frost.remains<=5
 actions.cooldowns+=/sacrificial_pact,if=active_enemies>=2&(fight_remains<3|!buff.breath_of_sindragosa.up&(pet.ghoul.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<3&raid_event.adds.in>pet.ghoul.remains))
 actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 ]]
-
+	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and PillarOfFrost:Up() then
+		UseExtra(PotionOfSpectralStrength)
+	end
+	if EmpowerRuneWeapon:Usable() and EmpowerRuneWeapon:Down() and (
+		(Target.boss and Target.timeToDie < 20) or
+		(Obliteration.known and Player:Runes() < 6 and (self.st_planning or self.adds_remain) and (PillarOfFrost:Up() or (PillarOfFrost:Ready(5) and (not PustuleEruption.known or not Fleshcraft.known or not Fleshcraft:Ready(5))))) or
+		(BreathOfSindragosa.known and BreathOfSindragosa:Up() and Player:Runes() < 5 and Player:RunicPower() < (60 - (RuneOfHysteria.known and 5 or 0) - (RampantTransferance.known and 5 or 0))) or
+		(Icecap.known)
+	) then
+		UseCooldown(EmpowerRuneWeapon)
+	end
+	if PillarOfFrost:Usable() and PillarOfFrost:Down() and (
+		(Obliteration.known and ((Player:RunicPower() >= 35 and (not AbominationLimb.known or AbominationLimb:Down())) or (AbominationLimb.known and AbominationLimb:Up()) or RageOfTheFrozenChampion.known) and (self.st_planning or self.adds_remain) and (not GatheringStorm.known or RemorselessWinter:Up())) or
+		(BreathOfSindragosa.known and (self.st_planning or self.adds_remain) and (not BreathOfSindragosa:Ready() or (BreathOfSindragosa:Up() and Player:RunicPower() > 45) or (BreathOfSindragosa:Ready() and Player:RunicPower() > 65))) or
+		(Icecap.known)
+	) then
+		UseCooldown(PillarOfFrost)
+	end
+	if BreathOfSindragosa:Usable() and BreathOfSindragosa:Down() and Player:RunicPower() > 60 and (PillarOfFrost:Up() or not PillarOfFrost:Ready(15)) then
+		UseCooldown(BreathOfSindragosa)
+	end
+	if FrostwyrmsFury:Usable() and (
+		(Target.boss and Target.timeToDie < 3) or
+		(not Obliteration.known and Player.enemies == 1 and PillarOfFrost:Remains() < Player.gcd and PillarOfFrost:Up()) or
+		(Player.enemies >= 2 and PillarOfFrost:Up()) or
+		(Obliteration.known and ((not Player.equipped.twohand and PillarOfFrost:Up()) or (Player.equipped.twohand and PillarOfFrost:Down() and not PillarOfFrost:Ready())) and ((PillarOfFrost:Remains() < Player.gcd or (UnholyStrength:Up() and UnholyStrength:Remains() < Player.gcd)) and (not RuneOfRazorice.known or Razorice:Stack() >= 5)))
+	) then
+		UseCooldown(FrostwyrmsFury)
+	end
+	if HypothermicPresence:Usable() and (
+		(BreathOfSindragosa.known and Player:RunicPower() < 60 and Player:Runes() <= 3 and (BreathOfSindragosa:Up() or not BreathOfSindragosa:Ready(40))) or
+		(not BreathOfSindragosa.known and Player:RunicPower() <= 75)
+	) then
+		UseCooldown(BreathOfSindragosa)
+	end
+	if RaiseDead:Usable() and PillarOfFrost:Ready(5) then
+		UseExtra(RaiseDead)
+	end
+	if SacrificialPact:Usable() and Player.enemies >= 2 and ((Target.boss and Target.timeToDie < 3) or not BreathOfSindragosa.known or BreathOfSindragosa:Down()) then
+		UseExtra(SacrificialPact)
+	end
+	if DeathAndDecay:Usable() and (Player.enemies > 5 or Phearomones.known) then
+		UseCooldown(DeathAndDecay)
+	end
 end
 
 APL[SPEC.FROST].covenants = function(self)
@@ -2423,7 +2574,9 @@ actions.covenants+=/shackle_the_unworthy,if=variable.st_planning&(cooldown.pilla
 actions.covenants+=/shackle_the_unworthy,if=variable.adds_remain
 actions.covenants+=/fleshcraft,if=!buff.pillar_of_frost.up&(soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up),interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
 ]]
-
+	if DeathsDue:Usable() and (not Obliteration.known or (Player.enemies == 1 or (Player.enemies >= 2 and not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
+		return UseCooldown(DeathsDue)
+	end
 end
 
 APL[SPEC.FROST].obliteration = function(self)
@@ -2442,7 +2595,42 @@ actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(deb
 actions.obliteration+=/howling_blast,if=variable.rotfc_rime
 actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
 ]]
-
+	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and Player.enemies >= 3 and self.rw_buffs then
+		return RemorselessWinter
+	end
+	if FrostStrike:Usable() and KillingMachine:Down() and (Player:Runes() < 2 or (IcyTalons.known and IcyTalons:Remains() < (Player.gcd * 2)) or (UnleashedFrenzy.known and (UnleashedFrenzy:Remains() < (Player.gcd * 2) or UnleashedFrenzy:Stacks() < 3))) then
+		return FrostStrike
+	end
+	if HowlingBlast:Usable() and KillingMachine:Down() and Player:Runes() >= 3 and ((Rime:Up() and Rime:Remains() < 3) or FrostFever:Down()) then
+		return HowlingBlast
+	end
+	if GlacialAdvance:Usable() and KillingMachine:Down() and (Player.enemies >= 2 or Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 4)) then
+		return GlacialAdvance
+	end
+	if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 and not self.deaths_due_active then
+		return Frostscythe
+	end
+	if Obliterate:Usable() and KillingMachine:Up() then
+		return Obliterate
+	end
+	if FrostStrike:Usable() and Player.enemies == 1 and self.frost_strike_conduits then
+		return FrostStrike
+	end
+	if HowlingBlast:Usable() and self.rotfc_rime and Player.enemies >= 2 then
+		return HowlingBlast
+	end
+	if GlacialAdvance:Usable() and Player.enemies >= 2 then
+		return GlacialAdvance
+	end
+	if FrostStrike:Usable() and ((not Avalanche.known and KillingMachine:Down()) or (Avalanche.known and not self.rotfc_rime) or (self.rotfc_rime and Player:RuneTimeTo(2) >= Player.gcd)) then
+		return FrostStrike
+	end
+	if HowlingBlast:Usable() and self.rotfc_rime then
+		return HowlingBlast
+	end
+	if Obliterate:Usable() then
+		return Obliterate
+	end
 end
 
 APL[SPEC.FROST].obliteration_pooling = function(self)
@@ -2459,7 +2647,38 @@ actions.obliteration_pooling+=/frost_strike,target_if=max:(debuff.razorice.stack
 actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=rune>=3&(!main_hand.2h|covenant.necrolord|covenant.kyrian)|rune>=4&main_hand.2h
 actions.obliteration_pooling+=/frostscythe,if=active_enemies>=4&!variable.deaths_due_active
 ]]
-
+	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and (self.rw_buffs or Player.enemies >= 2) then
+		return RemorselessWinter
+	end
+	if Frostscythe.known then
+		if GlacialAdvance:Usable() and Player.enemies >= 2 then
+			return GlacialAdvance
+		end
+		if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 and not self.deaths_due_active then
+			return Frostscythe
+		end
+	end
+	if Obliterate:Usable() and KillingMachine:Up() then
+		return Obliterate
+	end
+	if FrostStrike:Usable() and Player.enemies == 1 and self.frost_strike_conduits then
+		return FrostStrike
+	end
+	if HowlingBlast:Usable() and self.rotfc_rime then
+		return HowlingBlast
+	end
+	if GlacialAdvance:Usable() and Player.enemies >= 2 and Player:RunicPowerDeficit() < 60 then
+		return GlacialAdvance
+	end
+	if FrostStrike:Usable() and Player:RunicPowerDeficit() < 70 then
+		return FrostStrike
+	end
+	if Obliterate:Usable() and ((Player:Runes() >= 3 and (not Player.equipped.twohand or AbominationLimb.known or ShackleTheUnworthy.known)) or (Player.equipped.twohand and Player:Runes() >= 4)) then
+		return Obliterate
+	end
+	if Frostscythe:Usable() and Player.enemies >= 4 and not self.deaths_due_active then
+		return Frostscythe
+	end
 end
 
 APL[SPEC.FROST].standard = function(self)
@@ -2478,7 +2697,39 @@ actions.standard+=/frost_strike
 actions.standard+=/horn_of_winter
 actions.standard+=/arcane_torrent
 ]]
-
+	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and self.rw_buffs then
+		return RemorselessWinter
+	end
+	if Obliterate:Usable() and KillingMachine:Up() then
+		return Obliterate
+	end
+	if HowlingBlast:Usable() and self.rotfc_rime and Rime:Remains() < 3 then
+		return HowlingBlast
+	end
+	if FrostStrike:Usable() and self.frost_strike_conduits then
+		return FrostStrike
+	end
+	if HowlingBlast:Usable() and self.rotfc_rime then
+		return HowlingBlast
+	end
+	if FrostStrike:Usable() and Player:RunicPowerDeficit() < (15 + (RunicAttenuation.known and 5 or 0)) then
+		return FrostStrike
+	end
+	if Obliterate:Usable() and (
+		(FrozenPulse.known and FrozenPulse:Down()) or
+		(self.deaths_due_active and DeathsDue.buff:Stack() < 4) or
+		(Player:Runes() >= 4 and Player.set_bonus.t28 >= 4) or
+		((Player.equipped.twohand or not DeathsDue.known or Player.set_bonus.t28 < 4) and GatheringStorm.known and RemorselessWinter:Up()) or
+		(Player.set_bonus.t28 < 4 and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)))
+	) then
+		return Obliterate
+	end
+	if FrostStrike:Usable() then
+		return FrostStrike
+	end
+	if HornOfWinter:Usable() then
+		return HornOfWinter
+	end
 end
 
 APL[SPEC.FROST].trinkets = function(self)
@@ -2798,6 +3049,9 @@ APL.Interrupt = function(self)
 	end
 	if Asphyxiate:Usable() then
 		return Asphyxiate
+	end
+	if BlindingSleet:Usable() then
+		return BlindingSleet
 	end
 end
 
@@ -3432,6 +3686,11 @@ function events:PLAYER_EQUIPMENT_CHANGED()
 		end
 	end
 
+	_, _, _, _, _, _, _, _, equipType = GetItemInfo(GetInventoryItemID('player', 16) or 0)
+	Player.equipped.twohand = equipType == 'INVTYPE_2HWEAPON'
+	_, _, _, _, _, _, _, _, equipType = GetItemInfo(GetInventoryItemID('player', 17) or 0)
+	Player.equipped.offhand = equipType == 'INVTYPE_WEAPON'
+
 	Player.set_bonus.t28 = (Player:Equipped(188863) and 1 or 0) + (Player:Equipped(188864) and 1 or 0) + (Player:Equipped(188866) and 1 or 0) + (Player:Equipped(188867) and 1 or 0) + (Player:Equipped(188868) and 1 or 0)
 
 	Player:UpdateAbilities()
@@ -3848,4 +4107,4 @@ SlashCmdList[ADDON] = function(msg, editbox)
 		'|c' .. BATTLENET_FONT_COLOR:GenerateHexColor() .. '|HBNadd:Spy#1955|h[Spy#1955]|h|r')
 end
 
--- End Slash Commands
+-- End Slash Commands 
