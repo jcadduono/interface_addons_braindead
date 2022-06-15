@@ -2404,7 +2404,7 @@ actions.aoe+=/arcane_torrent
 	if Frostscythe:Usable() and KillingMachine:Up() and not self.deaths_due_active then
 		return Frostscythe
 	end
-	if HowlingBlast:Usable() and self.rotfc_rime and Avalanche.known then
+	if HowlingBlast:Usable() and self.rotfc_rime and (Avalanche.known or FrostFever:Down()) then
 		return HowlingBlast
 	end
 	if GlacialAdvance:Usable() and (Player.enemies > 3 or Rime:Down()) then
