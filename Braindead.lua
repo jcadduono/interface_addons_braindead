@@ -2314,7 +2314,7 @@ actions+=/remorseless_winter,if=conduit.everfrost&talent.gathering_storm&(!talen
 actions+=/howling_blast,target_if=!dot.frost_fever.remains&(talent.icecap|!buff.breath_of_sindragosa.up&talent.breath_of_sindragosa|talent.obliteration&cooldown.pillar_of_frost.remains&!buff.killing_machine.up)
 actions+=/glacial_advance,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&spell_targets.glacial_advance>=2&(talent.icecap|talent.breath_of_sindragosa&cooldown.breath_of_sindragosa.remains>15|talent.obliteration&!buff.pillar_of_frost.up)
 actions+=/frost_strike,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&(talent.icecap|talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>10|talent.obliteration&!buff.pillar_of_frost.up)
-actions+=/obliterate,if=covenant.night_fae&death_and_decay.ticking&death_and_decay.active_remains<(gcd*1.5)&(!talent.obliteration|talent.obliteration&!buff.pillar_of_frost.up)
+actions+=/obliterate,if=variable.deaths_due_active&death_and_decay.active_remains<(gcd*1.5)&(!talent.obliteration|!buff.pillar_of_frost.up)
 # Interrupt
 actions+=/mind_freeze,if=target.debuff.casting.react
 # Choose Action list to run
@@ -2344,7 +2344,7 @@ actions+=/call_action_list,name=standard
 			return FrostStrike
 		end
 	end
-	if DeathsDue.known and Obliterate:Usable() and DeathAndDecay.buff:Remains() < (Player.gcd * 1.5) and (not Obliteration.known or PillarOfFrost:Down()) then
+	if Obliterate:Usable() and self.deaths_due_active and DeathAndDecay.buff:Remains() < (Player.gcd * 1.5) and (not Obliteration.known or PillarOfFrost:Down()) then
 		return Obliterate
 	end
 	if Player.use_cds then
@@ -2509,7 +2509,7 @@ actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(runic_power>=35&!buf
 actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_power>60&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>15)
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies=1&buff.pillar_of_frost.remains<gcd*2&buff.pillar_of_frost.up&!talent.obliteration&(!raid_event.adds.exists|raid_event.adds.in>30)|fight_remains<3
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies>=2&(buff.pillar_of_frost.up|raid_event.adds.exists&raid_event.adds.in>cooldown.pillar_of_frost.remains+7)&(buff.pillar_of_frost.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<gcd)
-actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>6)&((buff.pillar_of_frost.up&buff.unholy_strength.up|buff.pillar_of_frost.remains<gcd*2|buff.unholy_strength.up&buff.unholy_strength.remains<gcd*2)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice))
+actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>6)&((buff.pillar_of_frost.up&buff.unholy_strength.up|buff.pillar_of_frost.remains<gcd*2|buff.unholy_strength.up&buff.unholy_strength.remains<gcd*2)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice))&(!covenant.night_fae|cooldown.deaths_due.remains&!variable.deaths_due_active|buff.deaths_due.up&(buff.deaths_due.stack>=4|buff.deaths_due.remains<gcd*3))
 actions.cooldowns+=/hypothermic_presence,if=talent.breath_of_sindragosa&runic_power<60&rune<=3&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains>40)|!talent.breath_of_sindragosa&runic_power<=75
 actions.cooldowns+=/raise_dead,if=cooldown.pillar_of_frost.remains<=5
 actions.cooldowns+=/sacrificial_pact,if=active_enemies>=2&(fight_remains<3|!buff.breath_of_sindragosa.up&(pet.ghoul.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<3&raid_event.adds.in>pet.ghoul.remains))
@@ -2539,7 +2539,7 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
 		(PillarOfFrost:Up() and PillarOfFrost:Remains() < (Player.gcd * 2)) or
-		(Obliteration.known and (PillarOfFrost:Up() or not PillarOfFrost:Ready(6)) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5) and (not DeathsDue.known or DeathAndDecay.buff:Down() or DeathsDue.buff:Stack() >= 3))
+		(Obliteration.known and (PillarOfFrost:Up() or not PillarOfFrost:Ready(6)) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5) and (not DeathsDue.known or (not self.deaths_due_active and not DeathsDue:Ready()) or (DeathsDue.buff:Up() and (DeathsDue.buff:Stack() >= 4 or DeathsDue.buff:Remains() < (Player.gcd * 3)))))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
