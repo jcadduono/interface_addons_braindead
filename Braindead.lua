@@ -2576,6 +2576,9 @@ actions.covenants+=/fleshcraft,if=!buff.pillar_of_frost.up&(soulbind.pustule_eru
 	if DeathsDue:Usable() and (not Obliteration.known or PillarOfFrost:Up() or (Player:RuneTimeTo(3) < (Player.gcd * 2) and (Player.enemies == 1 or not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
 		return UseCooldown(DeathsDue)
 	end
+	if ShackleTheUnworthy:Usable() and (self.adds_remain or (self.st_planning and (Icecap.known or PillarOfFrost:Ready(3) or PillarOfFrost:Up()))) then
+		return UseCooldown(ShackleTheUnworthy)
+	end
 end
 
 APL[SPEC.FROST].obliteration = function(self)
