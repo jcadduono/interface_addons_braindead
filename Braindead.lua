@@ -2391,6 +2391,7 @@ actions.aoe+=/frostscythe,if=!variable.deaths_due_active
 actions.aoe+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>(25+talent.runic_attenuation*5)&(!covenant.night_fae|variable.deaths_due_active|cooldown.deaths_due.remains>gcd*3)
 actions.aoe+=/glacial_advance
 actions.aoe+=/frostscythe
+actions.aoe+=/sacrificial_pact,if=!buff.empower_rune_weapon.up&active_enemies>=4
 actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
 actions.aoe+=/horn_of_winter
 actions.aoe+=/arcane_torrent
@@ -2436,6 +2437,9 @@ actions.aoe+=/arcane_torrent
 	end
 	if Frostscythe:Usable() then
 		return Frostscythe
+	end
+	if SacrificialPact:Usable() and EmpowerRuneWeapon:Down() and Player.enemies >= 4 then
+		UseExtra(SacrificialPact)
 	end
 	if FrostStrike:Usable() then
 		return FrostStrike
@@ -2552,7 +2556,7 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 	if RaiseDead:Usable() and PillarOfFrost:Ready(5) then
 		UseExtra(RaiseDead)
 	end
-	if SacrificialPact:Usable() and Player.enemies >= 2 and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (Pet.RisenGhoul:Remains() < 3 or (EmpowerRuneWeapon:Down() and PillarOfFrost:Down())))) then
+	if SacrificialPact:Usable() and Player.enemies >= 2 and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (not Obliteration.known or PillarOfFrost:Down()) and Pet.RisenGhoul:Remains() < 3)) then
 		UseExtra(SacrificialPact)
 	end
 	if DeathAndDecay:Usable() and (Player.enemies > 5 or Phearomones.known) then
