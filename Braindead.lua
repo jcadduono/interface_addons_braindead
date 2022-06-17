@@ -1231,6 +1231,7 @@ DeathsDue.buff.buff_duration = 12
 DeathsDue.damage = Ability:Add(341340, false, true)
 DeathsDue.damage.tick_interval = 1
 DeathsDue.damage:AutoAoe()
+local FirstStrike = Ability:Add(325069, true, true, 325381) -- Night Fae (Korayn Soulbind)
 local Fleshcraft = Ability:Add(324631, true, true) -- Necrolord
 Fleshcraft.buff_duration = 120
 Fleshcraft.cooldown_duration = 120
@@ -2513,7 +2514,7 @@ actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(runic_power>=35&!buf
 actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_power>60&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>15)
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies=1&buff.pillar_of_frost.remains<gcd*2&buff.pillar_of_frost.up&!talent.obliteration&(!raid_event.adds.exists|raid_event.adds.in>30)|fight_remains<3
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies>=2&(buff.pillar_of_frost.up|raid_event.adds.exists&raid_event.adds.in>cooldown.pillar_of_frost.remains+7)&(buff.pillar_of_frost.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<gcd)
-actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>6)&((buff.pillar_of_frost.up&buff.unholy_strength.up|buff.pillar_of_frost.remains<gcd*2|buff.unholy_strength.up&buff.unholy_strength.remains<gcd*2)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice))&(!covenant.night_fae|cooldown.deaths_due.remains&!variable.deaths_due_active|buff.deaths_due.up&(buff.deaths_due.stack>=4|buff.deaths_due.remains<gcd*3))
+actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>6)&((buff.pillar_of_frost.up&buff.unholy_strength.up|buff.pillar_of_frost.remains<gcd*2|buff.unholy_strength.up&buff.unholy_strength.remains<gcd*2)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice))&(!covenant.night_fae|active_enemies>1&buff.first_strike.up&buff.first_strike.remains<gcd|cooldown.deaths_due.remains&!variable.deaths_due_active|buff.deaths_due.up&(buff.deaths_due.stack>=4|buff.deaths_due.remains<gcd*3))
 actions.cooldowns+=/hypothermic_presence,if=talent.breath_of_sindragosa&runic_power<60&rune<=3&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains>40)|!talent.breath_of_sindragosa&runic_power<=75
 actions.cooldowns+=/raise_dead,if=cooldown.pillar_of_frost.remains<=5
 actions.cooldowns+=/sacrificial_pact,if=active_enemies>=2&(fight_remains<3|!buff.breath_of_sindragosa.up&(pet.ghoul.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<3&raid_event.adds.in>pet.ghoul.remains))
@@ -2543,7 +2544,7 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
 		(PillarOfFrost:Up() and PillarOfFrost:Remains() < (Player.gcd * 2)) or
-		(Obliteration.known and (PillarOfFrost:Up() or not PillarOfFrost:Ready(6)) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5) and (not DeathsDue.known or (not self.deaths_due_active and not DeathsDue:Ready()) or (DeathsDue.buff:Up() and (DeathsDue.buff:Stack() >= 4 or DeathsDue.buff:Remains() < (Player.gcd * 3)))))
+		(Obliteration.known and (PillarOfFrost:Up() or not PillarOfFrost:Ready(6)) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5) and (not DeathsDue.known or (FirstStrike.known and Player.enemies > 1 and FirstStrike:Up() and FirstStrike:Remains() < Player.gcd) or (not self.deaths_due_active and not DeathsDue:Ready()) or (DeathsDue.buff:Up() and (DeathsDue.buff:Stack() >= 4 or DeathsDue.buff:Remains() < (Player.gcd * 3)))))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
