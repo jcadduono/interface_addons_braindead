@@ -2379,7 +2379,8 @@ APL[SPEC.FROST].aoe = function(self)
 --[[
 actions.aoe=remorseless_winter
 actions.aoe+=/glacial_advance,if=talent.frostscythe
-actions.aoe+=/frostscythe,if=buff.killing_machine.react&!variable.deaths_due_active
+actions.aoe+=/frostscythe,if=buff.killing_machine.react&!variable.deaths_due_active&(!talent.gathering_storm|rune>=2|cooldown.remorseless_winter.remains>rune.time_to_2)
+actions.aoe+=/obliterate,if=buff.killing_machine.react&variable.deaths_due_active&(!talent.gathering_storm|rune>=3|cooldown.remorseless_winter.remains>rune.time_to_3)
 actions.aoe+=/howling_blast,if=variable.rotfc_rime&talent.avalanche
 actions.aoe+=/glacial_advance,if=!buff.rime.up&active_enemies<=3|active_enemies>3
 # Formulaic approach to create a pseudo priority target list for applying razorice in aoe
@@ -2403,8 +2404,11 @@ actions.aoe+=/arcane_torrent
 	if GlacialAdvance:Usable() and Frostscythe.known then
 		return GlacialAdvance
 	end
-	if Frostscythe:Usable() and KillingMachine:Up() and not self.deaths_due_active then
+	if Frostscythe:Usable() and not self.deaths_due_active and KillingMachine:Up() and (not GatheringStorm.known or Player:Runes() >= 2 or not RemorselessWinter:Ready(Player:RuneTimeTo(2))) then
 		return Frostscythe
+	end
+	if Obliterate:Usable() and self.deaths_due_active and KillingMachine:Up() and (not GatheringStorm.known or Player:Runes() >= 3 or not RemorselessWinter:Ready(Player:RuneTimeTo(3))) then
+		return Obliterate
 	end
 	if HowlingBlast:Usable() and self.rotfc_rime and (Avalanche.known or FrostFever:Down()) then
 		return HowlingBlast
