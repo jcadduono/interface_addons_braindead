@@ -2135,7 +2135,7 @@ actions.covenants+=/abomination_limb
 actions.covenants+=/fleshcraft,if=soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up,interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
 actions.covenants+=/shackle_the_unworthy,if=runic_power<100&active_dot.shackle_the_unworthy=0&dot.blood_plague.remains
 ]]
-	if DeathsDue:Usable() and (DeathsDue.buff:Remains() < 4 or CrimsonScourge:Up()) then
+	if DeathsDue:Usable() and DeathAndDecay.buff:Down() and (DeathsDue.buff:Remains() < 4 or CrimsonScourge:Up()) then
 		UseCooldown(DeathsDue)
 	end
 	if SwarmingMist:Usable() and not DancingRuneWeapon:Ready(3) and Player:RunicPower() >= (90 - (Player.enemies * 3)) then
@@ -2582,10 +2582,10 @@ actions.covenants+=/shackle_the_unworthy,if=variable.st_planning&(cooldown.pilla
 actions.covenants+=/shackle_the_unworthy,if=variable.adds_remain
 actions.covenants+=/fleshcraft,if=!buff.pillar_of_frost.up&(soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up),interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
 ]]
-	if DeathsDue:Usable() and (not Obliteration.known or PillarOfFrost:Up() or (Player:RuneTimeTo(3) < (Player.gcd * 2) and (Player.enemies == 1 or not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
+	if DeathsDue:Usable() and DeathAndDecay.buff:Down() and DeathsDue.buff:Remains() < 4 and (not Obliteration.known or PillarOfFrost:Up() or (Player:RuneTimeTo(3) < (Player.gcd * 2) and (Player.enemies == 1 or not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
 		return UseCooldown(DeathsDue)
 	end
-	if ShackleTheUnworthy:Usable() and (self.adds_remain or (self.st_planning and (Icecap.known or PillarOfFrost:Ready(3) or PillarOfFrost:Up()))) then
+	if ShackleTheUnworthy:Usable() and ShackleTheUnworthy:Ticking() == 0 and (self.adds_remain or (self.st_planning and (Icecap.known or PillarOfFrost:Ready(3) or PillarOfFrost:Up()))) then
 		return UseCooldown(ShackleTheUnworthy)
 	end
 end
