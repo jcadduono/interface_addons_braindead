@@ -1477,6 +1477,7 @@ Trinket.SoleahsSecretTechnique = InventoryItem:Add(190958)
 Trinket.SoleahsSecretTechnique.buff = Ability:Add(368512, true, true)
 Trinket.InscrutableQuantumDevice = InventoryItem:Add(179350)
 Trinket.OverwhelmingPowerCrystal = InventoryItem:Add(179342)
+Trinket.TheFirstSigil = InventoryItem:Add(188271)
 -- End Inventory Items
 
 -- Start Player API
@@ -2090,6 +2091,8 @@ actions+=/call_action_list,name=standard
 		if Opt.trinket then
 			if Trinket.InscrutableQuantumDevice:Usable() and DancingRuneWeapon:Up() then
 				UseCooldown(Trinket.InscrutableQuantumDevice)
+			elseif Trinket.TheFirstSigil:Usable() and DancingRuneWeapon:Up() then
+				UseCooldown(Trinket.TheFirstSigil)
 			elseif Trinket.OverwhelmingPowerCrystal:Usable() and ((ShackleTheUnworthy.known and ShackleTheUnworthy:Ticking() > 0) or (not ShackleTheUnworthy.known and DancingRuneWeapon:Up())) then
 				UseCooldown(Trinket.OverwhelmingPowerCrystal)
 			elseif Trinket1:Usable() then
@@ -2350,7 +2353,9 @@ actions+=/call_action_list,name=standard
 	end
 	if Player.use_cds then
 		self:covenants()
-		self:trinkets()
+		if Opt.trinket then
+			self:trinkets()
+		end
 		self:cooldowns()
 	end
 	if BreathOfSindragosa.known then
@@ -2761,7 +2766,25 @@ actions.trinkets+=/use_item,slot=trinket2,if=!variable.specified_trinket&buff.pi
 actions.trinkets+=/use_item,slot=trinket1,if=!variable.specified_trinket&(!trinket.1.has_use_buff&(trinket.2.cooldown.remains|!trinket.2.has_use_buff)|cooldown.pillar_of_frost.remains>20)
 actions.trinkets+=/use_item,slot=trinket2,if=!variable.specified_trinket&(!trinket.2.has_use_buff&(trinket.1.cooldown.remains|!trinket.1.has_use_buff)|cooldown.pillar_of_frost.remains>20)
 ]]
-
+	if Trinket.InscrutableQuantumDevice:Usable() and (
+		(not BreathOfSindragosa.known and PillarOfFrost:Up() and EmpowerRuneWeapon:Up()) or
+		(BreathOfSindragosa.known and PillarOfFrost:Up() and (BreathOfSindragosa:Ready() or (Target.boss and (Target.timeToDie - BreathOfSindragosa:Cooldown()) < 21))) or
+		(Target.boss and Target.timeToDie < 21)
+	) then
+		return UseCooldown(Trinket.InscrutableQuantumDevice)
+	end
+	if Trinket.TheFirstSigil:Usable() and PillarOfFrost:Up() and EmpowerRuneWeapon:Up() then
+		return UseCooldown(Trinket.TheFirstSigil)
+	end
+	if Trinket.OverwhelmingPowerCrystal:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
+		return UseCooldown(Trinket.OverwhelmingPowerCrystal)
+	end
+	if Trinket1:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
+		return UseCooldown(Trinket1)
+	end
+	if Trinket2:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
+		return UseCooldown(Trinket2)
+	end
 end
 
 APL[SPEC.UNHOLY].Main = function(self)
