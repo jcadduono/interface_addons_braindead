@@ -2311,7 +2311,7 @@ actions+=/variable,name=rotfc_rime,value=buff.rime.up&(!runeforge.rage_of_the_fr
 actions+=/variable,name=frost_strike_conduits,value=conduit.eradicating_blow&buff.eradicating_blow.stack=2|conduit.unleashed_frenzy&buff.unleashed_frenzy.remains<(gcd*2)
 actions+=/variable,name=deaths_due_active,value=death_and_decay.ticking&covenant.night_fae
 # Apply Frost Fever, maintain Icy Talons and keep Remorseless Winter rolling
-actions+=/remorseless_winter,if=conduit.everfrost&talent.gathering_storm&(!talent.obliteration&cooldown.pillar_of_frost.remains|set_bonus.tier28_4pc&talent.obliteration&!buff.pillar_of_frost.up)
+actions+=/remorseless_winter,if=!remains&conduit.everfrost&talent.gathering_storm&(!talent.obliteration&cooldown.pillar_of_frost.remains|set_bonus.tier28_4pc&talent.obliteration&!buff.pillar_of_frost.up)
 actions+=/howling_blast,target_if=!dot.frost_fever.remains&(talent.icecap|!buff.breath_of_sindragosa.up&talent.breath_of_sindragosa|talent.obliteration&cooldown.pillar_of_frost.remains&!buff.killing_machine.up)
 actions+=/glacial_advance,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&spell_targets.glacial_advance>=2&(talent.icecap|talent.breath_of_sindragosa&cooldown.breath_of_sindragosa.remains>15|talent.obliteration&!buff.pillar_of_frost.up)
 actions+=/frost_strike,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&(talent.icecap|talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>10|talent.obliteration&!buff.pillar_of_frost.up)
@@ -2331,7 +2331,7 @@ actions+=/run_action_list,name=obliteration_pooling,if=!set_bonus.tier28_4pc&!ru
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=standard
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and Everfrost.known and GatheringStorm.known and ((not Obliteration.known and not PillarOfFrost:Ready()) or (Player.set_bonus.t28 >= 4 and Obliteration.known and PillarOfFrost:Down())) then
+	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Everfrost.known and GatheringStorm.known and ((not Obliteration.known and not PillarOfFrost:Ready()) or (Player.set_bonus.t28 >= 4 and Obliteration.known and PillarOfFrost:Down())) then
 		return RemorselessWinter
 	end
 	if HowlingBlast:Usable() and FrostFever:Down() and (Icecap.known or (BreathOfSindragosa.known and BreathOfSindragosa:Down()) or (Obliteration.known and not PillarOfFrost:Ready() and KillingMachine:Down())) then
@@ -2377,7 +2377,7 @@ end
 
 APL[SPEC.FROST].aoe = function(self)
 --[[
-actions.aoe=remorseless_winter
+actions.aoe=remorseless_winter,if=remains<gcd
 actions.aoe+=/glacial_advance,if=talent.frostscythe
 actions.aoe+=/frostscythe,if=buff.killing_machine.react&!variable.deaths_due_active&(!talent.gathering_storm|rune>=2|cooldown.remorseless_winter.remains>rune.time_to_2)
 actions.aoe+=/obliterate,if=buff.killing_machine.react&variable.deaths_due_active&(!talent.gathering_storm|rune>=3|cooldown.remorseless_winter.remains>rune.time_to_3)
@@ -2398,7 +2398,7 @@ actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razor
 actions.aoe+=/horn_of_winter
 actions.aoe+=/arcane_torrent
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() then
+	if RemorselessWinter:Usable() and RemorselessWinter:Remains() < Player.gcd then
 		return RemorselessWinter
 	end
 	if GlacialAdvance:Usable() and Frostscythe.known then
@@ -2457,7 +2457,7 @@ end
 APL[SPEC.FROST].bos_pooling = function(self)
 --[[
 # Breath of Sindragosa pooling rotation : starts 10s before BoS is available
-actions.bos_pooling=remorseless_winter,if=active_enemies>=2|variable.rw_buffs
+actions.bos_pooling=remorseless_winter,if=remains<gcd&(active_enemies>=2|variable.rw_buffs)
 actions.bos_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react&cooldown.pillar_of_frost.remains>3
 actions.bos_pooling+=/howling_blast,if=variable.rotfc_rime
 actions.bos_pooling+=/frostscythe,if=buff.killing_machine.react&runic_power.deficit>(15+talent.runic_attenuation*5)&spell_targets.frostscythe>2&!variable.deaths_due_active
@@ -2475,7 +2475,7 @@ APL[SPEC.FROST].bos_ticking = function(self)
 --[[
 # Breath of Sindragosa Active Rotation
 actions.bos_ticking=obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power<=(45+talent.runic_attenuation*5)
-actions.bos_ticking+=/remorseless_winter,if=variable.rw_buffs|active_enemies>=2|runic_power<32&rune.time_to_2<runic_power%16
+actions.bos_ticking+=/remorseless_winter,if=remains<gcd&(variable.rw_buffs|active_enemies>=2|runic_power<32&rune.time_to_2<runic_power%16)
 actions.bos_ticking+=/death_and_decay,if=runic_power<32&rune.time_to_2<runic_power%16
 actions.bos_ticking+=/howling_blast,if=variable.rotfc_rime&(runic_power>=45|rune.time_to_3<=gcd|runeforge.rage_of_the_frozen_champion|spell_targets.howling_blast>=2|buff.rime.remains<3)|runic_power<32&rune.time_to_2<runic_power%16
 actions.bos_ticking+=/frostscythe,if=buff.killing_machine.up&spell_targets.frostscythe>2&!variable.deaths_due_active
@@ -2572,7 +2572,7 @@ end
 APL[SPEC.FROST].covenants = function(self)
 --[[
 # Covenant Abilities
-actions.covenants=deaths_due,if=(!talent.obliteration|buff.pillar_of_frost.up|rune.time_to_3<gcd*2&(active_enemies=1|cooldown.pillar_of_frost.remains))&(variable.st_planning|variable.adds_remain)
+actions.covenants=deaths_due,if=!variable.deaths_due_active&(!talent.obliteration|buff.pillar_of_frost.up|rune.time_to_3<gcd*2&(active_enemies=1|cooldown.pillar_of_frost.remains))&(variable.st_planning|variable.adds_remain)
 actions.covenants+=/swarming_mist,if=runic_power.deficit>13&cooldown.pillar_of_frost.remains<3&!talent.breath_of_sindragosa&variable.st_planning
 actions.covenants+=/swarming_mist,if=!talent.breath_of_sindragosa&variable.adds_remain
 actions.covenants+=/swarming_mist,if=talent.breath_of_sindragosa&(buff.breath_of_sindragosa.up&(variable.st_planning&runic_power.deficit>40|variable.adds_remain&runic_power.deficit>60|variable.adds_remain&raid_event.adds.remains<9&raid_event.adds.exists)|!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains)
@@ -2582,7 +2582,7 @@ actions.covenants+=/shackle_the_unworthy,if=variable.st_planning&(cooldown.pilla
 actions.covenants+=/shackle_the_unworthy,if=variable.adds_remain
 actions.covenants+=/fleshcraft,if=!buff.pillar_of_frost.up&(soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up),interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
 ]]
-	if DeathsDue:Usable() and DeathAndDecay.buff:Down() and DeathsDue.buff:Remains() < 4 and (not Obliteration.known or PillarOfFrost:Up() or (Player:RuneTimeTo(3) < (Player.gcd * 2) and (Player.enemies == 1 or not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
+	if DeathsDue:Usable() and not self.deaths_due_active and DeathsDue.buff:Remains() < 4 and (not Obliteration.known or PillarOfFrost:Up() or (Player:RuneTimeTo(3) < (Player.gcd * 2) and (Player.enemies == 1 or not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
 		return UseCooldown(DeathsDue)
 	end
 	if ShackleTheUnworthy:Usable() and ShackleTheUnworthy:Ticking() == 0 and (self.adds_remain or (self.st_planning and (Icecap.known or PillarOfFrost:Ready(3) or PillarOfFrost:Up()))) then
@@ -2593,7 +2593,7 @@ end
 APL[SPEC.FROST].obliteration = function(self)
 --[[
 # Obliteration rotation
-actions.obliteration=remorseless_winter,if=active_enemies>=3&variable.rw_buffs
+actions.obliteration=remorseless_winter,if=!remains&active_enemies>=3&variable.rw_buffs
 actions.obliteration+=/frost_strike,if=!buff.killing_machine.up&(rune<2|talent.icy_talons&buff.icy_talons.remains<gcd*2|conduit.unleashed_frenzy&(buff.unleashed_frenzy.remains<gcd*2|buff.unleashed_frenzy.stack<3))
 actions.obliteration+=/howling_blast,target_if=!buff.killing_machine.up&rune>=3&(buff.rime.remains<3&buff.rime.up|!dot.frost_fever.ticking)
 actions.obliteration+=/glacial_advance,if=!buff.killing_machine.up&spell_targets.glacial_advance>=2|!buff.killing_machine.up&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*4)
@@ -2606,7 +2606,7 @@ actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(deb
 actions.obliteration+=/howling_blast,if=variable.rotfc_rime
 actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and Player.enemies >= 3 and self.rw_buffs then
+	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Player.enemies >= 3 and self.rw_buffs then
 		return RemorselessWinter
 	end
 	if FrostStrike:Usable() and KillingMachine:Down() and (Player:Runes() < 2 or (IcyTalons.known and IcyTalons:Remains() < (Player.gcd * 2)) or (UnleashedFrenzy.known and (UnleashedFrenzy:Remains() < (Player.gcd * 2) or UnleashedFrenzy:Stacks() < 3))) then
@@ -2647,7 +2647,7 @@ end
 APL[SPEC.FROST].obliteration_pooling = function(self)
 --[[
 # Pooling For Obliteration: Starts 10 seconds before Pillar of Frost comes off CD
-actions.obliteration_pooling=remorseless_winter,if=variable.rw_buffs|active_enemies>=2
+actions.obliteration_pooling=remorseless_winter,if=remains<gcd&(variable.rw_buffs|active_enemies>=2)
 actions.obliteration_pooling+=/glacial_advance,if=spell_targets.glacial_advance>=2&talent.frostscythe
 actions.obliteration_pooling+=/frostscythe,if=buff.killing_machine.react&active_enemies>2&!variable.deaths_due_active
 actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react
@@ -2658,7 +2658,7 @@ actions.obliteration_pooling+=/frost_strike,target_if=max:(debuff.razorice.stack
 actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=rune>=3&(!main_hand.2h|covenant.necrolord|covenant.kyrian)|rune>=4&main_hand.2h
 actions.obliteration_pooling+=/frostscythe,if=active_enemies>=4&!variable.deaths_due_active
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and (self.rw_buffs or Player.enemies >= 2) then
+	if RemorselessWinter:Usable() and RemorselessWinter:Remains() < Player.gcd and (self.rw_buffs or Player.enemies >= 2) then
 		return RemorselessWinter
 	end
 	if Frostscythe.known then
@@ -2695,7 +2695,7 @@ end
 APL[SPEC.FROST].standard = function(self)
 --[[
 # Standard single-target rotation
-actions.standard=remorseless_winter,if=variable.rw_buffs
+actions.standard=remorseless_winter,if=remains<gcd&variable.rw_buffs
 actions.standard+=/obliterate,if=buff.killing_machine.react
 actions.standard+=/howling_blast,if=variable.rotfc_rime&buff.rime.remains<3
 actions.standard+=/frost_strike,if=variable.frost_strike_conduits
@@ -2709,7 +2709,7 @@ actions.standard+=/frost_strike
 actions.standard+=/horn_of_winter
 actions.standard+=/arcane_torrent
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Refreshable() and self.rw_buffs then
+	if RemorselessWinter:Usable() and RemorselessWinter:Remains() < Player.gcd and self.rw_buffs then
 		return RemorselessWinter
 	end
 	if Obliterate:Usable() and KillingMachine:Up() then
