@@ -2260,7 +2260,7 @@ APL[SPEC.FROST].Main = function(self)
 	self.st_planning = Player.enemies == 1
 	self.adds_remain = Player.enemies >= 2
 	self.rotfc_rime = Rime:Up() and (not RageOfTheFrozenChampion.known or Player:RunicPowerDeficit() > 8)
-	self.frost_strike_conduits = (EradicatingBlow.known and EradicatingBlow:Stack() == 2) or (UnleashedFrenzy.known and UnleashedFrenzy:Remains() < (Player.gcd * 2))
+	self.frost_strike_conduits = (EradicatingBlow.known and EradicatingBlow:Stack() == 2) or (UnleashedFrenzy.known and UnleashedFrenzy:Stack() >= 1 and UnleashedFrenzy:Remains() < (Player.gcd * 1.5))
 	self.deaths_due_active = DeathsDue.known and DeathAndDecay.buff:Up()
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up())
 
@@ -2311,7 +2311,7 @@ actions+=/variable,name=specified_trinket,value=(equipped.inscrutable_quantum_de
 actions+=/variable,name=st_planning,value=active_enemies=1&(raid_event.adds.in>15|!raid_event.adds.exists)
 actions+=/variable,name=adds_remain,value=active_enemies>=2&(!raid_event.adds.exists|raid_event.adds.exists&(raid_event.adds.remains>5|target.1.time_to_die>10))
 actions+=/variable,name=rotfc_rime,value=buff.rime.up&(!runeforge.rage_of_the_frozen_champion|runeforge.rage_of_the_frozen_champion&runic_power.deficit>8)
-actions+=/variable,name=frost_strike_conduits,value=conduit.eradicating_blow&buff.eradicating_blow.stack=2|conduit.unleashed_frenzy&buff.unleashed_frenzy.remains<(gcd*2)
+actions+=/variable,name=frost_strike_conduits,value=conduit.eradicating_blow&buff.eradicating_blow.stack=2|conduit.unleashed_frenzy&buff.unleashed_frenzy.stack>=1&buff.unleashed_frenzy.remains<gcd*1.5
 actions+=/variable,name=deaths_due_active,value=death_and_decay.ticking&covenant.night_fae
 # Apply Frost Fever, maintain Icy Talons and keep Remorseless Winter rolling
 actions+=/remorseless_winter,if=!remains&conduit.everfrost&talent.gathering_storm&(!talent.obliteration&cooldown.pillar_of_frost.remains|set_bonus.tier28_4pc&talent.obliteration&!buff.pillar_of_frost.up)
