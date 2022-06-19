@@ -2709,8 +2709,9 @@ actions.standard+=/frost_strike,if=cooldown.remorseless_winter.remains<=2*gcd&ta
 actions.standard+=/howling_blast,if=variable.rotfc_rime
 actions.standard+=/obliterate,if=rune.time_to_5<gcd
 actions.standard+=/frost_strike,if=runic_power.deficit<(15+talent.runic_attenuation*5)
-actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|variable.deaths_due_active&buff.deaths_due.stack<4|rune>=4&set_bonus.tier28_4pc|(main_hand.2h|!covenant.night_fae|!set_bonus.tier28_4pc)&talent.gathering_storm&buff.remorseless_winter.up|!set_bonus.tier28_4pc&runic_power.deficit>(25+talent.runic_attenuation*5)
+actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|variable.deaths_due_active&buff.deaths_due.stack<4|(main_hand.2h|!covenant.night_fae|!set_bonus.tier28_4pc)&talent.gathering_storm&buff.remorseless_winter.up|!set_bonus.tier28_4pc&runic_power.deficit>(25+talent.runic_attenuation*5)
 actions.standard+=/frost_strike
+actions.standard+=/obliterate,if=rune.time_to_4<gcd&(!talent.gathering_storm|cooldown.remorseless_winter.remains>gcd*2)
 actions.standard+=/horn_of_winter
 actions.standard+=/arcane_torrent
 ]]
@@ -2738,7 +2739,6 @@ actions.standard+=/arcane_torrent
 	if Obliterate:Usable() and (
 		(FrozenPulse.known and FrozenPulse:Down()) or
 		(self.deaths_due_active and DeathsDue.buff:Stack() < 4) or
-		(Player:Runes() >= 4 and Player.set_bonus.t28 >= 4) or
 		((Player.equipped.twohand or not DeathsDue.known or Player.set_bonus.t28 < 4) and GatheringStorm.known and RemorselessWinter:Up()) or
 		(Player.set_bonus.t28 < 4 and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)))
 	) then
@@ -2746,6 +2746,9 @@ actions.standard+=/arcane_torrent
 	end
 	if FrostStrike:Usable() then
 		return FrostStrike
+	end
+	if Obliterate:Usable() and Player:RuneTimeTo(4) < Player.gcd and (not GatheringStorm.known or not RemorselessWinter:Ready(Player.gcd * 2)) then
+		return Obliterate
 	end
 	if HornOfWinter:Usable() then
 		return HornOfWinter
