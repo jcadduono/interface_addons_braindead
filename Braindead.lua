@@ -2702,6 +2702,7 @@ actions.standard+=/frost_strike,if=variable.frost_strike_conduits
 actions.standard+=/glacial_advance,if=!death_knight.runeforge.razorice&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*4)
 actions.standard+=/frost_strike,if=cooldown.remorseless_winter.remains<=2*gcd&talent.gathering_storm
 actions.standard+=/howling_blast,if=variable.rotfc_rime
+actions.standard+=/obliterate,if=rune.time_to_5<gcd
 actions.standard+=/frost_strike,if=runic_power.deficit<(15+talent.runic_attenuation*5)
 actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|variable.deaths_due_active&buff.deaths_due.stack<4|rune>=4&set_bonus.tier28_4pc|(main_hand.2h|!covenant.night_fae|!set_bonus.tier28_4pc)&talent.gathering_storm&buff.remorseless_winter.up|!set_bonus.tier28_4pc&runic_power.deficit>(25+talent.runic_attenuation*5)
 actions.standard+=/frost_strike
@@ -2722,6 +2723,9 @@ actions.standard+=/arcane_torrent
 	end
 	if HowlingBlast:Usable() and self.rotfc_rime then
 		return HowlingBlast
+	end
+	if Obliterate:Usable() and Player:RuneTimeTo(5) < Player.gcd then
+		return Obliterate
 	end
 	if FrostStrike:Usable() and Player:RunicPowerDeficit() < (15 + (RunicAttenuation.known and 5 or 0)) then
 		return FrostStrike
