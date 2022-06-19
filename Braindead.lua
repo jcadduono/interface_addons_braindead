@@ -2514,7 +2514,7 @@ actions.cooldowns+=/empower_rune_weapon,if=talent.breath_of_sindragosa&rune<5&ru
 actions.cooldowns+=/empower_rune_weapon,if=talent.icecap
 actions.cooldowns+=/pillar_of_frost,if=talent.breath_of_sindragosa&(variable.st_planning|variable.adds_remain)&(cooldown.breath_of_sindragosa.remains|buff.breath_of_sindragosa.up&runic_power>45|cooldown.breath_of_sindragosa.ready&runic_power>65)
 actions.cooldowns+=/pillar_of_frost,if=talent.icecap&!buff.pillar_of_frost.up
-actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(runic_power>=35&!buff.abomination_limb.up|buff.abomination_limb.up|runeforge.rage_of_the_frozen_champion)&(variable.st_planning|variable.adds_remain)&(talent.gathering_storm.enabled&buff.remorseless_winter.up|!talent.gathering_storm.enabled)
+actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(runic_power>=35|buff.abomination_limb.up|runeforge.rage_of_the_frozen_champion)&(variable.st_planning|variable.adds_remain)&(!talent.gathering_storm.enabled|buff.remorseless_winter.up)&(!covenant.night_fae|variable.deaths_due_active|cooldown.deaths_due.remains>12)
 actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_power>60&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>15)
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies=1&buff.pillar_of_frost.remains<gcd*2&buff.pillar_of_frost.up&!talent.obliteration&(!raid_event.adds.exists|raid_event.adds.in>30)|fight_remains<3
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies>=2&(buff.pillar_of_frost.up|raid_event.adds.exists&raid_event.adds.in>cooldown.pillar_of_frost.remains+7)&(buff.pillar_of_frost.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<gcd)
@@ -2536,7 +2536,7 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 		UseCooldown(EmpowerRuneWeapon)
 	end
 	if PillarOfFrost:Usable() and PillarOfFrost:Down() and (
-		(Obliteration.known and ((Player:RunicPower() >= 35 and (not AbominationLimb.known or AbominationLimb:Down())) or (AbominationLimb.known and AbominationLimb:Up()) or RageOfTheFrozenChampion.known) and (self.st_planning or self.adds_remain) and (not GatheringStorm.known or RemorselessWinter:Up())) or
+		(Obliteration.known and ((Player:RunicPower() >= 35 or (AbominationLimb.known and AbominationLimb:Up()) or RageOfTheFrozenChampion.known) and (self.st_planning or self.adds_remain) and (not GatheringStorm.known or RemorselessWinter:Up()) and (not DeathsDue.known or self.deaths_due_active or not DeathsDue:Ready(12)))) or
 		(BreathOfSindragosa.known and (self.st_planning or self.adds_remain) and (not BreathOfSindragosa:Ready() or (BreathOfSindragosa:Up() and Player:RunicPower() > 45) or (BreathOfSindragosa:Ready() and Player:RunicPower() > 65))) or
 		(Icecap.known)
 	) then
@@ -2572,7 +2572,7 @@ end
 APL[SPEC.FROST].covenants = function(self)
 --[[
 # Covenant Abilities
-actions.covenants=deaths_due,if=!variable.deaths_due_active&(!talent.obliteration|buff.pillar_of_frost.up|rune.time_to_3<gcd*2&(active_enemies=1|cooldown.pillar_of_frost.remains))&(variable.st_planning|variable.adds_remain)
+actions.covenants=deaths_due,if=!variable.deaths_due_active&(!talent.obliteration|cooldown.pillar_of_frost.remains<gcd|rune.time_to_3<gcd*2&cooldown.pillar_of_frost.remains>9)&(variable.st_planning|variable.adds_remain)
 actions.covenants+=/swarming_mist,if=runic_power.deficit>13&cooldown.pillar_of_frost.remains<3&!talent.breath_of_sindragosa&variable.st_planning
 actions.covenants+=/swarming_mist,if=!talent.breath_of_sindragosa&variable.adds_remain
 actions.covenants+=/swarming_mist,if=talent.breath_of_sindragosa&(buff.breath_of_sindragosa.up&(variable.st_planning&runic_power.deficit>40|variable.adds_remain&runic_power.deficit>60|variable.adds_remain&raid_event.adds.remains<9&raid_event.adds.exists)|!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains)
@@ -2582,7 +2582,7 @@ actions.covenants+=/shackle_the_unworthy,if=variable.st_planning&(cooldown.pilla
 actions.covenants+=/shackle_the_unworthy,if=variable.adds_remain
 actions.covenants+=/fleshcraft,if=!buff.pillar_of_frost.up&(soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up),interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
 ]]
-	if DeathsDue:Usable() and not self.deaths_due_active and DeathsDue.buff:Remains() < 4 and (not Obliteration.known or PillarOfFrost:Up() or (Player:RuneTimeTo(3) < (Player.gcd * 2) and (Player.enemies == 1 or not PillarOfFrost:Ready()))) and (self.st_planning or self.adds_remain) then
+	if DeathsDue:Usable() and not self.deaths_due_active and (not Obliteration.known or PillarOfFrost:Ready(Player.gcd) or (Player:RuneTimeTo(3) < (Player.gcd * 2) and not PillarOfFrost:Ready(9))) and (self.st_planning or self.adds_remain) then
 		return UseCooldown(DeathsDue)
 	end
 	if ShackleTheUnworthy:Usable() and ShackleTheUnworthy:Ticking() == 0 and (self.adds_remain or (self.st_planning and (Icecap.known or PillarOfFrost:Ready(3) or PillarOfFrost:Up()))) then
