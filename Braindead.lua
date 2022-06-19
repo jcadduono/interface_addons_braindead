@@ -2599,25 +2599,25 @@ APL[SPEC.FROST].obliteration = function(self)
 --[[
 # Obliteration rotation
 actions.obliteration=remorseless_winter,if=!remains&active_enemies>=3&variable.rw_buffs
-actions.obliteration+=/frost_strike,if=!buff.killing_machine.up&(rune<2|talent.icy_talons&buff.icy_talons.remains<gcd*2|conduit.unleashed_frenzy&(buff.unleashed_frenzy.remains<gcd*2|buff.unleashed_frenzy.stack<3))
-actions.obliteration+=/howling_blast,target_if=!buff.killing_machine.up&rune>=3&(buff.rime.remains<3&buff.rime.up|!dot.frost_fever.ticking)
+actions.obliteration+=/frost_strike,if=!buff.killing_machine.up&talent.icy_talons&buff.icy_talons.remains<gcd*2
+actions.obliteration+=/howling_blast,target_if=!buff.killing_machine.up&buff.rime.up&(spell_targets.howling_blast>=2|buff.rime.remains<3)
 actions.obliteration+=/glacial_advance,if=!buff.killing_machine.up&spell_targets.glacial_advance>=2|!buff.killing_machine.up&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*4)
 actions.obliteration+=/frostscythe,if=buff.killing_machine.react&spell_targets.frostscythe>2&!variable.deaths_due_active
 actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react
 actions.obliteration+=/frost_strike,if=active_enemies=1&variable.frost_strike_conduits
 actions.obliteration+=/howling_blast,if=variable.rotfc_rime&spell_targets.howling_blast>=2
 actions.obliteration+=/glacial_advance,if=spell_targets.glacial_advance>=2
-actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=!talent.avalanche&!buff.killing_machine.up|talent.avalanche&!variable.rotfc_rime|variable.rotfc_rime&rune.time_to_2>=gcd
+actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=!talent.avalanche&!buff.killing_machine.up|talent.avalanche&!variable.rotfc_rime|variable.rotfc_rime&rune.time_to_2>=gcd|variable.frost_strike_conduits
 actions.obliteration+=/howling_blast,if=variable.rotfc_rime
 actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
 ]]
 	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Player.enemies >= 3 and self.rw_buffs then
 		return RemorselessWinter
 	end
-	if FrostStrike:Usable() and KillingMachine:Down() and (Player:Runes() < 2 or (IcyTalons.known and IcyTalons:Remains() < (Player.gcd * 2)) or (UnleashedFrenzy.known and (UnleashedFrenzy:Remains() < (Player.gcd * 2) or UnleashedFrenzy:Stacks() < 3))) then
+	if FrostStrike:Usable() and KillingMachine:Down() and IcyTalons.known and IcyTalons:Remains() < (Player.gcd * 2) then
 		return FrostStrike
 	end
-	if HowlingBlast:Usable() and KillingMachine:Down() and Player:Runes() >= 3 and ((Rime:Up() and Rime:Remains() < 3) or FrostFever:Down()) then
+	if HowlingBlast:Usable() and KillingMachine:Down() and Rime:Up() and (Player.enemies >= 2 or Rime:Remains() < 3) then
 		return HowlingBlast
 	end
 	if GlacialAdvance:Usable() and KillingMachine:Down() and (Player.enemies >= 2 or Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 4)) then
@@ -2638,7 +2638,7 @@ actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuf
 	if GlacialAdvance:Usable() and Player.enemies >= 2 then
 		return GlacialAdvance
 	end
-	if FrostStrike:Usable() and ((not Avalanche.known and KillingMachine:Down()) or (Avalanche.known and not self.rotfc_rime) or (self.rotfc_rime and Player:RuneTimeTo(2) >= Player.gcd)) then
+	if FrostStrike:Usable() and ((not Avalanche.known and KillingMachine:Down()) or (Avalanche.known and not self.rotfc_rime) or (self.rotfc_rime and Player:RuneTimeTo(2) >= Player.gcd) or self.frost_strike_conduits) then
 		return FrostStrike
 	end
 	if HowlingBlast:Usable() and self.rotfc_rime then
