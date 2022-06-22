@@ -2705,12 +2705,13 @@ actions.standard+=/obliterate,if=buff.killing_machine.react
 actions.standard+=/howling_blast,if=variable.rotfc_rime&buff.rime.remains<3
 actions.standard+=/frost_strike,if=variable.frost_strike_conduits
 actions.standard+=/glacial_advance,if=!death_knight.runeforge.razorice&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*4)
-actions.standard+=/frost_strike,if=cooldown.remorseless_winter.remains<=2*gcd&talent.gathering_storm
+actions.standard+=/frost_strike,if=talent.gathering_storm&cooldown.remorseless_winter.remains<gcd*2
 actions.standard+=/howling_blast,if=variable.rotfc_rime
 actions.standard+=/obliterate,if=rune.time_to_5<gcd
 actions.standard+=/frost_strike,if=runic_power.deficit<(15+talent.runic_attenuation*5)
-actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|variable.deaths_due_active&buff.deaths_due.stack<4|(main_hand.2h|!covenant.night_fae|!set_bonus.tier28_4pc)&talent.gathering_storm&buff.remorseless_winter.up|!set_bonus.tier28_4pc&runic_power.deficit>(25+talent.runic_attenuation*5)
-actions.standard+=/frost_strike
+actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|variable.deaths_due_active&buff.deaths_due.stack<4|!set_bonus.tier28_4pc&runic_power.deficit>(25+talent.runic_attenuation*5)
+actions.standard+=/obliterate,if=talent.gathering_storm&buff.remorseless_winter.up&(main_hand.2h|!covenant.night_fae|!set_bonus.tier28_4pc)&(!talent.obliteration|buff.remorseless_winter.remains<gcd*1.5|cooldown.pillar_of_frost.remains>rune.time_to_4)
+actions.standard+=/frost_strike,if=!talent.obliteration|cooldown.pillar_of_frost.remains|runic_power>=60
 actions.standard+=/obliterate,if=rune.time_to_4<gcd&(!talent.gathering_storm|cooldown.remorseless_winter.remains>gcd*2)
 actions.standard+=/horn_of_winter
 actions.standard+=/arcane_torrent
@@ -2727,6 +2728,12 @@ actions.standard+=/arcane_torrent
 	if FrostStrike:Usable() and self.frost_strike_conduits then
 		return FrostStrike
 	end
+	if GlacialAdvance:Usable() and not RuneOfRazorice.known and (Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 4)) then
+		return GlacialAdvance
+	end
+	if FrostStrike:Usable() and GatheringStorm.known and RemorselessWinter:Ready(Player.gcd * 2) then
+		return FrostStrike
+	end
 	if HowlingBlast:Usable() and self.rotfc_rime then
 		return HowlingBlast
 	end
@@ -2739,12 +2746,12 @@ actions.standard+=/arcane_torrent
 	if Obliterate:Usable() and (
 		(FrozenPulse.known and FrozenPulse:Down()) or
 		(self.deaths_due_active and DeathsDue.buff:Stack() < 4) or
-		((Player.equipped.twohand or not DeathsDue.known or Player.set_bonus.t28 < 4) and GatheringStorm.known and RemorselessWinter:Up()) or
-		(Player.set_bonus.t28 < 4 and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)))
+		(Player.set_bonus.t28 < 4 and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0))) or
+		(GatheringStorm.known and RemorselessWinter:Up() and (Player.equipped.twohand or not DeathsDue.known or Player.set_bonus.t28 < 4) and (not Obliteration.known or RemorselessWinter:Remains() < (Player.gcd * 1.5) or PillarOfFrost:Cooldown() > Player:RuneTimeTo(4)))
 	) then
 		return Obliterate
 	end
-	if FrostStrike:Usable() then
+	if FrostStrike:Usable() and (not Obliteration.known or not PillarOfFrost:Ready() or Player:RunicPower() >= 60) then
 		return FrostStrike
 	end
 	if Obliterate:Usable() and Player:RuneTimeTo(4) < Player.gcd and (not GatheringStorm.known or not RemorselessWinter:Ready(Player.gcd * 2)) then
