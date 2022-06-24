@@ -2747,11 +2747,11 @@ actions.standard+=/arcane_torrent
 		(FrozenPulse.known and FrozenPulse:Down()) or
 		(self.deaths_due_active and DeathsDue.buff:Stack() < 4) or
 		(Player.set_bonus.t28 < 4 and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0))) or
-		(GatheringStorm.known and RemorselessWinter:Up() and (Player.equipped.twohand or not DeathsDue.known or Player.set_bonus.t28 < 4) and (not Obliteration.known or RemorselessWinter:Remains() < (Player.gcd * 1.5) or PillarOfFrost:Cooldown() > Player:RuneTimeTo(4)))
+		(GatheringStorm.known and RemorselessWinter:Up() and (Player.equipped.twohand or not DeathsDue.known or Player.set_bonus.t28 < 4) and (not Obliteration.known or not Player.use_cds or RemorselessWinter:Remains() < (Player.gcd * 1.5) or not PillarOfFrost:Ready(Player:RuneTimeTo(4))))
 	) then
 		return Obliterate
 	end
-	if FrostStrike:Usable() and (not Obliteration.known or not PillarOfFrost:Ready() or Player:RunicPower() >= 60) then
+	if FrostStrike:Usable() and (not Obliteration.known or not Player.use_cds or not PillarOfFrost:Ready() or Player:RunicPower() >= 60) then
 		return FrostStrike
 	end
 	if Obliterate:Usable() and Player:RuneTimeTo(4) < Player.gcd and (not GatheringStorm.known or not RemorselessWinter:Ready(Player.gcd * 2)) then
