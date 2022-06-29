@@ -2433,6 +2433,9 @@ actions.aoe+=/arcane_torrent
 	if Obliterate:Usable() and ((self.deaths_due_active and DeathsDue.buff:Stack() < 4) or (GatheringStorm.known and RemorselessWinter:Up())) then
 		return Obliterate
 	end
+	if DeathStrike:Usable() and Player:HealthPct() < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
+		UseCooldown(DeathStrike)
+	end
 	if FrostStrike:Usable() and Player:RunicPowerDeficit() < (15 + (RunicAttenuation.known and 5 or 0)) then
 		return FrostStrike
 	end
@@ -2453,6 +2456,9 @@ actions.aoe+=/arcane_torrent
 	end
 	if FrostStrike:Usable() then
 		return FrostStrike
+	end
+	if DeathStrike:Usable() and DarkSuccor:Up() then
+		UseCooldown(DeathStrike)
 	end
 	if HornOfWinter:Usable() then
 		return HornOfWinter
@@ -2740,6 +2746,9 @@ actions.standard+=/arcane_torrent
 	if Obliterate:Usable() and Player:RuneTimeTo(5) < Player.gcd then
 		return Obliterate
 	end
+	if DeathStrike:Usable() and Player:HealthPct() < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
+		UseCooldown(DeathStrike)
+	end
 	if FrostStrike:Usable() and Player:RunicPowerDeficit() < (15 + (RunicAttenuation.known and 5 or 0)) then
 		return FrostStrike
 	end
@@ -2756,6 +2765,9 @@ actions.standard+=/arcane_torrent
 	end
 	if Obliterate:Usable() and Player:RuneTimeTo(4) < Player.gcd and (not GatheringStorm.known or not RemorselessWinter:Ready(Player.gcd * 2)) then
 		return Obliterate
+	end
+	if DeathStrike:Usable() and DarkSuccor:Up() then
+		UseCooldown(DeathStrike)
 	end
 	if HornOfWinter:Usable() then
 		return HornOfWinter
