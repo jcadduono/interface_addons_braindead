@@ -15,6 +15,7 @@ local GetSpellCooldown = _G.GetSpellCooldown
 local GetSpellInfo = _G.GetSpellInfo
 local GetTime = _G.GetTime
 local GetUnitSpeed = _G.GetUnitSpeed
+local UnitAttackSpeed = _G.UnitAttackSpeed
 local UnitAura = _G.UnitAura
 local UnitCastingInfo = _G.UnitCastingInfo
 local UnitChannelInfo = _G.UnitChannelInfo
@@ -151,6 +152,7 @@ local Player = {
 	health = {
 		current = 0,
 		max = 100,
+		pct = 0,
 	},
 	runic_power = {
 		current = 0,
@@ -166,10 +168,6 @@ local Player = {
 		active = false,
 		alive = false,
 		stuck = false,
-		health = {
-			current = 0,
-			max = 100,
-		},
 	},
 	swing = {
 		mh = {
@@ -194,10 +192,11 @@ local Player = {
 		offhand = false,
 	},
 	set_bonus = {
-		t28 = 0,
+		t29 = 0,
 	},
 	previous_gcd = {},-- list of previous GCD abilities
 	item_use_blacklist = { -- list of item IDs with on-use effects we should mark unusable
+		[190958] = true,
 	},
 	main_freecast = false,
 	use_cds = false,
@@ -226,6 +225,10 @@ braindeadPanel:SetPoint('CENTER', 0, -169)
 braindeadPanel:SetFrameStrata('BACKGROUND')
 braindeadPanel:SetSize(64, 64)
 braindeadPanel:SetMovable(true)
+braindeadPanel:SetUserPlaced(true)
+braindeadPanel:RegisterForDrag('LeftButton')
+braindeadPanel:SetScript('OnDragStart', braindeadPanel.StartMoving)
+braindeadPanel:SetScript('OnDragStop', braindeadPanel.StopMovingOrSizing)
 braindeadPanel:Hide()
 braindeadPanel.icon = braindeadPanel:CreateTexture(nil, 'BACKGROUND')
 braindeadPanel.icon:SetAllPoints(braindeadPanel)
@@ -271,11 +274,12 @@ braindeadPanel.button:RegisterForClicks('LeftButtonDown', 'RightButtonDown', 'Mi
 local braindeadPreviousPanel = CreateFrame('Frame', 'braindeadPreviousPanel', UIParent)
 braindeadPreviousPanel:SetFrameStrata('BACKGROUND')
 braindeadPreviousPanel:SetSize(64, 64)
-braindeadPreviousPanel:Hide()
+braindeadPreviousPanel:SetMovable(true)
+braindeadPreviousPanel:SetUserPlaced(true)
 braindeadPreviousPanel:RegisterForDrag('LeftButton')
 braindeadPreviousPanel:SetScript('OnDragStart', braindeadPreviousPanel.StartMoving)
 braindeadPreviousPanel:SetScript('OnDragStop', braindeadPreviousPanel.StopMovingOrSizing)
-braindeadPreviousPanel:SetMovable(true)
+braindeadPreviousPanel:Hide()
 braindeadPreviousPanel.icon = braindeadPreviousPanel:CreateTexture(nil, 'BACKGROUND')
 braindeadPreviousPanel.icon:SetAllPoints(braindeadPreviousPanel)
 braindeadPreviousPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
@@ -283,13 +287,14 @@ braindeadPreviousPanel.border = braindeadPreviousPanel:CreateTexture(nil, 'ARTWO
 braindeadPreviousPanel.border:SetAllPoints(braindeadPreviousPanel)
 braindeadPreviousPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
 local braindeadCooldownPanel = CreateFrame('Frame', 'braindeadCooldownPanel', UIParent)
-braindeadCooldownPanel:SetSize(64, 64)
 braindeadCooldownPanel:SetFrameStrata('BACKGROUND')
-braindeadCooldownPanel:Hide()
+braindeadCooldownPanel:SetSize(64, 64)
+braindeadCooldownPanel:SetMovable(true)
+braindeadCooldownPanel:SetUserPlaced(true)
 braindeadCooldownPanel:RegisterForDrag('LeftButton')
 braindeadCooldownPanel:SetScript('OnDragStart', braindeadCooldownPanel.StartMoving)
 braindeadCooldownPanel:SetScript('OnDragStop', braindeadCooldownPanel.StopMovingOrSizing)
-braindeadCooldownPanel:SetMovable(true)
+braindeadCooldownPanel:Hide()
 braindeadCooldownPanel.icon = braindeadCooldownPanel:CreateTexture(nil, 'BACKGROUND')
 braindeadCooldownPanel.icon:SetAllPoints(braindeadCooldownPanel)
 braindeadCooldownPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
@@ -312,11 +317,12 @@ braindeadCooldownPanel.text:SetJustifyV('CENTER')
 local braindeadInterruptPanel = CreateFrame('Frame', 'braindeadInterruptPanel', UIParent)
 braindeadInterruptPanel:SetFrameStrata('BACKGROUND')
 braindeadInterruptPanel:SetSize(64, 64)
-braindeadInterruptPanel:Hide()
+braindeadInterruptPanel:SetMovable(true)
+braindeadInterruptPanel:SetUserPlaced(true)
 braindeadInterruptPanel:RegisterForDrag('LeftButton')
 braindeadInterruptPanel:SetScript('OnDragStart', braindeadInterruptPanel.StartMoving)
 braindeadInterruptPanel:SetScript('OnDragStop', braindeadInterruptPanel.StopMovingOrSizing)
-braindeadInterruptPanel:SetMovable(true)
+braindeadInterruptPanel:Hide()
 braindeadInterruptPanel.icon = braindeadInterruptPanel:CreateTexture(nil, 'BACKGROUND')
 braindeadInterruptPanel.icon:SetAllPoints(braindeadInterruptPanel)
 braindeadInterruptPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
@@ -330,11 +336,12 @@ braindeadInterruptPanel.swipe:SetDrawEdge(false)
 local braindeadExtraPanel = CreateFrame('Frame', 'braindeadExtraPanel', UIParent)
 braindeadExtraPanel:SetFrameStrata('BACKGROUND')
 braindeadExtraPanel:SetSize(64, 64)
-braindeadExtraPanel:Hide()
+braindeadExtraPanel:SetMovable(true)
+braindeadExtraPanel:SetUserPlaced(true)
 braindeadExtraPanel:RegisterForDrag('LeftButton')
 braindeadExtraPanel:SetScript('OnDragStart', braindeadExtraPanel.StartMoving)
 braindeadExtraPanel:SetScript('OnDragStop', braindeadExtraPanel.StopMovingOrSizing)
-braindeadExtraPanel:SetMovable(true)
+braindeadExtraPanel:Hide()
 braindeadExtraPanel.icon = braindeadExtraPanel:CreateTexture(nil, 'BACKGROUND')
 braindeadExtraPanel.icon:SetAllPoints(braindeadExtraPanel)
 braindeadExtraPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
@@ -419,8 +426,8 @@ function autoAoe:Add(guid, update)
 	if self.blacklist[guid] then
 		return
 	end
-	local npcId = guid:match('^%a+%-0%-%d+%-%d+%-%d+%-(%d+)')
-	if not npcId or self.ignored_units[tonumber(npcId)] then
+	local unitId = guid:match('^%w+-%d+-%d+-%d+-%d+-(%d+)')
+	if unitId and self.ignored_units[tonumber(unitId)] then
 		self.blacklist[guid] = Player.time + 10
 		return
 	end
@@ -895,9 +902,8 @@ function Ability:ApplyAura(guid)
 	if autoAoe.blacklist[guid] then
 		return
 	end
-	local aura = {
-		expires = Player.time + self:Duration()
-	}
+	local aura = {}
+	aura.expires = Player.time + self:Duration()
 	self.aura_targets[guid] = aura
 end
 
@@ -930,17 +936,7 @@ end
 -- End DoT tracking
 
 -- Death Knight Abilities
----- Multiple Specializations
-local AntiMagicShell = Ability:Add(48707, true, true)
-AntiMagicShell.buff_duration = 5
-AntiMagicShell.cooldown_duration = 60
-AntiMagicShell.triggers_gcd = false
-local AntiMagicZone = Ability:Add(51052, true, true)
-AntiMagicZone.buff_duration = 8
-AntiMagicZone.cooldown_duration = 120
-local ChainsOfIce = Ability:Add(45524, false)
-ChainsOfIce.buff_duration = 8
-ChainsOfIce.rune_cost = 1
+---- Baseline
 local DarkCommand = Ability:Add(56222, false)
 DarkCommand.buff_duration = 3
 DarkCommand.cooldown_duration = 8
@@ -953,6 +949,9 @@ DeathAndDecay.buff.buff_duration = 10
 DeathAndDecay.damage = Ability:Add(52212, false, true)
 DeathAndDecay.damage.tick_interval = 1
 DeathAndDecay.damage:AutoAoe()
+local DeathCoil = Ability:Add(47541, false, true, 47632)
+DeathCoil.runic_power_cost = 40
+DeathCoil:SetVelocity(35)
 local DeathGrip = Ability:Add(49576, false, true)
 DeathGrip.cooldown_duration = 25
 DeathGrip.requires_charge = true
@@ -960,25 +959,13 @@ local DeathsAdvance = Ability:Add(48265, true, true)
 DeathsAdvance.buff_duration = 8
 DeathsAdvance.cooldown_duration = 45
 DeathsAdvance.triggers_gcd = false
-local DeathStrike = Ability:Add(49998, false, true)
-DeathStrike.runic_power_cost = 45
-local IceboundFortitude = Ability:Add(48792, true, true)
-IceboundFortitude.buff_duration = 8
-IceboundFortitude.cooldown_duration = 180
-IceboundFortitude.triggers_gcd = false
 local Lichborne = Ability:Add(49039, true, true)
 Lichborne.buff_duration = 10
 Lichborne.cooldown_duration = 120
 Lichborne.triggers_gcd = false
-local MindFreeze = Ability:Add(47528, false, true)
-MindFreeze.buff_duration = 3
-MindFreeze.cooldown_duration = 15
-MindFreeze.triggers_gcd = false
 local RaiseAlly = Ability:Add(61999, false, true)
 RaiseAlly.cooldown_duration = 600
 RaiseAlly.runic_power_cost = 30
-local RaiseDead = Ability:Add(46585, false, true)
-RaiseDead.cooldown_duration = 120
 local RuneOfRazorice = Ability:Add(53343, true, true)
 RuneOfRazorice.bonus_id = 3370
 local RuneOfTheFallenCrusader = Ability:Add(53344, true, true)
@@ -995,45 +982,58 @@ Razorice.buff_duration = 20
 local UnholyStrength = Ability:Add(53365, true, true) -- triggered by Rune of the Fallen Crusader
 UnholyStrength.buff_duration = 15
 ------ Talents
+local AbominationLimb = Ability:Add(383269, true, true)
+AbominationLimb.buff_duration = 12
+AbominationLimb.cooldown_duration = 120
+AbominationLimb.tick_interval = 1
+local AntiMagicShell = Ability:Add(48707, true, true)
+AntiMagicShell.buff_duration = 5
+AntiMagicShell.cooldown_duration = 60
+AntiMagicShell.triggers_gcd = false
+local AntiMagicZone = Ability:Add(51052, true, true)
+AntiMagicZone.buff_duration = 8
+AntiMagicZone.cooldown_duration = 120
 local Asphyxiate = Ability:Add(108194, false, true)
 Asphyxiate.buff_duration = 4
 Asphyxiate.cooldown_duration = 45
+local BlindingSleet = Ability:Add(207167, false)
+BlindingSleet.buff_duration = 5
+BlindingSleet.cooldown_duration = 60
+local ChainsOfIce = Ability:Add(45524, false)
+ChainsOfIce.buff_duration = 8
+ChainsOfIce.rune_cost = 1
+local ControlUndead = Ability:Add(111673, true, true)
+ControlUndead.buff_duration = 300
+ControlUndead.rune_cost = 1
 local DeathPact = Ability:Add(48743, false, true)
 DeathPact.buff_duration = 15
 DeathPact.cooldown_duration = 120
 DeathPact.aura_target = 'player'
 DeathPact.triggers_gcd = false
+local DeathStrike = Ability:Add(49998, false, true)
+DeathStrike.runic_power_cost = 45
+local IceboundFortitude = Ability:Add(48792, true, true)
+IceboundFortitude.buff_duration = 8
+IceboundFortitude.cooldown_duration = 180
+IceboundFortitude.triggers_gcd = false
+local MindFreeze = Ability:Add(47528, false, true)
+MindFreeze.buff_duration = 3
+MindFreeze.cooldown_duration = 15
+MindFreeze.triggers_gcd = false
+local RaiseDead = Ability:Add(46585, false, true)
+RaiseDead.cooldown_duration = 120
+local SacrificialPact = Ability:Add(327574, false, true)
+SacrificialPact.cooldown_duration = 120
+SacrificialPact.runic_power_cost = 20
 local SummonGargoyle = Ability:Add(49206, true, true)
 SummonGargoyle.buff_duration = 30
 SummonGargoyle.cooldown_duration = 180
 ---- Blood
+------ Talents
 local BloodBoil = Ability:Add(50842, false, true)
 BloodBoil.cooldown_duration = 7.5
 BloodBoil.requires_charge = true
 BloodBoil:AutoAoe(true)
-local BloodPlague = Ability:Add(55078, false, true)
-BloodPlague.buff_duration = 24
-BloodPlague.tick_interval = 3
-BloodPlague:TrackAuras()
-local DancingRuneWeapon = Ability:Add(49028, true, true, 81256)
-DancingRuneWeapon.buff_duration = 8
-DancingRuneWeapon.cooldown_duration = 120
-local DeathsCaress = Ability:Add(195292, false, true)
-DeathsCaress.rune_cost = 1
-local GorefiendsGrasp = Ability:Add(108199, false, true)
-GorefiendsGrasp.cooldown_duration = 120
-local HeartStrike = Ability:Add(206930, false, true)
-HeartStrike.buff_duration = 8
-HeartStrike.rune_cost = 1
-local Marrowrend = Ability:Add(195182, false, true)
-Marrowrend.rune_cost = 2
-local Ossuary = Ability:Add(219786, true, true, 219788)
-local RelishInBlood = Ability:Add(317610, true, true)
-local VampiricBlood = Ability:Add(55233, true, true)
-VampiricBlood.buff_duration = 10
-VampiricBlood.cooldown_duration = 90
-VampiricBlood.triggers_gcd = false
------- Talents
 local Blooddrinker = Ability:Add(206931, false, true)
 Blooddrinker.buff_duration = 3
 Blooddrinker.cooldown_duration = 30
@@ -1041,6 +1041,10 @@ Blooddrinker.rune_cost = 1
 Blooddrinker.tick_interval = 1
 Blooddrinker.hasted_duration = true
 Blooddrinker.hasted_ticks = true
+local BloodPlague = Ability:Add(55078, false, true)
+BloodPlague.buff_duration = 24
+BloodPlague.tick_interval = 3
+BloodPlague:TrackAuras()
 local BloodTap = Ability:Add(221699, true, true)
 BloodTap.cooldown_duration = 60
 BloodTap.requires_charge = true
@@ -1054,21 +1058,47 @@ Bonestorm.damage:AutoAoe()
 local Consumption = Ability:Add(274156, false, true, 274893)
 Consumption.cooldown_duration = 30
 Consumption:AutoAoe()
+local DancingRuneWeapon = Ability:Add(49028, true, true, 81256)
+DancingRuneWeapon.buff_duration = 8
+DancingRuneWeapon.cooldown_duration = 120
+local DeathsCaress = Ability:Add(195292, false, true)
+DeathsCaress.rune_cost = 1
+local GorefiendsGrasp = Ability:Add(108199, false, true)
+GorefiendsGrasp.cooldown_duration = 120
 local Heartbreaker = Ability:Add(210738, false, true)
+local HeartStrike = Ability:Add(206930, false, true)
+HeartStrike.buff_duration = 8
+HeartStrike.rune_cost = 1
 local Hemostasis = Ability:Add(273946, true, true, 273947)
 Hemostasis.buff_duration = 15
+local Marrowrend = Ability:Add(195182, false, true)
+Marrowrend.rune_cost = 2
+local Ossuary = Ability:Add(219786, true, true, 219788)
 local RapidDecomposition = Ability:Add(194662, false, true)
+local RelishInBlood = Ability:Add(317610, true, true)
 local Tombstone = Ability:Add(219809, true, true)
 Tombstone.buff_duration = 8
 Tombstone.cooldown_duration = 60
+local VampiricBlood = Ability:Add(55233, true, true)
+VampiricBlood.buff_duration = 10
+VampiricBlood.cooldown_duration = 90
+VampiricBlood.triggers_gcd = false
 ------ Procs
 local BoneShield = Ability:Add(195181, true, true)
 BoneShield.buff_duration = 30
 local CrimsonScourge = Ability:Add(81136, true, true, 81141)
 CrimsonScourge.buff_duration = 15
 ------ Tier Bonuses
-local EndlessRuneWaltz = Ability:Add(364399, true, true, 366008) -- T28 2 piece
+
 ---- Frost
+------ Talents
+local Avalanche = Ability:Add(207142, false, true, 207150)
+local BreathOfSindragosa = Ability:Add(152279, true, true)
+BreathOfSindragosa.buff_duration = 120
+BreathOfSindragosa.cooldown_duration = 120
+BreathOfSindragosa.damage = Ability:Add(155166, false, true)
+BreathOfSindragosa.damage:AutoAoe()
+local ColdHeart = Ability:Add(281208, true, true, 281209)
 local EmpowerRuneWeapon = Ability:Add(47568, true, true)
 EmpowerRuneWeapon.buff_duration = 20
 EmpowerRuneWeapon.cooldown_duration = 120
@@ -1077,17 +1107,37 @@ local FrostFever = Ability:Add(55095, false, true)
 FrostFever.buff_duration = 24
 FrostFever.tick_interval = 3
 FrostFever:TrackAuras()
+local Frostscythe = Ability:Add(207230, false, true)
+Frostscythe.rune_cost = 1
+Frostscythe:AutoAoe()
 local FrostStrike = Ability:Add(49143, false, true)
 FrostStrike.runic_power_cost = 25
 local FrostwyrmsFury = Ability:Add(279302, false, true, 279303)
 FrostwyrmsFury.buff_duration = 10
 FrostwyrmsFury.cooldown_duration = 180
 FrostwyrmsFury:AutoAoe()
+local FrozenPulse = Ability:Add(194909, false, true, 195750)
+FrozenPulse:AutoAoe()
+local GatheringStorm = Ability:Add(194912, true, true, 211805)
+local GlacialAdvance = Ability:Add(194913, false, true, 195975)
+GlacialAdvance.cooldown_duration = 6
+GlacialAdvance.runic_power_cost = 30
+GlacialAdvance.hasted_cooldown = true
+local HornOfWinter = Ability:Add(57330, true, true)
+HornOfWinter.cooldown_duration = 45
 local HowlingBlast = Ability:Add(49184, false, true)
 HowlingBlast.rune_cost = 1
 HowlingBlast:AutoAoe()
+local HypothermicPresence = Ability:Add(321995, true, true)
+HypothermicPresence.buff_duration = 8
+HypothermicPresence.cooldown_duration = 45
+HypothermicPresence.triggers_gcd = false
+local Icecap = Ability:Add(207126, true, true)
+local IcyTalons = Ability:Add(194878, true, true, 194879)
+IcyTalons.buff_duration = 6
 local Obliterate = Ability:Add(49020, false, true)
 Obliterate.rune_cost = 2
+local Obliteration = Ability:Add(281238, true, true, 207256)
 local PillarOfFrost = Ability:Add(51271, true, true)
 PillarOfFrost.buff_duration = 12
 PillarOfFrost.cooldown_duration = 60
@@ -1098,88 +1148,31 @@ RemorselessWinter.cooldown_duration = 20
 RemorselessWinter.rune_cost = 1
 RemorselessWinter.damage = Ability:Add(196771, false, true)
 RemorselessWinter.damage:AutoAoe()
------- Talents
-local Avalanche = Ability:Add(207142, false, true, 207150)
-local BlindingSleet = Ability:Add(207167, false)
-BlindingSleet.buff_duration = 5
-BlindingSleet.cooldown_duration = 60
-local BreathOfSindragosa = Ability:Add(152279, true, true)
-BreathOfSindragosa.buff_duration = 120
-BreathOfSindragosa.cooldown_duration = 120
-BreathOfSindragosa.damage = Ability:Add(155166, false, true)
-BreathOfSindragosa.damage:AutoAoe()
-local ColdHeart = Ability:Add(281208, true, true, 281209)
-local Frostscythe = Ability:Add(207230, false, true)
-Frostscythe.rune_cost = 1
-Frostscythe:AutoAoe()
-local FrozenPulse = Ability:Add(194909, false, true, 195750)
-FrozenPulse:AutoAoe()
-local GatheringStorm = Ability:Add(194912, true, true, 211805)
-local GlacialAdvance = Ability:Add(194913, false, true, 195975)
-GlacialAdvance.cooldown_duration = 6
-GlacialAdvance.runic_power_cost = 30
-GlacialAdvance.hasted_cooldown = true
-local HornOfWinter = Ability:Add(57330, true, true)
-HornOfWinter.cooldown_duration = 45
-local HypothermicPresence = Ability:Add(321995, true, true)
-HypothermicPresence.buff_duration = 8
-HypothermicPresence.cooldown_duration = 45
-HypothermicPresence.triggers_gcd = false
-local Icecap = Ability:Add(207126, true, true)
-local IcyTalons = Ability:Add(194878, true, true, 194879)
-IcyTalons.buff_duration = 6
-local Obliteration = Ability:Add(281238, true, true, 207256)
 local RunicAttenuation = Ability:Add(207104, true, true, 221322)
 ------ Procs
 local KillingMachine = Ability:Add(51128, true, true, 51124)
 KillingMachine.buff_duration = 10
 local Rime = Ability:Add(59057, true, true, 59052)
 Rime.buff_duration = 15
+------ Tier Bonuses
+
 ---- Unholy
+------ Talents
 local Apocalypse = Ability:Add(275699, false, true)
 Apocalypse.cooldown_duration = 90
 local ArmyOfTheDead = Ability:Add(42650, true, true, 42651)
 ArmyOfTheDead.buff_duration = 4
 ArmyOfTheDead.cooldown_duration = 480
 ArmyOfTheDead.rune_cost = 1
-local ControlUndead = Ability:Add(111673, true, true)
-ControlUndead.buff_duration = 300
-ControlUndead.rune_cost = 1
+local BurstingSores = Ability:Add(207264, false, true, 207267)
+BurstingSores:AutoAoe(true)
+local ClawingShadows = Ability:Add(207311, false, true)
+ClawingShadows.rune_cost = 1
 local DarkTransformation = Ability:Add(63560, true, true)
 DarkTransformation.buff_duration = 15
 DarkTransformation.cooldown_duration = 60
 DarkTransformation.requires_pet = true
 DarkTransformation.aura_target = 'pet'
-local DeathCoil = Ability:Add(47541, false, true, 47632)
-DeathCoil.runic_power_cost = 40
-DeathCoil:SetVelocity(35)
-local Epidemic = Ability:Add(207317, false, true, 212739)
-Epidemic.runic_power_cost = 30
-Epidemic.splash = Ability:Add(215969, false, true)
-Epidemic.splash:AutoAoe(true)
-local FesteringStrike = Ability:Add(85948, false, true)
-FesteringStrike.rune_cost = 2
-local FesteringWound = Ability:Add(194310, false, true, 194311)
-FesteringWound.buff_duration = 30
-local Outbreak = Ability:Add(77575, false, true)
-Outbreak.rune_cost = 1
-local RaiseDeadUnholy = Ability:Add(46584, false, true)
-RaiseDeadUnholy.cooldown_duration = 30
-local SacrificialPact = Ability:Add(327574, false, true)
-SacrificialPact.cooldown_duration = 120
-SacrificialPact.runic_power_cost = 20
-local ScourgeStrike = Ability:Add(55090, false, true, 70890)
-ScourgeStrike.rune_cost = 1
-local VirulentPlague = Ability:Add(191587, false, true)
-VirulentPlague.buff_duration = 27
-VirulentPlague.tick_interval = 3
-VirulentPlague:AutoAoe(false, 'apply')
-VirulentPlague:TrackAuras()
------- Talents
-local BurstingSores = Ability:Add(207264, false, true, 207267)
-BurstingSores:AutoAoe(true)
-local ClawingShadows = Ability:Add(207311, false, true)
-ClawingShadows.rune_cost = 1
 local DeathPact = Ability:Add(48743, true, true)
 DeathPact.buff_duration = 15
 DeathPact.cooldown_duration = 120
@@ -1190,10 +1183,24 @@ Defile.rune_cost = 1
 Defile.tick_interval = 1
 Defile:AutoAoe()
 local EbonFever = Ability:Add(207269, false, true)
+local Epidemic = Ability:Add(207317, false, true, 212739)
+Epidemic.runic_power_cost = 30
+Epidemic.splash = Ability:Add(215969, false, true)
+Epidemic.splash:AutoAoe(true)
+local FesteringStrike = Ability:Add(85948, false, true)
+FesteringStrike.rune_cost = 2
+local FesteringWound = Ability:Add(194310, false, true, 194311)
+FesteringWound.buff_duration = 30
+local Outbreak = Ability:Add(77575, false, true)
+Outbreak.rune_cost = 1
 local Pestilence = Ability:Add(277234, false, true)
 local RaiseAbomination = Ability:Add(288853, true, true)
 RaiseAbomination.buff_duration = 25
 RaiseAbomination.cooldown_duration = 90
+local RaiseDeadUnholy = Ability:Add(46584, false, true)
+RaiseDeadUnholy.cooldown_duration = 30
+local ScourgeStrike = Ability:Add(55090, false, true, 70890)
+ScourgeStrike.rune_cost = 1
 local SoulReaper = Ability:Add(343294, false, true)
 SoulReaper.rune_cost = 1
 SoulReaper.buff_duration = 5
@@ -1209,6 +1216,11 @@ UnholyBlight:AutoAoe(true)
 local UnholyAssault = Ability:Add(207289, true, true)
 UnholyAssault.buff_duration = 12
 UnholyAssault.cooldown_duration = 75
+local VirulentPlague = Ability:Add(191587, false, true)
+VirulentPlague.buff_duration = 27
+VirulentPlague.tick_interval = 3
+VirulentPlague:AutoAoe(false, 'apply')
+VirulentPlague:TrackAuras()
 ------ Procs
 local DarkSuccor = Ability:Add(101568, true, true)
 DarkSuccor.buff_duration = 20
@@ -1217,67 +1229,8 @@ RunicCorruption.buff_duration = 3
 local SuddenDoom = Ability:Add(49530, true, true, 81340)
 SuddenDoom.buff_duration = 10
 local VirulentEruption = Ability:Add(191685, false, true)
--- Covenant abilities
-local AbominationLimb = Ability:Add(315443, true, true) -- Necrolord
-AbominationLimb.buff_duration = 12
-AbominationLimb.cooldown_duration = 120
-AbominationLimb.tick_interval = 1
-local DeathsDue = Ability:Add(324128, false, true) -- Night Fae, replaces Death and Decay
-DeathsDue.cooldown_duration = 30
-DeathsDue.rune_cost = 1
-DeathsDue.learn_spellId = 315442
-DeathsDue.buff = Ability:Add(324165, true, true)
-DeathsDue.buff.buff_duration = 12
-DeathsDue.damage = Ability:Add(341340, false, true)
-DeathsDue.damage.tick_interval = 1
-DeathsDue.damage:AutoAoe()
-local FirstStrike = Ability:Add(325069, true, true, 325381) -- Night Fae (Korayn Soulbind)
-local Fleshcraft = Ability:Add(324631, true, true) -- Necrolord
-Fleshcraft.buff_duration = 120
-Fleshcraft.cooldown_duration = 120
-local LeadByExample = Ability:Add(342156, true, true, 342181) -- Necrolord (Emeni Soulbind)
-LeadByExample.buff_duration = 10
-local PustuleEruption = Ability:Add(351094, true, true) -- Necrolord (Emeni Soulbind)
-local ShackleTheUnworthy = Ability:Add(312202, false, true) -- Kyrian
-ShackleTheUnworthy.cooldown_duration = 60
-ShackleTheUnworthy.buff_duration = 14
-ShackleTheUnworthy.tick_interval = 2
-ShackleTheUnworthy.hasted_ticks = true
-ShackleTheUnworthy:TrackAuras()
-local SwarmingMist = Ability:Add(311648, true, true) -- Venthyr
-SwarmingMist.cooldown_duration = 60
-SwarmingMist.buff_duration = 8
-SwarmingMist.rune_cost = 1
-local SummonSteward = Ability:Add(324739, false, true) -- Kyrian
-SummonSteward.cooldown_duration = 300
--- Soulbind conduits
-local EradicatingBlow = Ability:Add(337934, false, true, 337936)
-EradicatingBlow.buff_duration = 10
-EradicatingBlow.conduit_id = 83
-local Everfrost = Ability:Add(337988, false, true, 337989)
-Everfrost.buff_duration = 8
-Everfrost.conduit_id = 91
-local Proliferation = Ability:Add(338664, true, true)
-Proliferation.conduit_id = 128
-local UnleashedFrenzy = Ability:Add(338492, false, true, 338501)
-UnleashedFrenzy.buff_duration = 6
-UnleashedFrenzy.conduit_id = 122
--- Legendary effects
-local BitingCold = Ability:Add(334678, true, true)
-BitingCold.bonus_id = 6945
-local CrimsonRuneWeapon = Ability:Add(334525, true, true, 334526)
-CrimsonRuneWeapon.buff_duration = 10
-CrimsonRuneWeapon.bonus_id = 6941
-local KoltirasFavor = Ability:Add(334583, true, true)
-KoltirasFavor.bonus_id = 6944
-local Phearomones = Ability:Add(335177, false, true)
-Phearomones.bonus_id = 6954
-local RageOfTheFrozenChampion = Ability:Add(341724, true, true)
-RageOfTheFrozenChampion.bonus_id = 7160
-local RampantTransferance = Ability:Add(353882, false, true)
-RampantTransferance.bonus_id = 7466
-local Unity = Ability:Add(364758, true, true)
-Unity.bonus_id = 8119
+------ Tier Bonuses
+
 -- PvP talents
 
 -- Racials
@@ -1293,12 +1246,12 @@ SummonedPet.__index = SummonedPet
 local summonedPets = {
 	all = {},
 	known = {},
-	byNpcId = {},
+	byUnitId = {},
 }
 
 function summonedPets:Find(guid)
-	local npcId = guid:match('^Creature%-0%-%d+%-%d+%-%d+%-(%d+)')
-	return npcId and self.byNpcId[tonumber(npcId)]
+	local unitId = guid:match('^Creature%-0%-%d+%-%d+%-%d+%-(%d+)')
+	return unitId and self.byUnitId[tonumber(unitId)]
 end
 
 function summonedPets:Purge()
@@ -1321,9 +1274,9 @@ function summonedPets:Count()
 	return count
 end
 
-function SummonedPet:Add(npcId, duration, summonSpell)
+function SummonedPet:Add(unitId, duration, summonSpell)
 	local pet = {
-		npcId = npcId,
+		unitId = unitId,
 		duration = duration,
 		active_units = {},
 		summon_spell = summonSpell,
@@ -1458,41 +1411,13 @@ function InventoryItem:Usable(seconds)
 end
 
 -- Inventory Items
-local EternalAugmentRune = InventoryItem:Add(190384)
-EternalAugmentRune.buff = Ability:Add(367405, true, true)
-local EternalFlask = InventoryItem:Add(171280)
-EternalFlask.buff = Ability:Add(307166, true, true)
-local PhialOfSerenity = InventoryItem:Add(177278) -- Provided by Summon Steward
-PhialOfSerenity.max_charges = 3
-local PotionOfPhantomFire = InventoryItem:Add(171349)
-PotionOfPhantomFire.buff = Ability:Add(307495, true, true)
-local PotionOfSpectralStrength = InventoryItem:Add(171275)
-PotionOfSpectralStrength.buff = Ability:Add(307164, true, true)
-local SpectralFlaskOfPower = InventoryItem:Add(171276)
-SpectralFlaskOfPower.buff = Ability:Add(307185, true, true)
+
 -- Equipment
 local Trinket1 = InventoryItem:Add(0)
 local Trinket2 = InventoryItem:Add(0)
-Trinket.SoleahsSecretTechnique = InventoryItem:Add(190958)
-Trinket.SoleahsSecretTechnique.buff = Ability:Add(368512, true, true)
-Trinket.InscrutableQuantumDevice = InventoryItem:Add(179350)
-Trinket.OverwhelmingPowerCrystal = InventoryItem:Add(179342)
-Trinket.TheFirstSigil = InventoryItem:Add(188271)
 -- End Inventory Items
 
 -- Start Player API
-
-function Player:Health()
-	return self.health.current
-end
-
-function Player:HealthMax()
-	return self.health.max
-end
-
-function Player:HealthPct()
-	return self.health.current / self.health.max * 100
-end
 
 function Player:Runes()
 	return self.runes.ready
@@ -1512,6 +1437,18 @@ end
 
 function Player:RunicPowerDeficit()
 	return self.runic_power.max - self.runic_power.current
+end
+
+function Player:ResetSwing(mainHand, offHand, missed)
+	local mh, oh = UnitAttackSpeed('player')
+	if mainHand then
+		self.swing.mh.speed = (mh or 0)
+		self.swing.mh.last = self.time
+	end
+	if offHand then
+		self.swing.oh.speed = (oh or 0)
+		self.swing.oh.last = self.time
+	end
 end
 
 function Player:TimeInCombat()
@@ -1541,10 +1478,8 @@ function Player:BloodlustActive()
 			id == 90355 or  -- Ancient Hysteria (Hunter Pet - Core Hound)
 			id == 160452 or -- Netherwinds (Hunter Pet - Nether Ray)
 			id == 264667 or -- Primal Rage (Hunter Pet - Ferocity)
-			id == 178207 or -- Drums of Fury (Leatherworking)
-			id == 146555 or -- Drums of Rage (Leatherworking)
-			id == 230935 or -- Drums of the Mountain (Leatherworking)
-			id == 256740    -- Drums of the Maelstrom (Leatherworking)
+			id == 381301 or -- Feral Hide Drums (Leatherworking)
+			id == 390386    -- Fury of the Aspects (Evoker)
 		) then
 			return true
 		end
@@ -1591,13 +1526,14 @@ function Player:UpdateTime(timeStamp)
 end
 
 function Player:UpdateAbilities()
-	self.rescan_abilities = false
 	self.runes.max = UnitPowerMax('player', 5)
 	self.runic_power.max = UnitPowerMax('player', 6)
 
 	local node
+	local configId = C_ClassTalents.GetActiveConfigID()
 	for _, ability in next, abilities.all do
 		ability.known = false
+		ability.rank = 0
 		for _, spellId in next, ability.spellIds do
 			ability.spellId, ability.name, _, ability.icon = spellId, GetSpellInfo(spellId)
 			if IsPlayerSpell(spellId) or (ability.learn_spellId and IsPlayerSpell(ability.learn_spellId)) then
@@ -1605,25 +1541,18 @@ function Player:UpdateAbilities()
 				break
 			end
 		end
-		if C_LevelLink.IsSpellLocked(ability.spellId) then
-			ability.known = false -- spell is locked, do not mark as known
-		end
-		if ability.bonus_id then -- used for checking enchants and Legendary crafted effects
+		if ability.bonus_id then -- used for checking enchants and crafted effects
 			ability.known = self:BonusIdEquipped(ability.bonus_id)
 		end
-		if ability.conduit_id then
-			node = C_Soulbinds.FindNodeIDActuallyInstalled(C_Soulbinds.GetActiveSoulbindID(), ability.conduit_id)
+		if ability.talent_node and configId then
+			node = C_Traits.GetNodeInfo(configId, ability.talent_node)
 			if node then
-				node = C_Soulbinds.GetNode(node)
-				if node then
-					if node.conduitID == 0 then
-						self.rescan_abilities = true -- rescan on next target, conduit data has not finished loading
-					else
-						ability.known = node.state == 3
-						ability.rank = node.conduitRank
-					end
-				end
+				ability.rank = node.activeRank
+				ability.known = ability.rank > 0
 			end
+		end
+		if C_LevelLink.IsSpellLocked(ability.spellId) or (ability.check_usable and not IsUsableSpell(ability.spellId)) then
+			ability.known = false -- spell is locked, do not mark as known
 		end
 	end
 
@@ -1636,7 +1565,7 @@ function Player:UpdateAbilities()
 	VirulentPlague.known = Outbreak.known
 	VirulentEruption.known = VirulentPlague.known
 	FesteringWound.known = FesteringStrike.known
-	if Defile.known or DeathsDue.known then
+	if Defile.known then
 		DeathAndDecay.known = false
 	end
 	if ClawingShadows.known then
@@ -1645,14 +1574,8 @@ function Player:UpdateAbilities()
 	if RaiseAbomination.known then
 		ArmyOfTheDead.known = false
 	end
-	DeathAndDecay.buff.known = DeathAndDecay.known or DeathsDue.known
+	DeathAndDecay.buff.known = DeathAndDecay.known
 	DeathAndDecay.damage.known = DeathAndDecay.known
-	DeathsDue.buff.known = DeathsDue.known
-	DeathsDue.damage.known = DeathsDue.known
-	EndlessRuneWaltz.known = self.set_bonus.t28 >= 2
-	if Unity.known then
-		RampantTransferance.known = DeathsDue.known
-	end
 	Hysteria.known = RuneOfHysteria.known
 	Razorice.known = RuneOfRazorice.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
@@ -1680,12 +1603,12 @@ function Player:UpdateAbilities()
 	end
 
 	wipe(summonedPets.known)
-	wipe(summonedPets.byNpcId)
+	wipe(summonedPets.byUnitId)
 	for _, pet in next, summonedPets.all do
 		pet.known = pet.summon_spell and pet.summon_spell.known
 		if pet.known then
 			summonedPets.known[#summonedPets.known + 1] = pet
-			summonedPets.byNpcId[pet.npcId] = pet
+			summonedPets.byUnitId[pet.unitId] = pet
 		end
 	end
 
@@ -1731,7 +1654,7 @@ function Player:UpdateRunes()
 end
 
 function Player:Update()
-	local _, start, duration, remains, spellId
+	local _, start, duration, remains, spellId, speed_mh, speed_oh
 	self.main =  nil
 	self.cd = nil
 	self.interrupt = nil
@@ -1744,9 +1667,11 @@ function Player:Update()
 	self.cast_remains = remains and (remains / 1000 - self.ctime) or 0
 	self.execute_remains = max(self.cast_remains, self.gcd_remains)
 	self.haste_factor = 1 / (1 + UnitSpellHaste('player') / 100)
-	self.health.current = UnitHealth('player')
-	self.health.max = UnitHealthMax('player')
-	self.runic_power.current = UnitPower('player', 6)
+	speed_mh, speed_oh = UnitAttackSpeed('player')
+	self.swing.mh.speed = speed_mh or 0
+	self.swing.oh.speed = speed_oh or 0
+	self.swing.mh.remains = max(0, self.swing.mh.last + self.swing.mh.speed - self.time)
+	self.swing.oh.remains = max(0, self.swing.oh.last + self.swing.oh.speed - self.time)
 	self.moving = GetUnitSpeed('player') ~= 0
 	self:UpdateRunes()
 	self:UpdateThreat()
@@ -1765,6 +1690,7 @@ end
 function Player:Init()
 	local _
 	if #UI.glows == 0 then
+		UI:DisableOverlayGlows()
 		UI:CreateOverlayGlows()
 		UI:HookResourceFrame()
 	end
@@ -1885,7 +1811,6 @@ function DeathAndDecay:RuneCost()
 	end
 	return Ability.RuneCost(self)
 end
-DeathsDue.RuneCost = DeathAndDecay.RuneCost
 
 function HowlingBlast:RuneCost()
 	if Rime.known and Rime:Up() then
@@ -1923,10 +1848,6 @@ function HeartStrike:Targets()
 	return min(Player.enemies, DeathAndDecay.buff:Up() and 5 or 2)
 end
 
-function Obliterate:Targets()
-	return min(Player.enemies, (DeathsDue.known and DeathAndDecay.buff:Up()) and 2 or 1)
-end
-
 function Tombstone:Usable()
 	if BoneShield:Down() then
 		return false
@@ -1954,14 +1875,6 @@ function Asphyxiate:Usable()
 	return Ability.Usable(self)
 end
 BlindingSleet.Usable = Asphyxiate.Usable
-
-function ShackleTheUnworthy:Duration()
-	local duration = Ability.Duration(self)
-	if Proliferation.known then
-		duration = duration + 3
-	end
-	return duration
-end
 
 function RaiseDead:Usable()
 	if Player.pet.alive then
@@ -2029,38 +1942,15 @@ actions.precombat+=/augmentation
 actions.precombat+=/snapshot_stats
 actions.precombat+=/fleshcraft
 ]]
-		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Player.group_size > 1 then
-			UseCooldown(Trinket.SoleahsSecretTechnique)
-		end
-		if SummonSteward:Usable() and PhialOfSerenity:Charges() < 1 then
-			UseExtra(SummonSteward)
-		end
-		if Fleshcraft:Usable() and Fleshcraft:Remains() < 10 then
-			UseExtra(Fleshcraft)
-		end
-		if not Player:InArenaOrBattleground() then
-			if EternalAugmentRune:Usable() and EternalAugmentRune.buff:Remains() < 300 then
-				UseCooldown(EternalAugmentRune)
-			end
-			if EternalFlask:Usable() and EternalFlask.buff:Remains() < 300 and SpectralFlaskOfPower.buff:Remains() < 300 then
-				UseCooldown(EternalFlask)
-			end
-			if Opt.pot and SpectralFlaskOfPower:Usable() and SpectralFlaskOfPower.buff:Remains() < 300 and EternalFlask.buff:Remains() < 300 then
-				UseCooldown(SpectralFlaskOfPower)
-			end
-		end
 		if DeathAndDecay:Usable() then
 			UseCooldown(DeathAndDecay)
 		end
 	else
-		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 10 and Player.group_size > 1 then
-			UseExtra(Trinket.SoleahsSecretTechnique)
-		end
+
 	end
 --[[
 actions=auto_attack
-actions+=/variable,name=death_strike_dump_amount,if=!covenant.night_fae,value=70
-actions+=/variable,name=death_strike_dump_amount,if=covenant.night_fae,value=55
+actions+=/variable,name=death_strike_dump_amount,value=70
 # Interrupt
 actions+=/mind_freeze,if=target.debuff.casting.react
 # Since the potion cooldown has changed, we'll sync with DRW
@@ -2068,11 +1958,11 @@ actions+=/potion,if=buff.dancing_rune_weapon.up
 actions+=/use_items
 actions+=/use_item,name=gavel_of_the_first_arbiter
 actions+=/raise_dead
-actions+=/blooddrinker,if=!buff.dancing_rune_weapon.up&(!covenant.night_fae|buff.deaths_due.remains>7)
+actions+=/blooddrinker,if=!buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=racials
 # Attempt to sacrifice the ghoul if we predictably will not do much in the near future
-actions+=/sacrificial_pact,if=(!covenant.night_fae|buff.deaths_due.remains>6)&buff.dancing_rune_weapon.remains>4&(pet.ghoul.remains<2|target.time_to_die<gcd)
-actions+=/call_action_list,name=covenants
+actions+=/sacrificial_pact,if=buff.dancing_rune_weapon.remains>4&(pet.ghoul.remains<2|target.time_to_die<gcd)
+actions+=/abomination_limb
 actions+=/blood_tap,if=(rune<=2&rune.time_to_4>gcd&charges_fractional>=1.8)|rune.time_to_3>gcd
 actions+=/dancing_rune_weapon,if=!buff.dancing_rune_weapon.up
 actions+=/run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
@@ -2080,22 +1970,13 @@ actions+=/call_action_list,name=standard
 ]]
 	Player.drw_remains = DancingRuneWeapon:Remains()
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.drw_remains > 0
-	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) * (DeathsDue.known and DeathAndDecay.buff:Up() and 1 or 1.2)
-	self.death_strike_prio_amount = self.heart_strike_rp + (67 - (Player:HealthPct() / 1.5))
-	self.death_strike_dump_amount = 70 - (DeathsDue.known and 15 or 0)
+	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0)) * 1.2
+	self.death_strike_prio_amount = self.heart_strike_rp + (67 - (Player.health.pct / 1.5))
+	self.death_strike_dump_amount = 70
 
 	if Player.use_cds then
-		if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and Player.drw_remains > 0 then
-			UseCooldown(PotionOfSpectralStrength)
-		end
 		if Opt.trinket then
-			if Trinket.InscrutableQuantumDevice:Usable() and DancingRuneWeapon:Up() then
-				UseCooldown(Trinket.InscrutableQuantumDevice)
-			elseif Trinket.TheFirstSigil:Usable() and DancingRuneWeapon:Up() then
-				UseCooldown(Trinket.TheFirstSigil)
-			elseif Trinket.OverwhelmingPowerCrystal:Usable() and ((ShackleTheUnworthy.known and ShackleTheUnworthy:Ticking() > 0) or (not ShackleTheUnworthy.known and DancingRuneWeapon:Up())) then
-				UseCooldown(Trinket.OverwhelmingPowerCrystal)
-			elseif Trinket1:Usable() then
+			if Trinket1:Usable() then
 				UseCooldown(Trinket1)
 			elseif Trinket2:Usable() then
 				UseCooldown(Trinket2)
@@ -2104,14 +1985,14 @@ actions+=/call_action_list,name=standard
 		if RaiseDead:Usable() then
 			UseExtra(RaiseDead)
 		end
-		if Blooddrinker:Usable() and Player.drw_remains == 0 and (not DeathsDue.known or DeathsDue.buff:Remains() > 7) then
+		if Blooddrinker:Usable() and Player.drw_remains == 0 then
 			UseCooldown(Blooddrinker)
 		end
-		if SacrificialPact:Usable() and (not DeathsDue.known or DeathsDue.buff:Remains() > 6) and DancingRuneWeapon:Remains() > 4 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
+		if SacrificialPact:Usable() and DancingRuneWeapon:Remains() > 4 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
 			UseExtra(SacrificialPact)
 		end
-		if not Player.cd then
-			self:covenants()
+		if AbominationLimb:Usable() then
+			UseCooldown(AbominationLimb)
 		end
 		if BloodTap:Usable() and (Player:RuneTimeTo(3) > Player.gcd or (Player:Runes() <= 2 and Player:RuneTimeTo(4) > Player.gcd and BloodTap:ChargesFractional() >= 1.8)) then
 			UseCooldown(BloodTap)
@@ -2120,7 +2001,7 @@ actions+=/call_action_list,name=standard
 			UseCooldown(DancingRuneWeapon)
 		end
 	end
-	if DeathStrike:Usable() and Player:HealthPct() < 30 then
+	if DeathStrike:Usable() and Player.health.pct < 30 then
 		return DeathStrike
 	end
 	if Player.drw_remains > 0 then
@@ -2130,57 +2011,27 @@ actions+=/call_action_list,name=standard
 	return self:standard()
 end
 
-APL[SPEC.BLOOD].covenants = function(self)
---[[
-actions.covenants=deaths_due,if=!buff.deaths_due.up|buff.deaths_due.remains<4|buff.crimson_scourge.up
-actions.covenants+=/swarming_mist,if=cooldown.dancing_rune_weapon.remains>3&runic_power>=(90-(spell_targets.swarming_mist*3))
-actions.covenants+=/abomination_limb
-actions.covenants+=/fleshcraft,if=soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up,interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
-actions.covenants+=/shackle_the_unworthy,if=runic_power<100&active_dot.shackle_the_unworthy=0&dot.blood_plague.remains
-]]
-	if DeathsDue:Usable() and DeathAndDecay.buff:Down() and (DeathsDue.buff:Remains() < 4 or CrimsonScourge:Up()) then
-		UseCooldown(DeathsDue)
-	end
-	if SwarmingMist:Usable() and not DancingRuneWeapon:Ready(3) and Player:RunicPower() >= (90 - (Player.enemies * 3)) then
-		UseCooldown(SwarmingMist)
-	end
-	if AbominationLimb:Usable() then
-		UseCooldown(AbominationLimb)
-	end
-	if ShackleTheUnworthy:Usable() and Player:RunicPower() < 100 and ShackleTheUnworthy:Ticking() == 0 and BloodPlague:Up() then
-		UseCooldown(ShackleTheUnworthy)
-	end
-end
-
 APL[SPEC.BLOOD].drw_up = function(self)
 --[[
-actions.drw_up=tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&runeforge.crimson_rune_weapon
-actions.drw_up+=/marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|(buff.bone_shield.stack<2&(!covenant.necrolord|buff.abomination_limb.up)))&runic_power.deficit>20
-actions.drw_up+=/blood_boil,if=((charges>=2&rune<=1)|dot.blood_plague.remains<=2)|(spell_targets.blood_boil>5&charges_fractional>=1.1)&!(covenant.venthyr&buff.swarming_mist.up)
+actions.drw_up=marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|(buff.bone_shield.stack<2&(!talent.abomination_limb|buff.abomination_limb.up)))&runic_power.deficit>20
+actions.drw_up+=/blood_boil,if=((charges>=2&rune<=1)|dot.blood_plague.remains<=2)|(spell_targets.blood_boil>5&charges_fractional>=1.1)
 actions.drw_up+=/variable,name=heart_strike_rp_drw,value=(25+spell_targets.heart_strike*talent.heartbreaker.enabled*2)
-actions.drw_up+=/death_strike,if=((runic_power.deficit<=variable.heart_strike_rp_drw)|(runic_power.deficit<=variable.death_strike_dump_amount&covenant.venthyr))&!(talent.bonestorm.enabled&cooldown.bonestorm.remains<2)
+actions.drw_up+=/death_strike,if=(runic_power.deficit<=variable.heart_strike_rp_drw)&!(talent.bonestorm.enabled&cooldown.bonestorm.remains<2)
 actions.drw_up+=/death_and_decay,if=(spell_targets.death_and_decay==3&buff.crimson_scourge.up)|spell_targets.death_and_decay>=4
-actions.drw_up+=/bonestorm,if=runic_power>=100&buff.endless_rune_waltz.stack>4&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
 actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variable.heart_strike_rp_drw
 actions.drw_up+=/consumption
 ]]
-	if CrimsonRuneWeapon.known and Tombstone:Usable() and BoneShield:Stack() > 5 and Player:Runes() >= 2 and Player:RunicPowerDeficit() >= 30 then
-		UseCooldown(Tombstone)
-	end
 	if Marrowrend:Usable() and Player:RunicPowerDeficit() > 20 and (BoneShield:Remains() <= Player:RuneTimeTo(3) or (BoneShield:Stack() < 2 and (not AbominationLimb.known or AbominationLimb:Up()))) then
 		return Marrowrend
 	end
-	if BloodBoil:Usable() and (((BloodBoil:Charges() >= 2 and Player:Runes() <= 1) or BloodPlague:Remains() <= 2) or ((Player.enemies > 5 and BloodBoil:ChargesFractional() >= 1.1) and (not SwarmingMist.known or SwarmingMist:Down()))) then
+	if BloodBoil:Usable() and (((BloodBoil:Charges() >= 2 and Player:Runes() <= 1) or BloodPlague:Remains() <= 2) or (Player.enemies > 5 and BloodBoil:ChargesFractional() >= 1.1)) then
 		return BloodBoil
 	end
-	if DeathStrike:Usable() and ((Player:RunicPowerDeficit() <= self.heart_strike_rp) or (SwarmingMist.known and Player:RunicPowerDeficit() <= self.death_strike_prio_amount)) and not (Bonestorm.known and Bonestorm:Ready(2)) then
+	if DeathStrike:Usable() and (Player:RunicPowerDeficit() <= self.heart_strike_rp) and not (Bonestorm.known and Bonestorm:Ready(2)) then
 		return DeathStrike
 	end
-	if DeathAndDecay:Usable() and Player.enemies >= (CrimsonScourge:Up() and 3 or 4) then
+	if DeathAndDecay:Usable() and Player.enemies >= (CrimsonScourge:Up() and 3 or 4) and DeathAndDecay.buff:Remains() < 2 then
 		return DeathAndDecay
-	end
-	if Bonestorm:Usable() and Player:RunicPower() >= 100 and EndlessRuneWaltz:Stack() > 4 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
-		UseCooldown(Bonestorm)
 	end
 	if HeartStrike:Usable() and (Player:RuneTimeTo(2) < Player.gcd or Player:RunicPowerDeficit() >= self.heart_strike_rp) then
 		return HeartStrike
@@ -2192,14 +2043,13 @@ end
 
 APL[SPEC.BLOOD].standard = function(self)
 --[[
-actions.standard=heart_strike,if=covenant.night_fae&death_and_decay.ticking&(buff.deaths_due.up&buff.deaths_due.remains<6)
-actions.standard+=/tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
-actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|buff.bone_shield.remains<=(gcd+cooldown.blooddrinker.ready*talent.blooddrinker.enabled*4)|buff.bone_shield.stack<6|((!covenant.night_fae|buff.deaths_due.remains>5)&buff.bone_shield.remains<7))&runic_power.deficit>20&!(runeforge.crimson_rune_weapon&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)
-actions.standard+=/death_strike,if=runic_power.deficit<=variable.death_strike_dump_amount&!(talent.bonestorm.enabled&cooldown.bonestorm.remains<2)&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
+actions.standard=tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&
+actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=rune.time_to_3|buff.bone_shield.remains<=(gcd+cooldown.blooddrinker.ready*talent.blooddrinker.enabled*4)|buff.bone_shield.stack<6|buff.bone_shield.remains<7
+actions.standard+=/death_strike,if=runic_power.deficit<=variable.death_strike_dump_amount&!(talent.bonestorm.enabled&cooldown.bonestorm.remains<2)
 actions.standard+=/blood_boil,if=charges_fractional>=1.8&(buff.hemostasis.stack<=(5-spell_targets.blood_boil)|spell_targets.blood_boil>2)
 actions.standard+=/death_and_decay,if=buff.crimson_scourge.up&talent.relish_in_blood.enabled&runic_power.deficit>10
-actions.standard+=/bonestorm,if=runic_power>=100&!(covenant.venthyr&cooldown.swarming_mist.remains<3)
-actions.standard+=/variable,name=heart_strike_rp,value=(15+spell_targets.heart_strike*talent.heartbreaker.enabled*2),op=setif,condition=covenant.night_fae&death_and_decay.ticking,value_else=(15+spell_targets.heart_strike*talent.heartbreaker.enabled*2)*1.2
+actions.standard+=/bonestorm,if=runic_power>=100
+actions.standard+=/variable,name=heart_strike_rp,value=(15+spell_targets.heart_strike*talent.heartbreaker.enabled*2)*1.2
 actions.standard+=/death_strike,if=(runic_power.deficit<=variable.heart_strike_rp)|target.time_to_die<10
 actions.standard+=/death_and_decay,if=spell_targets.death_and_decay>=3
 actions.standard+=/heart_strike,if=rune.time_to_4<gcd
@@ -2208,16 +2058,13 @@ actions.standard+=/consumption
 actions.standard+=/blood_boil,if=charges_fractional>=1.1
 actions.standard+=/heart_strike,if=rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7)
 ]]
-	if DeathsDue.known and HeartStrike:Usable() and DeathAndDecay.buff:Up() and DeathsDue.buff:Up() and DeathsDue.buff:Remains() < 6 then
-		return HeartStrike
-	end
-	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and Player:Runes() >= 2 and Player:RunicPowerDeficit() >= 30 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and Player:Runes() >= 2 and Player:RunicPowerDeficit() >= 30 then
 		UseCooldown(Tombstone)
 	end
-	if Marrowrend:Usable() and Player:RunicPowerDeficit() > 20 and not (CrimsonRuneWeapon.known and DancingRuneWeapon:Ready(BoneShield:Remains())) and (BoneShield:Stack() < 6 or BoneShield:Remains() <= Player:RuneTimeTo(3) or BoneShield:Remains() <= (Player.gcd + (Blooddrinker.known and Blooddrinker:Ready() and 4 or 0)) or ((not DeathsDue.known or DeathsDue.buff:Remains() > 5) and BoneShield:Remains() < 7)) then
+	if Marrowrend:Usable() and Player:RunicPowerDeficit() > 20 and (BoneShield:Stack() < 6 or BoneShield:Remains() <= Player:RuneTimeTo(3) or BoneShield:Remains() <= (Player.gcd + (Blooddrinker.known and Blooddrinker:Ready() and 4 or 0)) or BoneShield:Remains() < 7) then
 		return Marrowrend
 	end
-	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_prio_amount and not (Bonestorm.known and Bonestorm:Ready(2)) and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_prio_amount and not (Bonestorm.known and Bonestorm:Ready(2)) then
 		return DeathStrike
 	end
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.8 and (Player.enemies > 2 or (Hemostasis.known and Hemostasis:Stack() <= (5 - Player.enemies))) then
@@ -2226,19 +2073,19 @@ actions.standard+=/heart_strike,if=rune>1&(rune.time_to_3<gcd|buff.bone_shield.s
 	if RelishInBlood.known and DeathAndDecay:Usable() and CrimsonScourge:Up() and Player:RunicPowerDeficit() > 10 then
 		return DeathAndDecay
 	end
-	if Player.use_cds and Bonestorm:Usable() and Player:RunicPower() >= 100 and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+	if Player.use_cds and Bonestorm:Usable() and Player:RunicPower() >= 100 then
 		UseCooldown(Bonestorm)
 	end
 	if DeathStrike:Usable() and (Player:RunicPowerDeficit() <= self.heart_strike_rp or (Target.boss and Player.enemies == 1 and Target.timeToDie < (Player.gcd * 2))) then
 		return DeathStrike
 	end
-	if DeathAndDecay:Usable() and Player.enemies >= 3 then
+	if DeathAndDecay:Usable() and Player.enemies >= 3 and DeathAndDecay.buff:Down() then
 		return DeathAndDecay
 	end
 	if HeartStrike:Usable() and Player:RuneTimeTo(4) < Player.gcd then
 		return HeartStrike
 	end
-	if DeathAndDecay:Usable() and (RapidDecomposition.known or CrimsonScourge:Up()) then
+	if DeathAndDecay:Usable() and (RapidDecomposition.known or CrimsonScourge:Up()) and DeathAndDecay.buff:Remains() < 2 then
 		return DeathAndDecay
 	end
 	if Player.use_cds and Consumption:Usable() then
@@ -2247,7 +2094,7 @@ actions.standard+=/heart_strike,if=rune>1&(rune.time_to_3<gcd|buff.bone_shield.s
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.1 then
 		return BloodBoil
 	end
-	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_dump_amount and not (Bonestorm.known and Bonestorm:Ready(2)) and not (SwarmingMist.known and SwarmingMist:Ready(3)) then
+	if DeathStrike:Usable() and Player:RunicPowerDeficit() <= self.death_strike_dump_amount and not (Bonestorm.known and Bonestorm:Ready(2)) then
 		return DeathStrike
 	end
 	if HeartStrike:Usable() and Player:Runes() > 1 and (Player:RuneTimeTo(3) < Player.gcd or BoneShield:Stack() > 7) then
@@ -2261,7 +2108,6 @@ APL[SPEC.FROST].Main = function(self)
 	self.adds_remain = Player.enemies >= 2
 	self.rotfc_rime = Rime:Up() and (not RageOfTheFrozenChampion.known or Player:RunicPowerDeficit() > 8)
 	self.frost_strike_conduits = (EradicatingBlow.known and EradicatingBlow:Stack() == 2) or (UnleashedFrenzy.known and UnleashedFrenzy:Stack() >= 1 and UnleashedFrenzy:Remains() < (Player.gcd * 1.5))
-	self.deaths_due_active = DeathsDue.known and DeathAndDecay.buff:Up()
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up())
 
 	if Player:TimeInCombat() == 0 then
@@ -2279,30 +2125,9 @@ actions.precombat+=/variable,name=trinket_2_sync,op=setif,value=1,value_else=0.5
 actions.precombat+=/variable,name=trinket_priority,op=setif,value=2,value_else=1,condition=!trinket.1.has_use_buff&trinket.2.has_use_buff|trinket.2.has_use_buff&((trinket.2.cooldown.duration%trinket.2.proc.any_dps.duration)*(1.5+trinket.2.has_buff.strength)*(variable.trinket_2_sync))>((trinket.1.cooldown.duration%trinket.1.proc.any_dps.duration)*(1.5+trinket.1.has_buff.strength)*(variable.trinket_1_sync))
 actions.precombat+=/variable,name=rw_buffs,value=talent.gathering_storm|conduit.everfrost|runeforge.biting_cold
 ]]
-		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Player.group_size > 1 then
-			UseCooldown(Trinket.SoleahsSecretTechnique)
-		end
-		if SummonSteward:Usable() and PhialOfSerenity:Charges() < 1 then
-			UseExtra(SummonSteward)
-		end
-		if Fleshcraft:Usable() and Fleshcraft:Remains() < 10 then
-			UseExtra(Fleshcraft)
-		end
-		if not Player:InArenaOrBattleground() then
-			if EternalAugmentRune:Usable() and EternalAugmentRune.buff:Remains() < 300 then
-				UseCooldown(EternalAugmentRune)
-			end
-			if EternalFlask:Usable() and EternalFlask.buff:Remains() < 300 and SpectralFlaskOfPower.buff:Remains() < 300 then
-				UseCooldown(EternalFlask)
-			end
-			if Opt.pot and SpectralFlaskOfPower:Usable() and SpectralFlaskOfPower.buff:Remains() < 300 and EternalFlask.buff:Remains() < 300 then
-				UseCooldown(SpectralFlaskOfPower)
-			end
-		end
+
 	else
-		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 10 and Player.group_size > 1 then
-			UseExtra(Trinket.SoleahsSecretTechnique)
-		end
+
 	end
 --[[
 actions=auto_attack
@@ -2312,9 +2137,8 @@ actions+=/variable,name=st_planning,value=active_enemies=1&(raid_event.adds.in>1
 actions+=/variable,name=adds_remain,value=active_enemies>=2&(!raid_event.adds.exists|raid_event.adds.exists&(raid_event.adds.remains>5|target.1.time_to_die>10))
 actions+=/variable,name=rotfc_rime,value=buff.rime.up&(!runeforge.rage_of_the_frozen_champion|runeforge.rage_of_the_frozen_champion&runic_power.deficit>8)
 actions+=/variable,name=frost_strike_conduits,value=conduit.eradicating_blow&buff.eradicating_blow.stack=2|conduit.unleashed_frenzy&buff.unleashed_frenzy.stack>=1&buff.unleashed_frenzy.remains<gcd*1.5
-actions+=/variable,name=deaths_due_active,value=death_and_decay.ticking&covenant.night_fae
 # Apply Frost Fever, maintain Icy Talons and keep Remorseless Winter rolling
-actions+=/remorseless_winter,if=!remains&conduit.everfrost&talent.gathering_storm&(!talent.obliteration&cooldown.pillar_of_frost.remains|set_bonus.tier28_4pc&talent.obliteration&!buff.pillar_of_frost.up)
+actions+=/remorseless_winter,if=!remains&conduit.everfrost&talent.gathering_storm&!talent.obliteration&cooldown.pillar_of_frost.remains
 actions+=/howling_blast,target_if=!dot.frost_fever.remains&(talent.icecap|!buff.breath_of_sindragosa.up&talent.breath_of_sindragosa|talent.obliteration&cooldown.pillar_of_frost.remains&!buff.killing_machine.up)
 actions+=/glacial_advance,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&spell_targets.glacial_advance>=2&(talent.icecap|talent.breath_of_sindragosa&cooldown.breath_of_sindragosa.remains>15|talent.obliteration&!buff.pillar_of_frost.up)
 actions+=/frost_strike,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&(talent.icecap|talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>10|talent.obliteration&!buff.pillar_of_frost.up)
@@ -2322,7 +2146,6 @@ actions+=/obliterate,if=variable.deaths_due_active&death_and_decay.active_remain
 # Interrupt
 actions+=/mind_freeze,if=target.debuff.casting.react
 # Choose Action list to run
-actions+=/call_action_list,name=covenants
 actions+=/call_action_list,name=racials
 actions+=/call_action_list,name=trinkets
 actions+=/call_action_list,name=cooldowns
@@ -2330,11 +2153,11 @@ actions+=/call_action_list,name=cold_heart,if=talent.cold_heart&(!buff.killing_m
 actions+=/run_action_list,name=bos_ticking,if=buff.breath_of_sindragosa.up
 actions+=/run_action_list,name=bos_pooling,if=talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&(cooldown.breath_of_sindragosa.remains<10)&(raid_event.adds.in>25|!raid_event.adds.exists|cooldown.pillar_of_frost.remains<10&raid_event.adds.exists&raid_event.adds.in<10)
 actions+=/run_action_list,name=obliteration,if=buff.pillar_of_frost.up&talent.obliteration
-actions+=/run_action_list,name=obliteration_pooling,if=!set_bonus.tier28_4pc&!runeforge.rage_of_the_frozen_champion&talent.obliteration&cooldown.pillar_of_frost.remains<10&(variable.st_planning|raid_event.adds.exists&raid_event.adds.in<10|!raid_event.adds.exists)
+actions+=/run_action_list,name=obliteration_pooling,if=!runeforge.rage_of_the_frozen_champion&talent.obliteration&cooldown.pillar_of_frost.remains<10&(variable.st_planning|raid_event.adds.exists&raid_event.adds.in<10|!raid_event.adds.exists)
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=standard
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Everfrost.known and GatheringStorm.known and ((not Obliteration.known and not PillarOfFrost:Ready()) or (Player.set_bonus.t28 >= 4 and Obliteration.known and PillarOfFrost:Down())) then
+	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Everfrost.known and GatheringStorm.known and not Obliteration.known and not PillarOfFrost:Ready() then
 		return RemorselessWinter
 	end
 	if HowlingBlast:Usable() and FrostFever:Down() and (Icecap.known or (BreathOfSindragosa.known and BreathOfSindragosa:Down()) or (Obliteration.known and not PillarOfFrost:Ready() and KillingMachine:Down())) then
@@ -2348,11 +2171,7 @@ actions+=/call_action_list,name=standard
 			return FrostStrike
 		end
 	end
-	if Obliterate:Usable() and self.deaths_due_active and DeathAndDecay.buff:Remains() < (Player.gcd * 1.5) and (not Obliteration.known or PillarOfFrost:Down()) then
-		return Obliterate
-	end
 	if Player.use_cds then
-		self:covenants()
 		if Opt.trinket then
 			self:trinkets()
 		end
@@ -2370,7 +2189,7 @@ actions+=/call_action_list,name=standard
 		if PillarOfFrost:Up() then
 			return self:obliteration()
 		end
-		if Player.use_cds and Player.set_bonus.t28 < 4 and not RageOfTheFrozenChampion.known and PillarOfFrost:Ready(10) then
+		if Player.use_cds and not RageOfTheFrozenChampion.known and PillarOfFrost:Ready(10) then
 			return self:obliteration_pooling()
 		end
 	end
@@ -2384,18 +2203,17 @@ APL[SPEC.FROST].aoe = function(self)
 --[[
 actions.aoe=remorseless_winter,if=!remains
 actions.aoe+=/glacial_advance,if=talent.frostscythe
-actions.aoe+=/frostscythe,if=buff.killing_machine.react&!variable.deaths_due_active&(!talent.gathering_storm|rune>=2|cooldown.remorseless_winter.remains>rune.time_to_2)
-actions.aoe+=/obliterate,if=buff.killing_machine.react&variable.deaths_due_active&(!talent.gathering_storm|rune>=3|cooldown.remorseless_winter.remains>rune.time_to_3)
+actions.aoe+=/frostscythe,if=buff.killing_machine.react&(!talent.gathering_storm|rune>=2|cooldown.remorseless_winter.remains>rune.time_to_2)
 actions.aoe+=/howling_blast,if=variable.rotfc_rime&talent.avalanche
 actions.aoe+=/glacial_advance,if=!buff.rime.up&active_enemies<=3|active_enemies>3
 # Formulaic approach to create a pseudo priority target list for applying razorice in aoe
 actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=cooldown.remorseless_winter.remains<=2*gcd&talent.gathering_storm
 actions.aoe+=/howling_blast,if=variable.rotfc_rime
-actions.aoe+=/frostscythe,if=talent.gathering_storm&buff.remorseless_winter.up&active_enemies>2&!variable.deaths_due_active
-actions.aoe+=/obliterate,if=variable.deaths_due_active&buff.deaths_due.stack<4|talent.gathering_storm&buff.remorseless_winter.up
+actions.aoe+=/frostscythe,if=talent.gathering_storm&buff.remorseless_winter.up&active_enemies>2
+actions.aoe+=/obliterate,if=talent.gathering_storm&buff.remorseless_winter.up
 actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit<(15+talent.runic_attenuation*5)
-actions.aoe+=/frostscythe,if=!variable.deaths_due_active
-actions.aoe+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>(25+talent.runic_attenuation*5)&(!covenant.night_fae|variable.deaths_due_active|cooldown.deaths_due.remains>gcd*3)
+actions.aoe+=/frostscythe
+actions.aoe+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>(25+talent.runic_attenuation*5)
 actions.aoe+=/glacial_advance
 actions.aoe+=/frostscythe
 actions.aoe+=/sacrificial_pact,if=!buff.empower_rune_weapon.up&active_enemies>=4
@@ -2409,11 +2227,8 @@ actions.aoe+=/arcane_torrent
 	if GlacialAdvance:Usable() and Frostscythe.known then
 		return GlacialAdvance
 	end
-	if Frostscythe:Usable() and not self.deaths_due_active and KillingMachine:Up() and (not GatheringStorm.known or Player:Runes() >= 2 or not RemorselessWinter:Ready(Player:RuneTimeTo(2))) then
+	if Frostscythe:Usable() and KillingMachine:Up() and (not GatheringStorm.known or Player:Runes() >= 2 or not RemorselessWinter:Ready(Player:RuneTimeTo(2))) then
 		return Frostscythe
-	end
-	if Obliterate:Usable() and self.deaths_due_active and KillingMachine:Up() and (not GatheringStorm.known or Player:Runes() >= 3 or not RemorselessWinter:Ready(Player:RuneTimeTo(3))) then
-		return Obliterate
 	end
 	if HowlingBlast:Usable() and self.rotfc_rime and (Avalanche.known or FrostFever:Down()) then
 		return HowlingBlast
@@ -2427,22 +2242,22 @@ actions.aoe+=/arcane_torrent
 	if HowlingBlast:Usable() and self.rotfc_rime then
 		return HowlingBlast
 	end
-	if Frostscythe:Usable() and GatheringStorm.known and RemorselessWinter:Up() and Player.enemies > 2 and not self.deaths_due_active then
+	if Frostscythe:Usable() and GatheringStorm.known and RemorselessWinter:Up() and Player.enemies > 2 then
 		return Frostscythe
 	end
-	if Obliterate:Usable() and ((self.deaths_due_active and DeathsDue.buff:Stack() < 4) or (GatheringStorm.known and RemorselessWinter:Up())) then
+	if Obliterate:Usable() and GatheringStorm.known and RemorselessWinter:Up() then
 		return Obliterate
 	end
-	if DeathStrike:Usable() and Player:HealthPct() < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
+	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
 		UseCooldown(DeathStrike)
 	end
 	if FrostStrike:Usable() and Player:RunicPowerDeficit() < (15 + (RunicAttenuation.known and 5 or 0)) then
 		return FrostStrike
 	end
-	if Frostscythe:Usable() and not self.deaths_due_active then
+	if Frostscythe:Usable() then
 		return Frostscythe
 	end
-	if Obliterate:Usable() and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)) and (not DeathsDue.known or self.deaths_due_active or not DeathsDue:Ready(Player.gcd * 3)) then
+	if Obliterate:Usable() and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0)) then
 		return Obliterate
 	end
 	if GlacialAdvance:Usable() then
@@ -2467,50 +2282,21 @@ end
 
 APL[SPEC.FROST].bos_pooling = function(self)
 --[[
-# Breath of Sindragosa pooling rotation : starts 10s before BoS is available
-actions.bos_pooling=remorseless_winter,if=!remains&(active_enemies>=2|variable.rw_buffs)
-actions.bos_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react&cooldown.pillar_of_frost.remains>3
-actions.bos_pooling+=/howling_blast,if=variable.rotfc_rime
-actions.bos_pooling+=/frostscythe,if=buff.killing_machine.react&runic_power.deficit>(15+talent.runic_attenuation*5)&spell_targets.frostscythe>2&!variable.deaths_due_active
-actions.bos_pooling+=/frostscythe,if=runic_power.deficit>=(35+talent.runic_attenuation*5)&spell_targets.frostscythe>2&!variable.deaths_due_active
-actions.bos_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>=25
-actions.bos_pooling+=/glacial_advance,if=runic_power.deficit<20&spell_targets.glacial_advance>=2&cooldown.pillar_of_frost.remains>5
-actions.bos_pooling+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit<20&cooldown.pillar_of_frost.remains>5
-actions.bos_pooling+=/glacial_advance,if=cooldown.pillar_of_frost.remains>rune.time_to_4&runic_power.deficit<40&spell_targets.glacial_advance>=2
-actions.bos_pooling+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=cooldown.pillar_of_frost.remains>rune.time_to_4&runic_power.deficit<40
+
 ]]
 
 end
 
 APL[SPEC.FROST].bos_ticking = function(self)
 --[[
-# Breath of Sindragosa Active Rotation
-actions.bos_ticking=obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power<=(45+talent.runic_attenuation*5)
-actions.bos_ticking+=/remorseless_winter,if=!remains&(variable.rw_buffs|active_enemies>=2|runic_power<32&rune.time_to_2<runic_power%16)
-actions.bos_ticking+=/death_and_decay,if=runic_power<32&rune.time_to_2<runic_power%16
-actions.bos_ticking+=/howling_blast,if=variable.rotfc_rime&(runic_power>=45|rune.time_to_3<=gcd|runeforge.rage_of_the_frozen_champion|spell_targets.howling_blast>=2|buff.rime.remains<3)|runic_power<32&rune.time_to_2<runic_power%16
-actions.bos_ticking+=/frostscythe,if=buff.killing_machine.up&spell_targets.frostscythe>2&!variable.deaths_due_active
-actions.bos_ticking+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react
-actions.bos_ticking+=/horn_of_winter,if=runic_power<=60&rune.time_to_3>gcd
-actions.bos_ticking+=/frostscythe,if=spell_targets.frostscythe>2&!variable.deaths_due_active
-actions.bos_ticking+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>25|rune.time_to_4<gcd
-actions.bos_ticking+=/howling_blast,if=variable.rotfc_rime
-actions.bos_ticking+=/arcane_torrent,if=runic_power<50
+
 ]]
 
 end
 
 APL[SPEC.FROST].cold_heart = function(self)
 --[[
-# Cold Heart Conditions
-actions.cold_heart=chains_of_ice,if=fight_remains<gcd&(rune<2|!buff.killing_machine.up&(!main_hand.2h&buff.cold_heart.stack>=4+runeforge.koltiras_favor|main_hand.2h&buff.cold_heart.stack>8+runeforge.koltiras_favor)|buff.killing_machine.up&(!main_hand.2h&buff.cold_heart.stack>8+runeforge.koltiras_favor|main_hand.2h&buff.cold_heart.stack>10+runeforge.koltiras_favor))
-# Use during Pillar with Icecap/Breath
-actions.cold_heart+=/chains_of_ice,if=!talent.obliteration&buff.pillar_of_frost.up&buff.cold_heart.stack>=10&(buff.pillar_of_frost.remains<gcd*(1+cooldown.frostwyrms_fury.ready)|buff.unholy_strength.up&buff.unholy_strength.remains<gcd|buff.chaos_bane.up&buff.chaos_bane.remains<gcd)
-# Outside of Pillar useage with Icecap/Breath
-actions.cold_heart+=/chains_of_ice,if=!talent.obliteration&death_knight.runeforge.fallen_crusader&!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains>15&(buff.cold_heart.stack>=10&(buff.unholy_strength.up|buff.chaos_bane.up)|buff.cold_heart.stack>=13)
-actions.cold_heart+=/chains_of_ice,if=!talent.obliteration&!death_knight.runeforge.fallen_crusader&buff.cold_heart.stack>=10&!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains>20
-# Prevent Cold Heart overcapping during pillar
-actions.cold_heart+=/chains_of_ice,if=talent.obliteration&!buff.pillar_of_frost.up&(buff.cold_heart.stack>=14&(buff.unholy_strength.up|buff.chaos_bane.up)|buff.cold_heart.stack>=19|cooldown.pillar_of_frost.remains<3&buff.cold_heart.stack>=14)
+
 ]]
 
 end
@@ -2525,19 +2311,16 @@ actions.cooldowns+=/empower_rune_weapon,if=talent.breath_of_sindragosa&rune<5&ru
 actions.cooldowns+=/empower_rune_weapon,if=talent.icecap
 actions.cooldowns+=/pillar_of_frost,if=talent.breath_of_sindragosa&(variable.st_planning|variable.adds_remain)&(cooldown.breath_of_sindragosa.remains|buff.breath_of_sindragosa.up&runic_power>45|cooldown.breath_of_sindragosa.ready&runic_power>65)
 actions.cooldowns+=/pillar_of_frost,if=talent.icecap&!buff.pillar_of_frost.up
-actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(runic_power>=35|buff.abomination_limb.up|runeforge.rage_of_the_frozen_champion)&(variable.st_planning|variable.adds_remain)&(!talent.gathering_storm.enabled|buff.remorseless_winter.up)&(!covenant.night_fae|variable.deaths_due_active|cooldown.deaths_due.remains>12)
+actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(runic_power>=35|buff.abomination_limb.up|runeforge.rage_of_the_frozen_champion)&(variable.st_planning|variable.adds_remain)&(!talent.gathering_storm.enabled|buff.remorseless_winter.up)
 actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_power>60&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>15)
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies=1&buff.pillar_of_frost.remains<gcd&buff.pillar_of_frost.up&!talent.obliteration&(!raid_event.adds.exists|raid_event.adds.in>30)|fight_remains<3
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies>=2&(buff.pillar_of_frost.up|raid_event.adds.exists&raid_event.adds.in>cooldown.pillar_of_frost.remains+7)&(buff.pillar_of_frost.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<gcd)
-actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(main_hand.2h&!buff.pillar_of_frost.up|!main_hand.2h&buff.pillar_of_frost.up)&((buff.pillar_of_frost.up&buff.unholy_strength.up|buff.pillar_of_frost.remains<gcd*2|buff.unholy_strength.up&buff.unholy_strength.remains<gcd*2)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice))&(!covenant.night_fae|active_enemies>1&buff.first_strike.up&buff.first_strike.remains<gcd|cooldown.deaths_due.remains&!variable.deaths_due_active|buff.deaths_due.up&(buff.deaths_due.stack>=4|buff.deaths_due.remains<gcd*3))
+actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(main_hand.2h&!buff.pillar_of_frost.up|!main_hand.2h&buff.pillar_of_frost.up)&((buff.pillar_of_frost.up&buff.unholy_strength.up|buff.pillar_of_frost.remains<gcd*2|buff.unholy_strength.up&buff.unholy_strength.remains<gcd*2)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice))
 actions.cooldowns+=/hypothermic_presence,if=talent.breath_of_sindragosa&runic_power<60&rune<=3&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains>40)|!talent.breath_of_sindragosa&runic_power<=75
 actions.cooldowns+=/raise_dead,if=cooldown.pillar_of_frost.remains<=5
 actions.cooldowns+=/sacrificial_pact,if=active_enemies>=2&(fight_remains<3|!buff.breath_of_sindragosa.up&(pet.ghoul.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<3&raid_event.adds.in>pet.ghoul.remains))
 actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 ]]
-	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and PillarOfFrost:Up() then
-		UseExtra(PotionOfSpectralStrength)
-	end
 	if EmpowerRuneWeapon:Usable() and EmpowerRuneWeapon:Down() and (
 		(Target.boss and Target.timeToDie < 20) or
 		(Obliteration.known and Player:Runes() < 6 and (self.st_planning or self.adds_remain) and (PillarOfFrost:Up() or (PillarOfFrost:Ready(5) and (not PustuleEruption.known or not Fleshcraft.known or not Fleshcraft:Ready(5))))) or
@@ -2547,7 +2330,7 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 		UseCooldown(EmpowerRuneWeapon)
 	end
 	if PillarOfFrost:Usable() and PillarOfFrost:Down() and (
-		(Obliteration.known and ((Player:RunicPower() >= 35 or (AbominationLimb.known and AbominationLimb:Up()) or RageOfTheFrozenChampion.known) and (self.st_planning or self.adds_remain) and (not GatheringStorm.known or RemorselessWinter:Up()) and (not DeathsDue.known or self.deaths_due_active or not DeathsDue:Ready(12)))) or
+		(Obliteration.known and ((Player:RunicPower() >= 35 or (AbominationLimb.known and AbominationLimb:Up()) or RageOfTheFrozenChampion.known) and (self.st_planning or self.adds_remain) and (not GatheringStorm.known or RemorselessWinter:Up()))) or
 		(BreathOfSindragosa.known and (self.st_planning or self.adds_remain) and (not BreathOfSindragosa:Ready() or (BreathOfSindragosa:Up() and Player:RunicPower() > 45) or (BreathOfSindragosa:Ready() and Player:RunicPower() > 65))) or
 		(Icecap.known)
 	) then
@@ -2559,7 +2342,7 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
 		(not Obliteration.known and PillarOfFrost:Up() and PillarOfFrost:Remains() < Player.gcd) or
-		(Obliteration.known and ((Player.equipped.twohand and PillarOfFrost:Down()) or (not Player.equipped.twohand and PillarOfFrost:Up())) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5) and (not DeathsDue.known or (FirstStrike.known and Player.enemies > 1 and FirstStrike:Up() and FirstStrike:Remains() < Player.gcd) or (not self.deaths_due_active and not DeathsDue:Ready()) or (DeathsDue.buff:Up() and (DeathsDue.buff:Stack() >= 4 or DeathsDue.buff:Remains() < (Player.gcd * 3)))))
+		(Obliteration.known and ((Player.equipped.twohand and PillarOfFrost:Down()) or (not Player.equipped.twohand and PillarOfFrost:Up())) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
@@ -2580,27 +2363,6 @@ actions.cooldowns+=/death_and_decay,if=active_enemies>5|runeforge.phearomones
 	end
 end
 
-APL[SPEC.FROST].covenants = function(self)
---[[
-# Covenant Abilities
-actions.covenants=deaths_due,if=!variable.deaths_due_active&(!talent.obliteration|runeforge.phearomones|cooldown.pillar_of_frost.remains<gcd|rune.time_to_3<gcd*2&cooldown.pillar_of_frost.remains>9)&(variable.st_planning|variable.adds_remain)
-actions.covenants+=/swarming_mist,if=runic_power.deficit>13&cooldown.pillar_of_frost.remains<3&!talent.breath_of_sindragosa&variable.st_planning
-actions.covenants+=/swarming_mist,if=!talent.breath_of_sindragosa&variable.adds_remain
-actions.covenants+=/swarming_mist,if=talent.breath_of_sindragosa&(buff.breath_of_sindragosa.up&(variable.st_planning&runic_power.deficit>40|variable.adds_remain&runic_power.deficit>60|variable.adds_remain&raid_event.adds.remains<9&raid_event.adds.exists)|!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains)
-actions.covenants+=/abomination_limb,if=cooldown.pillar_of_frost.remains<gcd*2&variable.st_planning&(talent.breath_of_sindragosa&runic_power>65&cooldown.breath_of_sindragosa.remains<2|!talent.breath_of_sindragosa)
-actions.covenants+=/abomination_limb,if=variable.adds_remain
-actions.covenants+=/shackle_the_unworthy,if=variable.st_planning&(cooldown.pillar_of_frost.remains<3|talent.icecap)
-actions.covenants+=/shackle_the_unworthy,if=variable.adds_remain
-actions.covenants+=/fleshcraft,if=!buff.pillar_of_frost.up&(soulbind.pustule_eruption|soulbind.volatile_solvent&!buff.volatile_solvent_humanoid.up),interrupt_immediate=1,interrupt_global=1,interrupt_if=soulbind.volatile_solvent
-]]
-	if DeathsDue:Usable() and not self.deaths_due_active and (not Obliteration.known or Phearomones.known or PillarOfFrost:Ready(Player.gcd) or (Player:RuneTimeTo(3) < (Player.gcd * 2) and not PillarOfFrost:Ready(9))) and (self.st_planning or self.adds_remain) then
-		return UseCooldown(DeathsDue)
-	end
-	if ShackleTheUnworthy:Usable() and ShackleTheUnworthy:Ticking() == 0 and (self.adds_remain or (self.st_planning and (Icecap.known or PillarOfFrost:Ready(3) or PillarOfFrost:Up()))) then
-		return UseCooldown(ShackleTheUnworthy)
-	end
-end
-
 APL[SPEC.FROST].obliteration = function(self)
 --[[
 # Obliteration rotation
@@ -2608,7 +2370,7 @@ actions.obliteration=remorseless_winter,if=!remains&active_enemies>=3&variable.r
 actions.obliteration+=/frost_strike,if=!buff.killing_machine.up&talent.icy_talons&buff.icy_talons.remains<gcd*2
 actions.obliteration+=/howling_blast,target_if=!buff.killing_machine.up&buff.rime.up&(spell_targets.howling_blast>=2|buff.rime.remains<3)
 actions.obliteration+=/glacial_advance,if=!buff.killing_machine.up&spell_targets.glacial_advance>=2|!buff.killing_machine.up&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*4)
-actions.obliteration+=/frostscythe,if=buff.killing_machine.react&spell_targets.frostscythe>2&!variable.deaths_due_active
+actions.obliteration+=/frostscythe,if=buff.killing_machine.react&spell_targets.frostscythe>2
 actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react
 actions.obliteration+=/frost_strike,if=active_enemies=1&variable.frost_strike_conduits
 actions.obliteration+=/howling_blast,if=variable.rotfc_rime&spell_targets.howling_blast>=2
@@ -2629,7 +2391,7 @@ actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuf
 	if GlacialAdvance:Usable() and KillingMachine:Down() and (Player.enemies >= 2 or Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 4)) then
 		return GlacialAdvance
 	end
-	if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 and not self.deaths_due_active then
+	if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 then
 		return Frostscythe
 	end
 	if Obliterate:Usable() and KillingMachine:Up() then
@@ -2660,14 +2422,14 @@ APL[SPEC.FROST].obliteration_pooling = function(self)
 # Pooling For Obliteration: Starts 10 seconds before Pillar of Frost comes off CD
 actions.obliteration_pooling=remorseless_winter,if=!remains&(variable.rw_buffs|active_enemies>=2)
 actions.obliteration_pooling+=/glacial_advance,if=spell_targets.glacial_advance>=2&talent.frostscythe
-actions.obliteration_pooling+=/frostscythe,if=buff.killing_machine.react&active_enemies>2&!variable.deaths_due_active
+actions.obliteration_pooling+=/frostscythe,if=buff.killing_machine.react&active_enemies>2
 actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react
 actions.obliteration_pooling+=/frost_strike,if=active_enemies=1&variable.frost_strike_conduits
 actions.obliteration_pooling+=/howling_blast,if=variable.rotfc_rime
 actions.obliteration_pooling+=/glacial_advance,if=spell_targets.glacial_advance>=2&runic_power.deficit<60
 actions.obliteration_pooling+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit<70
-actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=rune>=3&(!main_hand.2h|covenant.necrolord|covenant.kyrian)|rune>=4&main_hand.2h
-actions.obliteration_pooling+=/frostscythe,if=active_enemies>=4&!variable.deaths_due_active
+actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=rune>=3&(!main_hand.2h|talent.abomination_limb)|rune>=4&main_hand.2h
+actions.obliteration_pooling+=/frostscythe,if=active_enemies>=4
 ]]
 	if RemorselessWinter:Usable() and RemorselessWinter:Down() and (self.rw_buffs or Player.enemies >= 2) then
 		return RemorselessWinter
@@ -2676,7 +2438,7 @@ actions.obliteration_pooling+=/frostscythe,if=active_enemies>=4&!variable.deaths
 		if GlacialAdvance:Usable() and Player.enemies >= 2 then
 			return GlacialAdvance
 		end
-		if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 and not self.deaths_due_active then
+		if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 then
 			return Frostscythe
 		end
 	end
@@ -2695,10 +2457,10 @@ actions.obliteration_pooling+=/frostscythe,if=active_enemies>=4&!variable.deaths
 	if FrostStrike:Usable() and Player:RunicPowerDeficit() < 70 then
 		return FrostStrike
 	end
-	if Obliterate:Usable() and ((Player:Runes() >= 3 and (not Player.equipped.twohand or AbominationLimb.known or ShackleTheUnworthy.known)) or (Player.equipped.twohand and Player:Runes() >= 4)) then
+	if Obliterate:Usable() and ((Player:Runes() >= 3 and (not Player.equipped.twohand or AbominationLimb.known)) or (Player.equipped.twohand and Player:Runes() >= 4)) then
 		return Obliterate
 	end
-	if Frostscythe:Usable() and Player.enemies >= 4 and not self.deaths_due_active then
+	if Frostscythe:Usable() and Player.enemies >= 4 then
 		return Frostscythe
 	end
 end
@@ -2715,8 +2477,8 @@ actions.standard+=/frost_strike,if=talent.gathering_storm&cooldown.remorseless_w
 actions.standard+=/howling_blast,if=variable.rotfc_rime
 actions.standard+=/obliterate,if=rune.time_to_5<gcd
 actions.standard+=/frost_strike,if=runic_power.deficit<(15+talent.runic_attenuation*5)
-actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|variable.deaths_due_active&buff.deaths_due.stack<4|!set_bonus.tier28_4pc&runic_power.deficit>(25+talent.runic_attenuation*5)
-actions.standard+=/obliterate,if=talent.gathering_storm&buff.remorseless_winter.up&(main_hand.2h|!covenant.night_fae|!set_bonus.tier28_4pc)&(!talent.obliteration|buff.remorseless_winter.remains<gcd*1.5|cooldown.pillar_of_frost.remains>rune.time_to_4)
+actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|runic_power.deficit>(25+talent.runic_attenuation*5)
+actions.standard+=/obliterate,if=talent.gathering_storm&buff.remorseless_winter.up&(!talent.obliteration|buff.remorseless_winter.remains<gcd*1.5|cooldown.pillar_of_frost.remains>rune.time_to_4)
 actions.standard+=/frost_strike,if=!talent.obliteration|cooldown.pillar_of_frost.remains|runic_power>=60
 actions.standard+=/obliterate,if=rune.time_to_4<gcd&(!talent.gathering_storm|cooldown.remorseless_winter.remains>gcd*2)
 actions.standard+=/horn_of_winter
@@ -2746,7 +2508,7 @@ actions.standard+=/arcane_torrent
 	if Obliterate:Usable() and Player:RuneTimeTo(5) < Player.gcd then
 		return Obliterate
 	end
-	if DeathStrike:Usable() and Player:HealthPct() < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
+	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
 		UseCooldown(DeathStrike)
 	end
 	if FrostStrike:Usable() and Player:RunicPowerDeficit() < (15 + (RunicAttenuation.known and 5 or 0)) then
@@ -2754,9 +2516,8 @@ actions.standard+=/arcane_torrent
 	end
 	if Obliterate:Usable() and (
 		(FrozenPulse.known and FrozenPulse:Down()) or
-		(self.deaths_due_active and DeathsDue.buff:Stack() < 4) or
-		(Player.set_bonus.t28 < 4 and Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0))) or
-		(GatheringStorm.known and RemorselessWinter:Up() and (Player.equipped.twohand or not DeathsDue.known or Player.set_bonus.t28 < 4) and (not Obliteration.known or not Player.use_cds or RemorselessWinter:Remains() < (Player.gcd * 1.5) or not PillarOfFrost:Ready(Player:RuneTimeTo(4))))
+		(Player:RunicPowerDeficit() > (25 + (RunicAttenuation.known and 5 or 0))) or
+		(GatheringStorm.known and RemorselessWinter:Up() and (not Obliteration.known or not Player.use_cds or RemorselessWinter:Remains() < (Player.gcd * 1.5) or not PillarOfFrost:Ready(Player:RuneTimeTo(4))))
 	) then
 		return Obliterate
 	end
@@ -2776,31 +2537,13 @@ end
 
 APL[SPEC.FROST].trinkets = function(self)
 --[[
-# Trinkets
-actions.trinkets=use_item,name=inscrutable_quantum_device,if=!talent.breath_of_sindragosa&buff.pillar_of_frost.up&buff.empower_rune_weapon.up|talent.breath_of_sindragosa&((buff.pillar_of_frost.up&cooldown.breath_of_sindragosa.ready)|(buff.pillar_of_frost.up&((fight_remains-cooldown.breath_of_sindragosa.remains)<21)))|fight_remains<21|death_knight.disable_iqd_execute=0&target.time_to_pct_20<5
-actions.trinkets+=/use_item,name=gavel_of_the_first_arbiter
-actions.trinkets+=/use_item,name=scars_of_fraternal_strife
-actions.trinkets+=/use_item,name=the_first_sigil,if=buff.pillar_of_frost.up&buff.empower_rune_weapon.up
 # The trinket with the highest estimated value, will be used first and paired with Pillar of Frost.
-actions.trinkets+=/use_item,slot=trinket1,if=!variable.specified_trinket&buff.pillar_of_frost.up&(!talent.icecap|talent.icecap&buff.pillar_of_frost.remains>=10)&(!trinket.2.has_cooldown|trinket.2.cooldown.remains|variable.trinket_priority=1)|trinket.1.proc.any_dps.duration>=fight_remains
+actions.trinkets=use_item,slot=trinket1,if=!variable.specified_trinket&buff.pillar_of_frost.up&(!talent.icecap|talent.icecap&buff.pillar_of_frost.remains>=10)&(!trinket.2.has_cooldown|trinket.2.cooldown.remains|variable.trinket_priority=1)|trinket.1.proc.any_dps.duration>=fight_remains
 actions.trinkets+=/use_item,slot=trinket2,if=!variable.specified_trinket&buff.pillar_of_frost.up&(!talent.icecap|talent.icecap&buff.pillar_of_frost.remains>=10)&(!trinket.1.has_cooldown|trinket.1.cooldown.remains|variable.trinket_priority=2)|trinket.2.proc.any_dps.duration>=fight_remains
 # If only one on use trinket provides a buff, use the other on cooldown. Or if neither trinket provides a buff, use both on cooldown.
 actions.trinkets+=/use_item,slot=trinket1,if=!variable.specified_trinket&(!trinket.1.has_use_buff&(trinket.2.cooldown.remains|!trinket.2.has_use_buff)|cooldown.pillar_of_frost.remains>20)
 actions.trinkets+=/use_item,slot=trinket2,if=!variable.specified_trinket&(!trinket.2.has_use_buff&(trinket.1.cooldown.remains|!trinket.1.has_use_buff)|cooldown.pillar_of_frost.remains>20)
 ]]
-	if Trinket.InscrutableQuantumDevice:Usable() and (
-		(not BreathOfSindragosa.known and PillarOfFrost:Up() and EmpowerRuneWeapon:Up()) or
-		(BreathOfSindragosa.known and PillarOfFrost:Up() and (BreathOfSindragosa:Ready() or (Target.boss and (Target.timeToDie - BreathOfSindragosa:Cooldown()) < 21))) or
-		(Target.boss and Target.timeToDie < 21)
-	) then
-		return UseCooldown(Trinket.InscrutableQuantumDevice)
-	end
-	if Trinket.TheFirstSigil:Usable() and PillarOfFrost:Up() and EmpowerRuneWeapon:Up() then
-		return UseCooldown(Trinket.TheFirstSigil)
-	end
-	if Trinket.OverwhelmingPowerCrystal:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
-		return UseCooldown(Trinket.OverwhelmingPowerCrystal)
-	end
 	if Trinket1:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
 		return UseCooldown(Trinket1)
 	end
@@ -2828,26 +2571,6 @@ actions.precombat+=/potion
 actions.precombat+=/raise_dead
 actions.precombat+=/army_of_the_dead,delay=2
 ]]
-		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 300 and Player.group_size > 1 then
-			UseCooldown(Trinket.SoleahsSecretTechnique)
-		end
-		if SummonSteward:Usable() and PhialOfSerenity:Charges() < 1 then
-			UseExtra(SummonSteward)
-		end
-		if Fleshcraft:Usable() and Fleshcraft:Remains() < 10 then
-			UseExtra(Fleshcraft)
-		end
-		if not Player:InArenaOrBattleground() then
-			if EternalAugmentRune:Usable() and EternalAugmentRune.buff:Remains() < 300 then
-				UseCooldown(EternalAugmentRune)
-			end
-			if EternalFlask:Usable() and EternalFlask.buff:Remains() < 300 and SpectralFlaskOfPower.buff:Remains() < 300 then
-				UseCooldown(EternalFlask)
-			end
-			if Opt.pot and SpectralFlaskOfPower:Usable() and SpectralFlaskOfPower.buff:Remains() < 300 and EternalFlask.buff:Remains() < 300 then
-				UseCooldown(SpectralFlaskOfPower)
-			end
-		end
 		if Target.boss then
 			if ArmyOfTheDead:Usable() then
 				UseCooldown(ArmyOfTheDead)
@@ -2857,9 +2580,7 @@ actions.precombat+=/army_of_the_dead,delay=2
 			end
 		end
 	else
-		if Trinket.SoleahsSecretTechnique:Usable() and Trinket.SoleahsSecretTechnique.buff:Remains() < 10 and Player.group_size > 1 then
-			UseExtra(Trinket.SoleahsSecretTechnique)
-		end
+
 	end
 --[[
 actions+=/variable,name=pooling_for_gargoyle,value=cooldown.summon_gargoyle.remains<5&talent.summon_gargoyle.enabled
@@ -2871,9 +2592,6 @@ actions+=/call_action_list,name=cooldowns
 actions+=/run_action_list,name=aoe,if=active_enemies>=2
 actions+=/call_action_list,name=generic
 ]]
-	if Opt.pot and Target.boss and PotionOfSpectralStrength:Usable() and (ArmyOfTheDead:Ready() or Pet.EbonGargoyle:Up() or UnholyAssault:Up()) then
-		UseExtra(PotionOfSpectralStrength)
-	end
 	if Outbreak:Usable() and VirulentPlague:Remains() <= Player.gcd and Target.timeToDie > (VirulentPlague:Remains() + 1) then
 		return Outbreak
 	end
@@ -3015,7 +2733,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		if SacrificialPact:Usable() and RaiseDeadUnholy:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
 			UseCooldown(SacrificialPact)
 		end
-		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3032,7 +2750,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		if SacrificialPact:Usable() and RaiseDeadUnholy:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
 			UseCooldown(SacrificialPact)
 		end
-		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3080,7 +2798,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		end
 	end
 	if Player:RunicPowerDeficit() < 20 and not Player.pooling_for_gargoyle then
-		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3094,7 +2812,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
-		if Player:HealthPct() < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3120,7 +2838,7 @@ end
 -- Start UI API
 
 function UI.DenyOverlayGlow(actionButton)
-	if not Opt.glow.blizzard then
+	if not Opt.glow.blizzard and actionButton.overlay then
 		actionButton.overlay:Hide()
 	end
 end
@@ -3143,6 +2861,17 @@ function UI:UpdateGlowColorAndScale()
 		glow.outerGlow:SetVertexColor(r, g, b)
 		glow.outerGlowOver:SetVertexColor(r, g, b)
 		glow.ants:SetVertexColor(r, g, b)
+	end
+end
+
+function UI:DisableOverlayGlows()
+	if LibStub and LibStub.GetLibrary and not Opt.glow.blizzard then
+		local lib = LibStub:GetLibrary('LibButtonGlow-1.0', true)
+		if lib then
+			lib.ShowOverlayGlow = function(self)
+				return
+			end
+		end
 	end
 end
 
@@ -3216,27 +2945,13 @@ function UI:UpdateGlows()
 end
 
 function UI:UpdateDraggable()
-	braindeadPanel:EnableMouse(Opt.aoe or not Opt.locked)
+	local draggable = not (Opt.locked or Opt.snap or Opt.aoe)
+	braindeadPanel:EnableMouse(draggable or Opt.aoe)
 	braindeadPanel.button:SetShown(Opt.aoe)
-	if Opt.locked then
-		braindeadPanel:SetScript('OnDragStart', nil)
-		braindeadPanel:SetScript('OnDragStop', nil)
-		braindeadPanel:RegisterForDrag(nil)
-		braindeadPreviousPanel:EnableMouse(false)
-		braindeadCooldownPanel:EnableMouse(false)
-		braindeadInterruptPanel:EnableMouse(false)
-		braindeadExtraPanel:EnableMouse(false)
-	else
-		if not Opt.aoe then
-			braindeadPanel:SetScript('OnDragStart', braindeadPanel.StartMoving)
-			braindeadPanel:SetScript('OnDragStop', braindeadPanel.StopMovingOrSizing)
-			braindeadPanel:RegisterForDrag('LeftButton')
-		end
-		braindeadPreviousPanel:EnableMouse(true)
-		braindeadCooldownPanel:EnableMouse(true)
-		braindeadInterruptPanel:EnableMouse(true)
-		braindeadExtraPanel:EnableMouse(true)
-	end
+	braindeadPreviousPanel:EnableMouse(draggable)
+	braindeadCooldownPanel:EnableMouse(draggable)
+	braindeadInterruptPanel:EnableMouse(draggable)
+	braindeadExtraPanel:EnableMouse(draggable)
 end
 
 function UI:UpdateAlpha()
@@ -3462,18 +3177,19 @@ end
 function events:ADDON_LOADED(name)
 	if name == ADDON then
 		Opt = Braindead
-		if not Opt.frequency then
-			print('It looks like this is your first time running ' .. ADDON .. ', why don\'t you take some time to familiarize yourself with the commands?')
-			print('Type |cFFFFD000' .. SLASH_Braindead1 .. '|r for a list of commands.')
-		end
-		if UnitLevel('player') < 10 then
-			print('[|cFFFFD000Warning|r] ' .. ADDON .. ' is not designed for players under level 10, and almost certainly will not operate properly!')
-		end
+		local firstRun = not Opt.frequency
 		InitOpts()
 		UI:UpdateDraggable()
 		UI:UpdateAlpha()
 		UI:UpdateScale()
-		UI:SnapAllPanels()
+		if firstRun then
+			print('It looks like this is your first time running ' .. ADDON .. ', why don\'t you take some time to familiarize yourself with the commands?')
+			print('Type |cFFFFD000' .. SLASH_Braindead1 .. '|r for a list of commands.')
+			UI:SnapAllPanels()
+		end
+		if UnitLevel('player') < 10 then
+			print('[|cFFFFD000Warning|r] ' .. ADDON .. ' is not designed for players under level 10, and almost certainly will not operate properly!')
+		end
 	end
 end
 
@@ -3518,7 +3234,17 @@ CombatEvent.UNIT_DIED = function(event, srcGUID, dstGUID)
 end
 
 CombatEvent.SWING_DAMAGE = function(event, srcGUID, dstGUID, amount, overkill, spellSchool, resisted, blocked, absorbed, critical, glancing, crushing, offHand)
-	if srcGUID == Player.pet.guid then
+	if srcGUID == Player.guid then
+		Player:ResetSwing(not offHand, offHand)
+		if Opt.auto_aoe then
+			autoAoe:Add(dstGUID, true)
+		end
+	elseif dstGUID == Player.guid then
+		Player.swing.last_taken = Player.time
+		if Opt.auto_aoe then
+			autoAoe:Add(srcGUID, true)
+		end
+	elseif srcGUID == Player.pet.guid then
 		if Opt.auto_aoe then
 			autoAoe:Add(dstGUID, true)
 		end
@@ -3530,7 +3256,17 @@ CombatEvent.SWING_DAMAGE = function(event, srcGUID, dstGUID, amount, overkill, s
 end
 
 CombatEvent.SWING_MISSED = function(event, srcGUID, dstGUID, missType, offHand, amountMissed)
-	if srcGUID == Player.pet.guid then
+	if srcGUID == Player.guid then
+		Player:ResetSwing(not offHand, offHand, true)
+		if Opt.auto_aoe and not (missType == 'EVADE' or missType == 'IMMUNE') then
+			autoAoe:Add(dstGUID, true)
+		end
+	elseif dstGUID == Player.guid then
+		Player.swing.last_taken = Player.time
+		if Opt.auto_aoe then
+			autoAoe:Add(srcGUID, true)
+		end
+	elseif srcGUID == Player.pet.guid then
 		if Opt.auto_aoe and not (missType == 'EVADE' or missType == 'IMMUNE') then
 			autoAoe:Add(dstGUID, true)
 		end
@@ -3565,7 +3301,7 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 			elseif event == 'SPELL_DAMAGE' and pet.SpellDamage then
 				pet:SpellDamage(unit, spellId, dstGUID)
 			end
-			--print(format('PET %d EVENT %s SPELL %s ID %d', pet.npcId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+			--print(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
 		end
 		return
 	end
@@ -3633,31 +3369,42 @@ end
 
 function events:PLAYER_TARGET_CHANGED()
 	Target:Update()
-	if Player.rescan_abilities then
-		Player:UpdateAbilities()
-	end
 end
 
-function events:UNIT_FACTION(unitID)
-	if unitID == 'target' then
+function events:UNIT_FACTION(unitId)
+	if unitId == 'target' then
 		Target:Update()
 	end
 end
 
-function events:UNIT_FLAGS(unitID)
-	if unitID == 'target' then
+function events:UNIT_FLAGS(unitId)
+	if unitId == 'target' then
 		Target:Update()
 	end
 end
 
-function events:UNIT_SPELLCAST_START(unitID, castGUID, spellId)
-	if Opt.interrupt and unitID == 'target' then
+function events:UNIT_HEALTH(unitId)
+	if unitId == 'player' then
+		Player.health.current = UnitHealth('player')
+		Player.health.max = UnitHealthMax('player')
+		Player.health.pct = Player.health.current / Player.health.max * 100
+	end
+end
+
+function events:UNIT_POWER_FREQUENT(unitId, powerType)
+	if unitId == 'player' and powerType == 'RUNIC_POWER' then
+		Player.runic_power.current = UnitPower('player', 6)
+	end
+end
+
+function events:UNIT_SPELLCAST_START(unitId, castGUID, spellId)
+	if Opt.interrupt and unitId == 'target' then
 		UI:UpdateCombatWithin(0.05)
 	end
 end
 
-function events:UNIT_SPELLCAST_STOP(unitID, castGUID, spellId)
-	if Opt.interrupt and unitID == 'target' then
+function events:UNIT_SPELLCAST_STOP(unitId, castGUID, spellId)
+	if Opt.interrupt and unitId == 'target' then
 		UI:UpdateCombatWithin(0.05)
 	end
 end
@@ -3665,7 +3412,7 @@ events.UNIT_SPELLCAST_FAILED = events.UNIT_SPELLCAST_STOP
 events.UNIT_SPELLCAST_INTERRUPTED = events.UNIT_SPELLCAST_STOP
 
 function events:UNIT_SPELLCAST_SENT(unitId, destName, castGUID, spellId)
-	if unitID ~= 'player' or not spellId or castGUID:sub(6, 6) ~= '3' then
+	if unitId ~= 'player' or not spellId or castGUID:sub(6, 6) ~= '3' then
 		return
 	end
 	local ability = abilities.bySpellId[spellId]
@@ -3674,8 +3421,8 @@ function events:UNIT_SPELLCAST_SENT(unitId, destName, castGUID, spellId)
 	end
 end
 
-function events:UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellId)
-	if unitID ~= 'player' or not spellId or castGUID:sub(6, 6) ~= '3' then
+function events:UNIT_SPELLCAST_SUCCEEDED(unitId, castGUID, spellId)
+	if unitId ~= 'player' or not spellId or castGUID:sub(6, 6) ~= '3' then
 		return
 	end
 	local ability = abilities.bySpellId[spellId]
@@ -3751,8 +3498,9 @@ function events:PLAYER_EQUIPMENT_CHANGED()
 	_, _, _, _, _, _, _, _, equipType = GetItemInfo(GetInventoryItemID('player', 17) or 0)
 	Player.equipped.offhand = equipType == 'INVTYPE_WEAPON'
 
-	Player.set_bonus.t28 = (Player:Equipped(188863) and 1 or 0) + (Player:Equipped(188864) and 1 or 0) + (Player:Equipped(188866) and 1 or 0) + (Player:Equipped(188867) and 1 or 0) + (Player:Equipped(188868) and 1 or 0)
+	Player.set_bonus.t29 = (Player:Equipped(200405) and 1 or 0) + (Player:Equipped(200407) and 1 or 0) + (Player:Equipped(200408) and 1 or 0) + (Player:Equipped(200409) and 1 or 0) + (Player:Equipped(200410) and 1 or 0)
 
+	Player:ResetSwing(true, true)
 	Player:UpdateAbilities()
 end
 
@@ -3765,8 +3513,13 @@ function events:PLAYER_SPECIALIZATION_CHANGED(unitId)
 	Player:SetTargetMode(1)
 	events:PLAYER_EQUIPMENT_CHANGED()
 	events:PLAYER_REGEN_ENABLED()
+	events:UNIT_HEALTH('player')
 	UI.OnResourceFrameShow()
 	Player:Update()
+end
+
+function events:TRAIT_CONFIG_UPDATED()
+	events:PLAYER_SPECIALIZATION_CHANGED('player')
 end
 
 function events:SPELL_UPDATE_COOLDOWN()
@@ -3784,18 +3537,6 @@ function events:SPELL_UPDATE_COOLDOWN()
 end
 
 function events:PLAYER_PVP_TALENT_UPDATE()
-	Player:UpdateAbilities()
-end
-
-function events:SOULBIND_ACTIVATED()
-	Player:UpdateAbilities()
-end
-
-function events:SOULBIND_NODE_UPDATED()
-	Player:UpdateAbilities()
-end
-
-function events:SOULBIND_PATH_CHANGED()
 	Player:UpdateAbilities()
 end
 
@@ -3893,18 +3634,25 @@ SlashCmdList[ADDON] = function(msg, editbox)
 			Opt.locked = msg[2] == 'on'
 			UI:UpdateDraggable()
 		end
+		if Opt.aoe or Opt.snap then
+			Status('Warning', 'Panels cannot be moved when aoe or snap are enabled!')
+		end
 		return Status('Locked', Opt.locked)
 	end
 	if startsWith(msg[1], 'snap') then
 		if msg[2] then
 			if msg[2] == 'above' or msg[2] == 'over' then
 				Opt.snap = 'above'
+				Opt.locked = true
 			elseif msg[2] == 'below' or msg[2] == 'under' then
 				Opt.snap = 'below'
+				Opt.locked = true
 			else
 				Opt.snap = false
-				braindeadPanel:ClearAllPoints()
+				Opt.locked = false
+				clawPanel:ClearAllPoints()
 			end
+			UI:UpdateDraggable()
 			UI.OnResourceFrameShow()
 		end
 		return Status('Snap to the Personal Resource Display frame', Opt.snap)
@@ -4167,4 +3915,4 @@ SlashCmdList[ADDON] = function(msg, editbox)
 		'|c' .. BATTLENET_FONT_COLOR:GenerateHexColor() .. '|HBNadd:Spy#1955|h[Spy#1955]|h|r')
 end
 
--- End Slash Commands 
+-- End Slash Commands
