@@ -2053,7 +2053,6 @@ APL[SPEC.BLOOD].drw_up = function(self)
 actions.drw_up=blood_boil,if=!dot.blood_plague.ticking
 actions.drw_up+=/tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&(!talent.shattering_bone.enabled|!talent.sanguine_ground|buff.sanguine_ground.up)
 actions.drw_up+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd
-actions.drw_up+=/deaths_caress,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value+1&runic_power.deficit>10))&rune.time_to_3>gcd
 actions.drw_up+=/marrowrend,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value&runic_power.deficit>20))
 actions.drw_up+=/soul_reaper,if=active_enemies=1&target.time_to_pct_35<5&target.time_to_die>(dot.soul_reaper.remains+5)
 actions.drw_up+=/soul_reaper,target_if=min:dot.soul_reaper.remains,if=target.time_to_pct_35<5&active_enemies>=2&target.time_to_die>(dot.soul_reaper.remains+5)
@@ -2072,9 +2071,6 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	end
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd)) then
 		return DeathStrike
-	end
-	if DeathsCaress:Usable() and (BoneShield:Remains() <= 4 or (BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)) and Player:RuneTimeTo(3) > Player.gcd then
-		return DeathsCaress
 	end
 	if Marrowrend:Usable() and (BoneShield:Remains() <= 4 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) then
 		return Marrowrend
