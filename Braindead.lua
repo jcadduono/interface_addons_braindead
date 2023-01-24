@@ -2003,7 +2003,7 @@ actions+=/call_action_list,name=standard
 		end
 		if RaiseDead:Usable() then
 			UseExtra(RaiseDead)
-		elseif Player:UnderAttack() and Player.drw_remains == 0 and IceboundFortitude:Down() and VampiricBlood:Down()then
+		elseif Player:UnderAttack() and Player.drw_remains == 0 and IceboundFortitude:Down() and VampiricBlood:Down() and not DancingRuneWeapon:Ready(InsatiableBlade.known and 10 or 0) then
 			if IceboundFortitude:Usable() then
 				UseExtra(IceboundFortitude)
 			elseif VampiricBlood:Usable() then
@@ -2051,8 +2051,8 @@ APL[SPEC.BLOOD].drw_up = function(self)
 actions.drw_up=blood_boil,if=!dot.blood_plague.ticking
 actions.drw_up+=/tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&(!talent.shattering_bone.enabled|!talent.sanguine_ground|buff.sanguine_ground.up)
 actions.drw_up+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd
-actions.drw_up+=/deaths_caress,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value+1))&runic_power.deficit>10&rune.time_to_3>gcd
-actions.drw_up+=/marrowrend,if=(buff.bone_shield.remains<=4|buff.bone_shield.stack<variable.bone_shield_refresh_value)&runic_power.deficit>20
+actions.drw_up+=/deaths_caress,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value+1&runic_power.deficit>10))&rune.time_to_3>gcd
+actions.drw_up+=/marrowrend,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value&runic_power.deficit>20))
 actions.drw_up+=/soul_reaper,if=active_enemies=1&target.time_to_pct_35<5&target.time_to_die>(dot.soul_reaper.remains+5)
 actions.drw_up+=/soul_reaper,target_if=min:dot.soul_reaper.remains,if=target.time_to_pct_35<5&active_enemies>=2&target.time_to_die>(dot.soul_reaper.remains+5)
 actions.drw_up+=/blood_boil,if=spell_targets.blood_boil>2&charges_fractional>=1.1
@@ -2071,10 +2071,10 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd)) then
 		return DeathStrike
 	end
-	if DeathsCaress:Usable() and (BoneShield:Remains() <= 4 or BoneShield:Stack() < (self.bone_shield_refresh_value + 1)) and Player.runic_power.deficit > 10 and Player:RuneTimeTo(3) > Player.gcd then
+	if DeathsCaress:Usable() and (BoneShield:Remains() <= 4 or (BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)) and Player:RuneTimeTo(3) > Player.gcd then
 		return DeathsCaress
 	end
-	if Marrowrend:Usable() and (BoneShield:Remains() <= 4 or BoneShield:Stack() < self.bone_shield_refresh_value) and Player.runic_power.deficit > 20 then
+	if Marrowrend:Usable() and (BoneShield:Remains() <= 4 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) then
 		return Marrowrend
 	end
 	if BloodBoil:Usable() and Player.enemies > 2 and BloodBoil:ChargesFractional() >= 1.1 then
@@ -2099,8 +2099,8 @@ APL[SPEC.BLOOD].standard = function(self)
 actions.standard=tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&cooldown.dancing_rune_weapon.remains>=25&(!talent.shattering_bone.enabled|!talent.sanguine_ground|buff.sanguine_ground.up)
 actions.standard+=/variable,name=heart_strike_rp,value=(10+spell_targets.heart_strike*talent.heartbreaker.enabled*2)
 actions.standard+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd|runic_power>=variable.death_strike_dump_amount|runic_power.deficit<=variable.heart_strike_rp|target.time_to_die<10
-actions.standard+=/deaths_caress,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value+1))&runic_power.deficit>10&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)&!talent.consumption.enabled&!talent.blooddrinker.enabled&rune.time_to_3>gcd
-actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=4|buff.bone_shield.stack<variable.bone_shield_refresh_value)&runic_power.deficit>20&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)
+actions.standard+=/deaths_caress,if=(buff.bone_shield.remains<=5|(buff.bone_shield.stack<variable.bone_shield_refresh_value+1&runic_power.deficit>10))&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)&!talent.consumption.enabled&!talent.blooddrinker.enabled&rune.time_to_3>gcd
+actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=5|(buff.bone_shield.stack<variable.bone_shield_refresh_value&runic_power.deficit>20))&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)
 actions.standard+=/consumption
 actions.standard+=/soul_reaper,if=active_enemies=1&target.time_to_pct_35<5&target.time_to_die>(dot.soul_reaper.remains+5)
 actions.standard+=/soul_reaper,target_if=min:dot.soul_reaper.remains,if=target.time_to_pct_35<5&active_enemies>=2&target.time_to_die>(dot.soul_reaper.remains+5)
@@ -2116,10 +2116,10 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd) or (Player.runic_power.current >= self.death_strike_dump_amount) or (Player.runic_power.deficit <= self.heart_strike_rp)) then
 		return DeathStrike
 	end
-	if DeathsCaress:Usable() and (BoneShield:Remains() <= 4 or BoneShield:Stack() < (self.bone_shield_refresh_value + 1)) and Player.runic_power.deficit > 10 and not (InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains())) and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd then
+	if DeathsCaress:Usable() and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd then
 		return DeathsCaress
 	end
-	if Marrowrend:Usable() and (BoneShield:Remains() <= 4 or BoneShield:Stack() < self.bone_shield_refresh_value) and Player.runic_power.deficit > 20 and not (InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains())) then
+	if Marrowrend:Usable() and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
 		return Marrowrend
 	end
 	if Player.use_cds and Consumption:Usable() then
