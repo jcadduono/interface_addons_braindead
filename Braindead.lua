@@ -1041,6 +1041,8 @@ SummonGargoyle.buff_duration = 30
 SummonGargoyle.cooldown_duration = 180
 local UnholyGround = Ability:Add(374265, true, true, 374271)
 ---- Blood
+local BloodShield = Ability:Add(77513, true, true, 77535)
+BloodShield.buff_duration = 10
 ------ Talents
 local BloodBoil = Ability:Add(50842, false, true)
 BloodBoil.cooldown_duration = 7.5
@@ -1990,7 +1992,7 @@ actions+=/call_action_list,name=standard
 	Player.drw_remains = DancingRuneWeapon:Remains()
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.drw_remains > 0
 	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0))
-	self.death_strike_dump_amount = 70
+	self.death_strike_dump_amount = (BloodShield:Up() and Player.health.pct > 70) and 90 or 65
 	self.bone_shield_refresh_value = (not DeathsCaress.known or Consumption.known or Blooddrinker.known) and 4 or 5
 
 	if Player.use_cds then
