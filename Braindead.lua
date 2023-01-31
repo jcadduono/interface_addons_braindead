@@ -1631,7 +1631,7 @@ function Player:UpdateThreat()
 	self.threat.lead = 0
 	if self.threat.status >= 3 and DETAILS_PLUGIN_TINY_THREAT then
 		local threat_table = DETAILS_PLUGIN_TINY_THREAT.player_list_indexes
-		if threat_table and threat_table[1] and threat_table[2] and threat_table[1][1] == Player.name then
+		if threat_table and threat_table[1] and threat_table[2] and threat_table[1][1] == self.name then
 			self.threat.lead = max(0, threat_table[1][6] - threat_table[2][6])
 		end
 	end
@@ -2015,6 +2015,9 @@ actions+=/call_action_list,name=standard
 	end
 	if DeathStrike:Usable() and Player.health.pct < 30 then
 		return DeathStrike
+	end
+	if Marrowrend:Usable() and BoneShield:Down() and Player:UnderAttack() then
+		return Marrowrend
 	end
 	if DeathsCaress:Usable() and BoneShield:Down() then
 		return DeathsCaress
@@ -3689,7 +3692,7 @@ SlashCmdList[ADDON] = function(msg, editbox)
 			else
 				Opt.snap = false
 				Opt.locked = false
-				clawPanel:ClearAllPoints()
+				braindeadPanel:ClearAllPoints()
 			end
 			UI:UpdateDraggable()
 			UI.OnResourceFrameShow()
