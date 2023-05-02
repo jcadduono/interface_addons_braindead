@@ -1146,11 +1146,12 @@ FrozenPulse:AutoAoe()
 local GatheringStorm = Ability:Add(194912, true, true, 211805)
 local GlacialAdvance = Ability:Add(194913, false, true, 195975)
 GlacialAdvance.runic_power_cost = 30
+GlacialAdvance:AutoAoe(true)
 local HornOfWinter = Ability:Add(57330, true, true)
 HornOfWinter.cooldown_duration = 45
 local HowlingBlast = Ability:Add(49184, false, true)
 HowlingBlast.rune_cost = 1
-HowlingBlast:AutoAoe()
+HowlingBlast:AutoAoe(true)
 local HypothermicPresence = Ability:Add(321995, true, true)
 HypothermicPresence.buff_duration = 8
 HypothermicPresence.cooldown_duration = 45
@@ -1168,7 +1169,7 @@ RemorselessWinter.buff_duration = 8
 RemorselessWinter.cooldown_duration = 20
 RemorselessWinter.rune_cost = 1
 RemorselessWinter.damage = Ability:Add(196771, false, true)
-RemorselessWinter.damage:AutoAoe()
+RemorselessWinter.damage:AutoAoe(true)
 local RunicAttenuation = Ability:Add(207104, true, true, 221322)
 local UnleashedFrenzy = Ability:Add(376905, true, true, 376907)
 UnleashedFrenzy.buff_duration = 10
