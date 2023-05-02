@@ -1136,7 +1136,7 @@ local Frostscythe = Ability:Add(207230, false, true)
 Frostscythe.rune_cost = 1
 Frostscythe:AutoAoe()
 local FrostStrike = Ability:Add(49143, false, true)
-FrostStrike.runic_power_cost = 25
+FrostStrike.runic_power_cost = 30
 local FrostwyrmsFury = Ability:Add(279302, false, true, 279303)
 FrostwyrmsFury.buff_duration = 10
 FrostwyrmsFury.cooldown_duration = 180
@@ -1145,9 +1145,7 @@ local FrozenPulse = Ability:Add(194909, false, true, 195750)
 FrozenPulse:AutoAoe()
 local GatheringStorm = Ability:Add(194912, true, true, 211805)
 local GlacialAdvance = Ability:Add(194913, false, true, 195975)
-GlacialAdvance.cooldown_duration = 6
 GlacialAdvance.runic_power_cost = 30
-GlacialAdvance.hasted_cooldown = true
 local HornOfWinter = Ability:Add(57330, true, true)
 HornOfWinter.cooldown_duration = 45
 local HowlingBlast = Ability:Add(49184, false, true)
@@ -2414,7 +2412,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	if SacrificialPact:Usable() and Player.enemies >= 2 and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (not Obliteration.known or PillarOfFrost:Down()) and Pet.RisenGhoul:Remains() < 3)) then
 		UseExtra(SacrificialPact)
 	end
-	if DeathAndDecay:Usable() and Player.enemies > 1 and DeathAndDecay.buff:Down() and (between(PillarOfFrost:Remains(), 5, 11) or (PillarOfFrost:Down() and not PillarOfFrost:Ready(10) and DeathAndDecay:ChargesFractional() > 1.8) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
+	if DeathAndDecay:Usable() and Player.enemies > 1 and DeathAndDecay.buff:Down() and (between(PillarOfFrost:Remains(), 5, 11) or (PillarOfFrost:Down() and not PillarOfFrost:Ready(10) and DeathAndDecay:ChargesFractional() > 1.6) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
 		UseCooldown(DeathAndDecay)
 	end
 end
