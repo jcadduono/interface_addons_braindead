@@ -1026,6 +1026,7 @@ IceboundFortitude.cooldown_duration = 180
 IceboundFortitude.triggers_gcd = false
 local IcyTalons = Ability:Add(194878, true, true, 194879)
 IcyTalons.buff_duration = 10
+IcyTalons.talent_node = 76051
 local ImprovedDeathStrike = Ability:Add(374277, true, true)
 local MindFreeze = Ability:Add(47528, false, true)
 MindFreeze.buff_duration = 3
@@ -1033,12 +1034,14 @@ MindFreeze.cooldown_duration = 15
 MindFreeze.triggers_gcd = false
 local RaiseDead = Ability:Add(46585, false, true)
 RaiseDead.cooldown_duration = 120
+local RunicAttenuation = Ability:Add(207104, true, true, 221322)
 local SacrificialPact = Ability:Add(327574, false, true)
 SacrificialPact.cooldown_duration = 120
 SacrificialPact.runic_power_cost = 20
-local SummonGargoyle = Ability:Add(49206, true, true)
-SummonGargoyle.buff_duration = 30
-SummonGargoyle.cooldown_duration = 180
+local SoulReaper = Ability:Add(343294, false, true)
+SoulReaper.rune_cost = 1
+SoulReaper.buff_duration = 5
+SoulReaper.cooldown_duration = 6
 local UnholyGround = Ability:Add(374265, true, true, 374271)
 ---- Blood
 local BloodShield = Ability:Add(77513, true, true, 77535)
@@ -1121,6 +1124,11 @@ BreathOfSindragosa.buff_duration = 120
 BreathOfSindragosa.cooldown_duration = 120
 BreathOfSindragosa.damage = Ability:Add(155166, false, true)
 BreathOfSindragosa.damage:AutoAoe()
+local ChillStreak = Ability:Add(305392, false, true, 204206)
+ChillStreak.buff_duration = 4
+ChillStreak.cooldown_duration = 45
+ChillStreak.rune_cost = 1
+ChillStreak:AutoAoe(false, 'apply')
 local ColdHeart = Ability:Add(281208, true, true, 281209)
 local EmpowerRuneWeapon = Ability:Add(47568, true, true)
 EmpowerRuneWeapon.buff_duration = 20
@@ -1141,9 +1149,10 @@ local FrostwyrmsFury = Ability:Add(279302, false, true, 279303)
 FrostwyrmsFury.buff_duration = 10
 FrostwyrmsFury.cooldown_duration = 180
 FrostwyrmsFury:AutoAoe()
-local FrozenPulse = Ability:Add(194909, false, true, 195750)
-FrozenPulse:AutoAoe()
+local FrigidExecutioner = Ability:Add(377073, false, true)
+local Frostreaper = Ability:Add(317214, false, true)
 local GatheringStorm = Ability:Add(194912, true, true, 211805)
+GatheringStorm.buff_duration = 8
 local GlacialAdvance = Ability:Add(194913, false, true, 195975)
 GlacialAdvance.runic_power_cost = 30
 GlacialAdvance:AutoAoe(true)
@@ -1152,11 +1161,10 @@ HornOfWinter.cooldown_duration = 45
 local HowlingBlast = Ability:Add(49184, false, true)
 HowlingBlast.rune_cost = 1
 HowlingBlast:AutoAoe(true)
-local HypothermicPresence = Ability:Add(321995, true, true)
-HypothermicPresence.buff_duration = 8
-HypothermicPresence.cooldown_duration = 45
-HypothermicPresence.triggers_gcd = false
+local Icebreaker = Ability:Add(392950, false, true)
+Icebreaker.talent_node = 76033
 local Icecap = Ability:Add(207126, true, true)
+local ImprovedObliterate = Ability:Add(317198, false, true)
 local Obliterate = Ability:Add(49020, false, true)
 Obliterate.rune_cost = 2
 local Obliteration = Ability:Add(281238, true, true, 207256)
@@ -1164,16 +1172,19 @@ local PillarOfFrost = Ability:Add(51271, true, true)
 PillarOfFrost.buff_duration = 12
 PillarOfFrost.cooldown_duration = 60
 PillarOfFrost.triggers_gcd = false
+local RageOfTheFrozenChampion = Ability:Add(377076, false, true)
 local RemorselessWinter = Ability:Add(196770, true, true)
 RemorselessWinter.buff_duration = 8
 RemorselessWinter.cooldown_duration = 20
 RemorselessWinter.rune_cost = 1
 RemorselessWinter.damage = Ability:Add(196771, false, true)
 RemorselessWinter.damage:AutoAoe(true)
-local RunicAttenuation = Ability:Add(207104, true, true, 221322)
+local ShatteringBlade = Ability:Add(207057, false, true)
 local UnleashedFrenzy = Ability:Add(376905, true, true, 376907)
 UnleashedFrenzy.buff_duration = 10
 ------ Procs
+local DarkSuccor = Ability:Add(178819, true, true, 101568)
+DarkSuccor.buff_duration = 20
 local KillingMachine = Ability:Add(51128, true, true, 51124)
 KillingMachine.buff_duration = 10
 local Rime = Ability:Add(59057, true, true, 59052)
@@ -1197,9 +1208,6 @@ DarkTransformation.buff_duration = 15
 DarkTransformation.cooldown_duration = 60
 DarkTransformation.requires_pet = true
 DarkTransformation.aura_target = 'pet'
-local DeathPact = Ability:Add(48743, true, true)
-DeathPact.buff_duration = 15
-DeathPact.cooldown_duration = 120
 local Defile = Ability:Add(152280, false, true, 156000)
 Defile.buff_duration = 10
 Defile.cooldown_duration = 20
@@ -1225,10 +1233,9 @@ local RaiseDeadUnholy = Ability:Add(46584, false, true)
 RaiseDeadUnholy.cooldown_duration = 30
 local ScourgeStrike = Ability:Add(55090, false, true, 70890)
 ScourgeStrike.rune_cost = 1
-local SoulReaper = Ability:Add(343294, false, true)
-SoulReaper.rune_cost = 1
-SoulReaper.buff_duration = 5
-SoulReaper.cooldown_duration = 6
+local SummonGargoyle = Ability:Add(49206, true, true)
+SummonGargoyle.buff_duration = 25
+SummonGargoyle.cooldown_duration = 180
 local UnholyBlight = Ability:Add(115989, true, true)
 UnholyBlight.buff_duration = 6
 UnholyBlight.cooldown_duration = 45
@@ -1246,8 +1253,6 @@ VirulentPlague.tick_interval = 3
 VirulentPlague:AutoAoe(false, 'apply')
 VirulentPlague:TrackAuras()
 ------ Procs
-local DarkSuccor = Ability:Add(101568, true, true)
-DarkSuccor.buff_duration = 20
 local RunicCorruption = Ability:Add(51462, true, true, 51460)
 RunicCorruption.buff_duration = 3
 local SuddenDoom = Ability:Add(49530, true, true, 81340)
@@ -1585,7 +1590,7 @@ function Player:UpdateAbilities()
 	DeathAndDecay.buff.known = DeathAndDecay.known
 	DeathAndDecay.damage.known = DeathAndDecay.known
 	Hysteria.known = RuneOfHysteria.known
-	Razorice.known = RuneOfRazorice.known
+	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalance.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
 
 	wipe(abilities.bySpellId)
@@ -1788,6 +1793,16 @@ function Target:Update()
 	end
 end
 
+function Target:TimeToPct(pct)
+	if self.health.pct <= pct then
+		return 0
+	end
+	if self.health.loss_per_sec <= 0 then
+		return self.timeToDieMax
+	end
+	return min(self.timeToDieMax, (self.health.current - (self.health.max * (pct / 100))) / self.health.loss_per_sec)
+end
+
 function Target:Stunned()
 	if Asphyxiate:Up() then
 		return true
@@ -1798,14 +1813,6 @@ end
 -- End Target API
 
 -- Start Ability Modifications
-
-function Ability:RunicPowerCost()
-	local cost = self.runic_power_cost
-	if HypothermicPresence.known and HypothermicPresence:Up() then
-		cost = cost * (1 - 0.35)
-	end
-	return cost
-end
 
 function ArmyOfTheDead:CastSuccess(...)
 	Ability.CastSuccess(self, ...)
@@ -2086,6 +2093,9 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	if Marrowrend:Usable() and (BoneShield:Remains() <= 4 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) then
 		return Marrowrend
 	end
+	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
+		UseCooldown(SoulReaper)
+	end
 	if BloodBoil:Usable() and Player.enemies > 2 and BloodBoil:ChargesFractional() >= 1.1 then
 		return BloodBoil
 	end
@@ -2134,6 +2144,9 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if Player.use_cds and Consumption:Usable() then
 		UseCooldown(Consumption)
 	end
+	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
+		UseCooldown(SoulReaper)
+	end
 	if Player.use_cds and Bonestorm:Usable() and Player.runic_power.current >= 100 then
 		UseCooldown(Bonestorm)
 	end
@@ -2152,11 +2165,6 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 end
 
 APL[SPEC.FROST].Main = function(self)
-	self.rw_buffs = GatheringStorm.known or Everfrost.known or BitingCold.known
-	self.st_planning = Player.enemies == 1
-	self.adds_remain = Player.enemies >= 2
-	self.rime = Rime:Up()
-	self.frenzy_expiring = UnleashedFrenzy.known and UnleashedFrenzy:Stack() >= 1 and UnleashedFrenzy:Remains() < (Player.gcd * 1.5)
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up())
 
 	if Player:TimeInCombat() == 0 then
@@ -2166,59 +2174,109 @@ actions.precombat+=/food
 actions.precombat+=/augmentation
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/fleshcraft
-# Evaluates a trinkets cooldown, divided by pillar of frost or breath of sindragosa's cooldown. If it's value has no remainder return 1, else return 0.5.
-actions.precombat+=/variable,name=trinket_1_sync,op=setif,value=1,value_else=0.5,condition=trinket.1.has_use_buff&(!talent.breath_of_sindragosa&(trinket.1.cooldown.duration%%cooldown.pillar_of_frost.duration=0)|talent.breath_of_sindragosa&(cooldown.breath_of_sindragosa.duration%%trinket.1.cooldown.duration=0)|talent.icecap)
-actions.precombat+=/variable,name=trinket_2_sync,op=setif,value=1,value_else=0.5,condition=trinket.2.has_use_buff&(!talent.breath_of_sindragosa&(trinket.2.cooldown.duration%%cooldown.pillar_of_frost.duration=0)|talent.breath_of_sindragosa&(cooldown.breath_of_sindragosa.duration%%trinket.2.cooldown.duration=0)|talent.icecap)
-# Estimates a trinkets value by comparing the cooldown of the trinket, divided by the duration of the buff it provides. Has a strength modifier to give a higher priority to strength trinkets, as well as a modifier for if a trinket will or will not sync with cooldowns.
-actions.precombat+=/variable,name=trinket_priority,op=setif,value=2,value_else=1,condition=!trinket.1.has_use_buff&trinket.2.has_use_buff|trinket.2.has_use_buff&((trinket.2.cooldown.duration%trinket.2.proc.any_dps.duration)*(1.5+trinket.2.has_buff.strength)*(variable.trinket_2_sync))>((trinket.1.cooldown.duration%trinket.1.proc.any_dps.duration)*(1.5+trinket.1.has_buff.strength)*(variable.trinket_1_sync))
-actions.precombat+=/variable,name=rw_buffs,value=talent.gathering_storm|conduit.everfrost|runeforge.biting_cold
+actions.precombat+=/variable,name=trinket_1_exclude,value=trinket.1.is.ruby_whelp_shell|trinket.1.is.whispering_incarnate_icon
+actions.precombat+=/variable,name=trinket_2_exclude,value=trinket.2.is.ruby_whelp_shell|trinket.2.is.whispering_incarnate_icon
+# Evaluates a trinkets cooldown, divided by pillar of frost, empower rune weapon, or breath of sindragosa's cooldown. If it's value has no remainder return 1, else return 0.5.
+actions.precombat+=/variable,name=trinket_1_sync,op=setif,value=1,value_else=0.5,condition=trinket.1.has_use_buff&(talent.pillar_of_frost&!talent.breath_of_sindragosa&(trinket.1.cooldown.duration%%cooldown.pillar_of_frost.duration=0)|talent.breath_of_sindragosa&(cooldown.breath_of_sindragosa.duration%%trinket.1.cooldown.duration=0))
+actions.precombat+=/variable,name=trinket_2_sync,op=setif,value=1,value_else=0.5,condition=trinket.2.has_use_buff&(talent.pillar_of_frost&!talent.breath_of_sindragosa&(trinket.2.cooldown.duration%%cooldown.pillar_of_frost.duration=0)|talent.breath_of_sindragosa&(cooldown.breath_of_sindragosa.duration%%trinket.2.cooldown.duration=0))
+actions.precombat+=/variable,name=trinket_1_buffs,value=trinket.1.has_use_buff|(trinket.1.has_buff.strength|trinket.1.has_buff.mastery|trinket.1.has_buff.versatility|trinket.1.has_buff.haste|trinket.1.has_buff.crit&!variable.trinket_1_exclude)
+actions.precombat+=/variable,name=trinket_2_buffs,value=trinket.2.has_use_buff|(trinket.2.has_buff.strength|trinket.2.has_buff.mastery|trinket.2.has_buff.versatility|trinket.2.has_buff.haste|trinket.2.has_buff.crit&!variable.trinket_2_exclude)
+actions.precombat+=/variable,name=trinket_priority,op=setif,value=2,value_else=1,condition=!variable.trinket_1_buffs&variable.trinket_2_buffs|variable.trinket_2_buffs&((trinket.2.cooldown.duration%trinket.2.proc.any_dps.duration)*(1.5+trinket.2.has_buff.strength)*(variable.trinket_2_sync))>((trinket.1.cooldown.duration%trinket.1.proc.any_dps.duration)*(1.5+trinket.1.has_buff.strength)*(variable.trinket_1_sync))
+actions.precombat+=/variable,name=trinket_1_manual,value=trinket.1.is.algethar_puzzle_box
+actions.precombat+=/variable,name=trinket_2_manual,value=trinket.2.is.algethar_puzzle_box
+actions.precombat+=/variable,name=rw_buffs,value=talent.gathering_storm|talent.everfrost
+actions.precombat+=/variable,name=2h_check,value=main_hand.2h
 ]]
-
+		if HowlingBlast:Usable() and FrostFever:Down() and (not Obliteration.known or PillarOfFrost:Down() or KillingMachine:Down()) then
+			return HowlingBlast
+		end
 	else
 
 	end
 --[[
 actions=auto_attack
-# Prevent specified trinkets being used with automatic lines
-actions+=/variable,name=specified_trinket,value=(equipped.inscrutable_quantum_device|equipped.the_first_sigil)&(cooldown.inscrutable_quantum_device.ready|cooldown.the_first_sigil.remains)|equipped.the_first_sigil&equipped.inscrutable_quantum_device
+# Prevent specified trinkets being used with automatic lines actions+=/variable,name=specified_trinket,value=
 actions+=/variable,name=st_planning,value=active_enemies=1&(raid_event.adds.in>15|!raid_event.adds.exists)
-actions+=/variable,name=adds_remain,value=active_enemies>=2&(!raid_event.adds.exists|raid_event.adds.exists&(raid_event.adds.remains>5|target.1.time_to_die>10))
-actions+=/variable,name=rotfc_rime,value=buff.rime.up&(!runeforge.rage_of_the_frozen_champion|runeforge.rage_of_the_frozen_champion&runic_power.deficit>8)
-actions+=/variable,name=frost_strike_conduits,value=conduit.eradicating_blow&buff.eradicating_blow.stack=2|conduit.unleashed_frenzy&buff.unleashed_frenzy.stack>=1&buff.unleashed_frenzy.remains<gcd*1.5
-# Apply Frost Fever, maintain Icy Talons and keep Remorseless Winter rolling
-actions+=/remorseless_winter,if=!remains&conduit.everfrost&talent.gathering_storm&!talent.obliteration&cooldown.pillar_of_frost.remains
-actions+=/howling_blast,target_if=!dot.frost_fever.remains&(talent.icecap|!buff.breath_of_sindragosa.up&talent.breath_of_sindragosa|talent.obliteration&cooldown.pillar_of_frost.remains&!buff.killing_machine.up)
-actions+=/glacial_advance,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&spell_targets.glacial_advance>=2&(talent.icecap|talent.breath_of_sindragosa&cooldown.breath_of_sindragosa.remains>15|talent.obliteration&!buff.pillar_of_frost.up)
-actions+=/frost_strike,if=buff.icy_talons.remains<=gcd*2&talent.icy_talons&(talent.icecap|talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>10|talent.obliteration&!buff.pillar_of_frost.up)
-actions+=/obliterate,if=variable.deaths_due_active&death_and_decay.active_remains<(gcd*1.5)&(!talent.obliteration|!buff.pillar_of_frost.up)
+actions+=/variable,name=adds_remain,value=active_enemies>=2&(!raid_event.adds.exists|raid_event.adds.exists&raid_event.adds.remains>5)
+actions+=/variable,name=rime_buffs,value=buff.rime.react&(talent.rage_of_the_frozen_champion|talent.avalanche|talent.icebreaker)
+actions+=/variable,name=rp_buffs,value=talent.unleashed_frenzy&(buff.unleashed_frenzy.remains<gcd.max*3|buff.unleashed_frenzy.stack<3)|talent.icy_talons&(buff.icy_talons.remains<gcd.max*3|buff.icy_talons.stack<3)
+actions+=/variable,name=cooldown_check,value=talent.pillar_of_frost&buff.pillar_of_frost.up|!talent.pillar_of_frost&buff.empower_rune_weapon.up|!talent.pillar_of_frost&!talent.empower_rune_weapon
+actions+=/variable,name=frostscythe_priority,value=talent.frostscythe&(buff.killing_machine.react|active_enemies>=3)&(!talent.improved_obliterate&!talent.frigid_executioner&!talent.frostreaper&!talent.might_of_the_frozen_wastes|!talent.cleaving_strikes|talent.cleaving_strikes&(active_enemies>6|!death_and_decay.ticking&active_enemies>3))
+# Formulaic approach to determine the time before these abilities come off cooldown that the simulation should star to pool resources. Capped at 15s in the run_action_list call.
+actions+=/variable,name=oblit_pooling_time,op=setif,value=((cooldown.pillar_of_frost.remains_expected+1)%gcd.max)%((rune+3)*(runic_power+5))*100,value_else=3,condition=runic_power<35&rune<2&cooldown.pillar_of_frost.remains_expected<10
+actions+=/variable,name=breath_pooling_time,op=setif,value=((cooldown.breath_of_sindragosa.remains+1)%gcd.max)%((rune+1)*(runic_power+20))*100,value_else=3,condition=runic_power.deficit>10&cooldown.breath_of_sindragosa.remains<10
+actions+=/variable,name=pooling_runes,value=rune<4&talent.obliteration&cooldown.pillar_of_frost.remains_expected<variable.oblit_pooling_time
+actions+=/variable,name=pooling_runic_power,value=talent.breath_of_sindragosa&cooldown.breath_of_sindragosa.remains<variable.breath_pooling_time|talent.obliteration&runic_power<35&cooldown.pillar_of_frost.remains_expected<variable.oblit_pooling_time
+actions+=/invoke_external_buff,name=power_infusion,if=(buff.pillar_of_frost.up|!talent.pillar_of_frost)&(talent.obliteration|talent.breath_of_sindragosa&buff.breath_of_sindragosa.up|!talent.breath_of_sindragosa&!talent.obliteration)
 # Interrupt
 actions+=/mind_freeze,if=target.debuff.casting.react
+actions+=/antimagic_shell,if=runic_power.deficit>40
+actions+=/antimagic_zone,if=death_knight.amz_absorb_percent>0&runic_power.deficit>70&talent.assimilation&(buff.breath_of_sindragosa.up&cooldown.empower_rune_weapon.charges<2|!talent.breath_of_sindragosa&!buff.pillar_of_frost.up)
+# Maintain Frost Fever, Icy Talons and Unleashed Frenzy
+actions+=/howling_blast,if=!dot.frost_fever.ticking&active_enemies>=2&(!talent.obliteration|talent.obliteration&(!buff.pillar_of_frost.up|buff.pillar_of_frost.up&!buff.killing_machine.react))
+actions+=/glacial_advance,if=active_enemies>=2&variable.rp_buffs&talent.obliteration&talent.breath_of_sindragosa&!buff.pillar_of_frost.up&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>variable.breath_pooling_time
+actions+=/glacial_advance,if=active_enemies>=2&variable.rp_buffs&talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>variable.breath_pooling_time
+actions+=/glacial_advance,if=active_enemies>=2&variable.rp_buffs&!talent.breath_of_sindragosa&talent.obliteration&!buff.pillar_of_frost.up
+actions+=/frost_strike,if=active_enemies=1&variable.rp_buffs&talent.obliteration&talent.breath_of_sindragosa&!buff.pillar_of_frost.up&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>variable.breath_pooling_time
+actions+=/frost_strike,if=active_enemies=1&variable.rp_buffs&talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&cooldown.breath_of_sindragosa.remains>variable.breath_pooling_time
+actions+=/frost_strike,if=active_enemies=1&variable.rp_buffs&!talent.breath_of_sindragosa&talent.obliteration&!buff.pillar_of_frost.up
+actions+=/remorseless_winter,if=!remains&!talent.breath_of_sindragosa&!talent.obliteration&variable.rw_buffs
+actions+=/remorseless_winter,if=!remains&talent.obliteration&active_enemies>=3&variable.adds_remain
 # Choose Action list to run
-actions+=/call_action_list,name=racials
 actions+=/call_action_list,name=trinkets
 actions+=/call_action_list,name=cooldowns
-actions+=/call_action_list,name=cold_heart,if=talent.cold_heart&(!buff.killing_machine.up|talent.breath_of_sindragosa)&((debuff.razorice.stack=5|!death_knight.runeforge.razorice)|fight_remains<=gcd)
-actions+=/run_action_list,name=bos_ticking,if=buff.breath_of_sindragosa.up
-actions+=/run_action_list,name=bos_pooling,if=talent.breath_of_sindragosa&!buff.breath_of_sindragosa.up&(cooldown.breath_of_sindragosa.remains<10)&(raid_event.adds.in>25|!raid_event.adds.exists|cooldown.pillar_of_frost.remains<10&raid_event.adds.exists&raid_event.adds.in<10)
-actions+=/run_action_list,name=obliteration,if=buff.pillar_of_frost.up&talent.obliteration
-actions+=/run_action_list,name=obliteration_pooling,if=!runeforge.rage_of_the_frozen_champion&talent.obliteration&cooldown.pillar_of_frost.remains<10&(variable.st_planning|raid_event.adds.exists&raid_event.adds.in<10|!raid_event.adds.exists)
-actions+=/run_action_list,name=aoe,if=active_enemies>=2
-actions+=/call_action_list,name=standard
+actions+=/call_action_list,name=racials
+actions+=/call_action_list,name=cold_heart,if=talent.cold_heart&(!buff.killing_machine.up|talent.breath_of_sindragosa)&((debuff.razorice.stack=5|!death_knight.runeforge.razorice&!talent.glacial_advance&!talent.avalanche)|fight_remains<=gcd)
+actions+=/run_action_list,name=breath_oblit,if=buff.breath_of_sindragosa.up&talent.obliteration&buff.pillar_of_frost.up
+actions+=/run_action_list,name=breath,if=buff.breath_of_sindragosa.up&(!talent.obliteration|talent.obliteration&!buff.pillar_of_frost.up)
+actions+=/run_action_list,name=obliteration,if=talent.obliteration&buff.pillar_of_frost.up&!buff.breath_of_sindragosa.up
+actions+=/call_action_list,name=aoe,if=active_enemies>=2
+actions+=/call_action_list,name=single_target,if=active_enemies=1
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Everfrost.known and GatheringStorm.known and not Obliteration.known and not PillarOfFrost:Ready() then
-		return RemorselessWinter
+	self.st_planning = Player.enemies <= 1
+	self.adds_remain = Player.enemies >= 2
+	self.rime_buffs = Rime:Up() and (RageOfTheFrozenChampion.known or Avalanche.known or Icebreaker.known)
+	self.rw_buffs = GatheringStorm.known or Everfrost.known
+	self.rp_buffs = (UnleashedFrenzy.known and (UnleashedFrenzy:Stack() < 3 or UnleashedFrenzy:Remains() < (Player.gcd * 3))) or (IcyTalons.known and (IcyTalons:Stack() < 3 or IcyTalons:Remains() < (Player.gcd * 3)))
+	self.cooldown_check = (not PillarOfFrost.known and not EmpowerRuneWeapon.known) or (PillarOfFrost.known and PillarOfFrost:Up()) or (not PillarOfFrost.known and EmpowerRuneWeapon:Up())
+	self.frostscythe_priority = Frostscythe.known and (KillingMachine:Up() or Player.enemies >= 3) and (not CleavingStrikes.known or (not ImprovedObliterate.known and not FrigidExecutioner.known and not Frostreaper.known and not MightOfTheFrozenWastes.known) or Player.enemies > 6 or (DeathAndDecay.buff:Down() and Player.enemies > 3))
+	if PillarOfFrost.known and Player.runic_power.current < 35 and Player.runes.ready < 2 and PillarOfFrost:Ready(10) then
+		self.oblit_pooling_time = ((PillarOfFrost:Cooldown() + 1) / Player.gcd) / ((Player.runes.ready + 3) * (Player.runic_power.current + 5)) * 100
+	else
+		self.oblit_pooling_time = 3
 	end
-	if HowlingBlast:Usable() and FrostFever:Down() and (Icecap.known or (BreathOfSindragosa.known and BreathOfSindragosa:Down()) or (Obliteration.known and not PillarOfFrost:Ready() and KillingMachine:Down())) then
+	if BreathOfSindragosa.known and Player.runic_power.deficit > 10 and BreathOfSindragosa:Ready(10) then
+		self.breath_pooling_time = ((BreathOfSindragosa:Cooldown() + 1) / Player.gcd) / ((Player.runes.ready + 1) * (Player.runic_power.current + 20)) * 100
+	else
+		self.breath_pooling_time = 3
+	end
+	self.pooling_runes = Player.use_cds and Obliteration.known and Player.runes.ready < 4 and PillarOfFrost:Ready(self.oblit_pooling_time)
+	self.pooling_runic_power = Player.use_cds and ((BreathOfSindragosa.known and BreathOfSindragosa:Ready(self.breath_pooling_time)) or (Obliteration.known and Player.runic_power.current < 35 and PillarOfFrost:Ready(self.oblit_pooling_time)))
+
+	if HowlingBlast:Usable() and Player.enemies >= 2 and FrostFever:Down() and (not Obliteration.known or PillarOfFrost:Down() or KillingMachine:Down()) then
 		return HowlingBlast
 	end
-	if IcyTalons.known and IcyTalons:Remains() <= (Player.gcd * 2) then
-		if GlacialAdvance:Usable() and Player.enemies >= 2 and (Icecap.known or (BreathOfSindragosa.known and not BreathOfSindragosa:Ready(15)) or (Obliteration.known and PillarOfFrost:Down())) then
+	if self.rp_buffs then
+		if GlacialAdvance:Usable() and Player.enemies >= 2 and (
+			(Obliteration.known and BreathOfSindragosa.known and PillarOfFrost:Down() and BreathOfSindragosa:Down() and not BreathOfSindragosa:Ready(self.breath_pooling_time)) or
+			(BreathOfSindragosa.known and BreathOfSindragosa:Down() and not BreathOfSindragosa:Ready(self.breath_pooling_time)) or
+			(not BreathOfSindragosa.known and Obliteration.known and PillarOfFrost:Down())
+		) then
 			return GlacialAdvance
 		end
-		if FrostStrike:Usable() and (Icecap.known or (BreathOfSindragosa.known and not BreathOfSindragosa:Ready(10)) or (Obliteration.known and PillarOfFrost:Down())) then
+		if FrostStrike:Usable() and Player.enemies <= 1 and (
+			(Obliteration.known and BreathOfSindragosa.known and PillarOfFrost:Down() and BreathOfSindragosa:Down() and not BreathOfSindragosa:Ready(self.breath_pooling_time)) or
+			(BreathOfSindragosa.known and BreathOfSindragosa:Down() and not BreathOfSindragosa:Ready(self.breath_pooling_time)) or
+			(not BreathOfSindragosa.known and Obliteration.known and PillarOfFrost:Down())
+		) then
 			return FrostStrike
 		end
+	end
+	if RemorselessWinter:Usable() and RemorselessWinter:Down() and (
+		(not BreathOfSindragosa.known and not Obliteration.known and self.rw_buffs) or
+		(Obliteration.known and Player.enemies >= 3 and self.adds_remain)
+	) then
+		return RemorselessWinter
 	end
 	if Player.use_cds then
 		if Opt.trinket then
@@ -2226,245 +2284,264 @@ actions+=/call_action_list,name=standard
 		end
 		self:cooldowns()
 	end
-	if BreathOfSindragosa.known then
-		if BreathOfSindragosa:Up() then
-			return self:bos_ticking()
-		end
-		if Player.use_cds and BreathOfSindragosa:Ready(10) then
-			return self:bos_pooling()
-		end
+	if ColdHeart.known and (BreathOfSindragosa.known or KillingMachine:Down()) and (Razorice:Stack() >= 5 or (not RuneOfRazorice.known and not GlacialAdvance.known and not Avalanche.known) or (Target.boss and Target.timeToDie < Player.gcd)) then
+		local apl = self:cold_heart()
+		if apl then return apl end
 	end
-	if Obliteration.known then
-		if PillarOfFrost:Up() then
-			return self:obliteration()
+	if BreathOfSindragosa.known and BreathOfSindragosa:Up() then
+		if Obliteration.known and PillarOfFrost:Up() then
+			return self:breath_oblit()
 		end
-		if Player.use_cds and PillarOfFrost:Ready(10) then
-			return self:obliteration_pooling()
-		end
+		return self:breath()
+	end
+	if Obliteration.known and PillarOfFrost:Up() then
+		return self:obliteration()
 	end
 	if Player.enemies >= 2 then
 		return self:aoe()
 	end
-	return self:standard()
+	return self:single_target()
 end
 
 APL[SPEC.FROST].aoe = function(self)
 --[[
 actions.aoe=remorseless_winter,if=!remains
-actions.aoe+=/glacial_advance,if=talent.frostscythe
-actions.aoe+=/frostscythe,if=buff.killing_machine.react&(!talent.gathering_storm|rune>=2|cooldown.remorseless_winter.remains>rune.time_to_2)
-actions.aoe+=/howling_blast,if=variable.rotfc_rime&talent.avalanche
-actions.aoe+=/glacial_advance,if=!buff.rime.up&active_enemies<=3|active_enemies>3
-# Formulaic approach to create a pseudo priority target list for applying razorice in aoe
-actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=cooldown.remorseless_winter.remains<=2*gcd&talent.gathering_storm
-actions.aoe+=/howling_blast,if=variable.rotfc_rime
-actions.aoe+=/frostscythe,if=talent.gathering_storm&buff.remorseless_winter.up&active_enemies>2
-actions.aoe+=/obliterate,if=talent.gathering_storm&buff.remorseless_winter.up
-actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit<(15+talent.runic_attenuation*5)
-actions.aoe+=/frostscythe
-actions.aoe+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>(25+talent.runic_attenuation*5)
-actions.aoe+=/glacial_advance
-actions.aoe+=/frostscythe
-actions.aoe+=/sacrificial_pact,if=!buff.empower_rune_weapon.up&active_enemies>=4
-actions.aoe+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
-actions.aoe+=/horn_of_winter
-actions.aoe+=/arcane_torrent
+actions.aoe+=/howling_blast,if=buff.rime.react|!dot.frost_fever.ticking
+actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power&variable.rp_buffs
+actions.aoe+=/obliterate,if=buff.killing_machine.react&talent.cleaving_strikes&death_and_decay.ticking&!variable.frostscythe_priority
+actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power
+actions.aoe+=/frostscythe,if=variable.frostscythe_priority
+actions.aoe+=/obliterate,if=!variable.frostscythe_priority
+actions.aoe+=/frost_strike,if=!variable.pooling_runic_power&!talent.glacial_advance
+actions.aoe+=/horn_of_winter,if=rune<2&runic_power.deficit>25
+actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 ]]
 	if RemorselessWinter:Usable() and RemorselessWinter:Down() then
 		return RemorselessWinter
 	end
-	if GlacialAdvance:Usable() and Frostscythe.known then
-		return GlacialAdvance
-	end
-	if Frostscythe:Usable() and KillingMachine:Up() and (not GatheringStorm.known or Player.runes.ready >= 2 or not RemorselessWinter:Ready(Player:RuneTimeTo(2))) then
-		return Frostscythe
-	end
-	if HowlingBlast:Usable() and self.rime and (Avalanche.known or FrostFever:Down()) then
+	if HowlingBlast:Usable() and (Rime:Up() or FrostFever:Down()) then
 		return HowlingBlast
 	end
-	if GlacialAdvance:Usable() and (Player.enemies > 3 or Rime:Down()) then
+	if not self.pooling_runic_power and GlacialAdvance:Usable() and self.rp_buffs then
 		return GlacialAdvance
 	end
-	if FrostStrike:Usable() and GatheringStorm.known and RemorselessWinter:Ready(2 * Player.gcd) then
-		return FrostStrike
-	end
-	if HowlingBlast:Usable() and self.rime then
-		return HowlingBlast
-	end
-	if Frostscythe:Usable() and GatheringStorm.known and RemorselessWinter:Up() and Player.enemies > 2 then
-		return Frostscythe
-	end
-	if Obliterate:Usable() and GatheringStorm.known and RemorselessWinter:Up() then
+	if CleavingStrikes.known and Obliterate:Usable() and KillingMachine:Up() and DeathAndDecay.buff:Up() and not self.frostscythe_priority then
 		return Obliterate
 	end
 	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
 		UseCooldown(DeathStrike)
 	end
-	if FrostStrike:Usable() and Player.runic_power.deficit < (15 + (RunicAttenuation.known and 5 or 0)) then
-		return FrostStrike
-	end
-	if Frostscythe:Usable() then
-		return Frostscythe
-	end
-	if Obliterate:Usable() and Player.runic_power.deficit > (25 + (RunicAttenuation.known and 5 or 0)) then
-		return Obliterate
-	end
-	if GlacialAdvance:Usable() then
+	if not self.pooling_runic_power and GlacialAdvance:Usable() then
 		return GlacialAdvance
 	end
-	if Frostscythe:Usable() then
+	if self.frostscythe_priority and Frostscythe:Usable() then
 		return Frostscythe
 	end
-	if SacrificialPact:Usable() and EmpowerRuneWeapon:Down() and Player.enemies >= 4 then
-		UseExtra(SacrificialPact)
+	if not self.frostscythe_priority and Obliterate:Usable() then
+		return Obliterate
 	end
-	if FrostStrike:Usable() then
+	if not self.pooling_runic_power and FrostStrike:Usable() and not GlacialAdvance.known then
 		return FrostStrike
 	end
 	if DeathStrike:Usable() and DarkSuccor:Up() then
 		UseCooldown(DeathStrike)
 	end
-	if HornOfWinter:Usable() then
+	if HornOfWinter:Usable() and Player.runes.ready < 2 and Player.runic_power.deficit > 25 then
 		return HornOfWinter
 	end
 end
 
-APL[SPEC.FROST].bos_pooling = function(self)
+APL[SPEC.FROST].breath = function(self)
 --[[
-
+actions.breath=remorseless_winter,if=!remains&(variable.rw_buffs|variable.adds_remain)
+actions.breath+=/howling_blast,if=variable.rime_buffs&runic_power>(45-talent.rage_of_the_frozen_champion*8)
+actions.breath+=/horn_of_winter,if=rune<2&runic_power.deficit>25
+actions.breath+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react&!variable.frostscythe_priority
+actions.breath+=/frostscythe,if=buff.killing_machine.react&variable.frostscythe_priority
+actions.breath+=/frostscythe,if=variable.frostscythe_priority&runic_power>45
+actions.breath+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>40|buff.pillar_of_frost.up&runic_power.deficit>15
+actions.breath+=/death_and_decay,if=runic_power<32&rune.time_to_2>runic_power%16
+actions.breath+=/remorseless_winter,if=runic_power<32&rune.time_to_2>runic_power%16
+actions.breath+=/howling_blast,if=runic_power<32&rune.time_to_2>runic_power%16
+actions.breath+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit>25
+actions.breath+=/howling_blast,if=buff.rime.react
+actions.breath+=/arcane_torrent,if=runic_power<60
 ]]
 
 end
 
-APL[SPEC.FROST].bos_ticking = function(self)
+APL[SPEC.FROST].breath_oblit = function(self)
 --[[
-
+actions.breath_oblit=frostscythe,if=buff.killing_machine.up&variable.frostscythe_priority
+actions.breath_oblit+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.up
+actions.breath_oblit+=/howling_blast,if=buff.rime.react
+actions.breath_oblit+=/howling_blast,if=!buff.killing_machine.up
+actions.breath_oblit+=/horn_of_winter,if=runic_power.deficit>25
+actions.breath_oblit+=/arcane_torrent,if=runic_power.deficit>20
 ]]
 
 end
+
+
 
 APL[SPEC.FROST].cold_heart = function(self)
 --[[
-
+actions.cold_heart=chains_of_ice,if=fight_remains<gcd&(rune<2|!buff.killing_machine.up&(!variable.2h_check&buff.cold_heart.stack>=4|variable.2h_check&buff.cold_heart.stack>8)|buff.killing_machine.up&(!variable.2h_check&buff.cold_heart.stack>8|variable.2h_check&buff.cold_heart.stack>10))
+actions.cold_heart+=/chains_of_ice,if=!talent.obliteration&buff.pillar_of_frost.up&buff.cold_heart.stack>=10&(buff.pillar_of_frost.remains<gcd*(1+(talent.frostwyrms_fury&cooldown.frostwyrms_fury.ready))|buff.unholy_strength.up&buff.unholy_strength.remains<gcd)
+actions.cold_heart+=/chains_of_ice,if=!talent.obliteration&death_knight.runeforge.fallen_crusader&!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains_expected>15&(buff.cold_heart.stack>=10&buff.unholy_strength.up|buff.cold_heart.stack>=13)
+actions.cold_heart+=/chains_of_ice,if=!talent.obliteration&!death_knight.runeforge.fallen_crusader&buff.cold_heart.stack>=10&!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains_expected>20
+actions.cold_heart+=/chains_of_ice,if=talent.obliteration&!buff.pillar_of_frost.up&(buff.cold_heart.stack>=14&(buff.unholy_strength.up|buff.chaos_bane.up)|buff.cold_heart.stack>=19|cooldown.pillar_of_frost.remains_expected<3&buff.cold_heart.stack>=14)
 ]]
 
 end
 
 APL[SPEC.FROST].cooldowns = function(self)
 --[[
-# Potion
-actions.cooldowns=potion,if=buff.pillar_of_frost.up
-# Cooldowns
-actions.cooldowns+=/empower_rune_weapon,if=talent.obliteration&rune<6&(variable.st_planning|variable.adds_remain)&(cooldown.pillar_of_frost.remains<5&(cooldown.fleshcraft.remains>5&soulbind.pustule_eruption|!soulbind.pustule_eruption)|buff.pillar_of_frost.up)|fight_remains<20
-actions.cooldowns+=/empower_rune_weapon,if=talent.breath_of_sindragosa&rune<5&runic_power<(60-(death_knight.runeforge.hysteria*5)-(runeforge.rampant_transference*5))&(buff.breath_of_sindragosa.up|fight_remains<20)
-actions.cooldowns+=/empower_rune_weapon,if=talent.icecap
+actions.cooldowns=potion,if=variable.cooldown_check|fight_remains<25
+actions.cooldowns+=/empower_rune_weapon,if=talent.obliteration&!buff.empower_rune_weapon.up&rune<6&(cooldown.pillar_of_frost.remains_expected<7&(variable.adds_remain|variable.st_planning)|buff.pillar_of_frost.up)|fight_remains<20
+actions.cooldowns+=/empower_rune_weapon,use_off_gcd=1,if=buff.breath_of_sindragosa.up&talent.breath_of_sindragosa&!buff.empower_rune_weapon.up&(runic_power<70&rune<3|time<10)
+actions.cooldowns+=/empower_rune_weapon,use_off_gcd=1,if=!talent.breath_of_sindragosa&!talent.obliteration&!buff.empower_rune_weapon.up&rune<5&(cooldown.pillar_of_frost.remains_expected<7|buff.pillar_of_frost.up|!talent.pillar_of_frost)
 actions.cooldowns+=/abomination_limb,if=talent.obliteration&!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains<3&(variable.adds_remain|variable.st_planning)|fight_remains<12
-actions.cooldowns+=/pillar_of_frost,if=talent.breath_of_sindragosa&(variable.st_planning|variable.adds_remain)&(cooldown.breath_of_sindragosa.remains|buff.breath_of_sindragosa.up&runic_power>45|cooldown.breath_of_sindragosa.ready&runic_power>65)
-actions.cooldowns+=/pillar_of_frost,if=talent.icecap&!buff.pillar_of_frost.up
-actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(runic_power>=35|buff.abomination_limb.up|runeforge.rage_of_the_frozen_champion)&(variable.st_planning|variable.adds_remain)&(!talent.gathering_storm.enabled|buff.remorseless_winter.up)
-actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_power>60&(buff.pillar_of_frost.up|cooldown.pillar_of_frost.remains>15)
-actions.cooldowns+=/frostwyrms_fury,if=active_enemies=1&buff.pillar_of_frost.remains<gcd&buff.pillar_of_frost.up&!talent.obliteration&(!raid_event.adds.exists|raid_event.adds.in>30)|fight_remains<3
-actions.cooldowns+=/frostwyrms_fury,if=active_enemies>=2&(buff.pillar_of_frost.up|raid_event.adds.exists&raid_event.adds.in>cooldown.pillar_of_frost.remains+7)&(buff.pillar_of_frost.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<gcd)
-actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(main_hand.2h&!buff.pillar_of_frost.up|!main_hand.2h&buff.pillar_of_frost.up)&((buff.pillar_of_frost.up&buff.unholy_strength.up|buff.pillar_of_frost.remains<gcd*2|buff.unholy_strength.up&buff.unholy_strength.remains<gcd*2)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice))
-actions.cooldowns+=/hypothermic_presence,if=talent.breath_of_sindragosa&runic_power<60&rune<=3&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains>40)|!talent.breath_of_sindragosa&runic_power<=75
-actions.cooldowns+=/raise_dead,if=cooldown.pillar_of_frost.remains<=5
-actions.cooldowns+=/sacrificial_pact,if=active_enemies>=2&(fight_remains<3|!buff.breath_of_sindragosa.up&(pet.ghoul.remains<gcd|raid_event.adds.exists&raid_event.adds.remains<3&raid_event.adds.in>pet.ghoul.remains))
+actions.cooldowns+=/abomination_limb,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
+actions.cooldowns+=/abomination_limb,if=!talent.breath_of_sindragosa&!talent.obliteration&(variable.adds_remain|variable.st_planning)
+actions.cooldowns+=/chill_streak,if=active_enemies>=2&(!death_and_decay.ticking&talent.cleaving_strikes|!talent.cleaving_strikes|active_enemies<=5)
+actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(variable.adds_remain|variable.st_planning)&(buff.empower_rune_weapon.up|cooldown.empower_rune_weapon.remains)|fight_remains<12
+actions.cooldowns+=/pillar_of_frost,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)&(!talent.icecap&(runic_power>70|cooldown.breath_of_sindragosa.remains>40)|talent.icecap&(cooldown.breath_of_sindragosa.remains>10|buff.breath_of_sindragosa.up))
+actions.cooldowns+=/pillar_of_frost,if=talent.icecap&!talent.obliteration&!talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
+actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_power>60&(variable.adds_remain|variable.st_planning)|fight_remains<30
+actions.cooldowns+=/frostwyrms_fury,if=active_enemies=1&(talent.pillar_of_frost&buff.pillar_of_frost.remains<gcd*2&buff.pillar_of_frost.up&!talent.obliteration|!talent.pillar_of_frost)&(!raid_event.adds.exists|(raid_event.adds.in>15+raid_event.adds.duration|talent.absolute_zero&raid_event.adds.in>15+raid_event.adds.duration))|fight_remains<3
+actions.cooldowns+=/frostwyrms_fury,if=active_enemies>=2&(talent.pillar_of_frost&buff.pillar_of_frost.up|raid_event.adds.exists&raid_event.adds.up&raid_event.adds.in>cooldown.pillar_of_frost.remains_expected-raid_event.adds.in-raid_event.adds.duration)&(buff.pillar_of_frost.remains<gcd*2|raid_event.adds.exists&raid_event.adds.remains<gcd*2)
+actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(talent.pillar_of_frost&buff.pillar_of_frost.up&!variable.2h_check|!buff.pillar_of_frost.up&variable.2h_check&cooldown.pillar_of_frost.remains|!talent.pillar_of_frost)&((buff.pillar_of_frost.remains<gcd|buff.unholy_strength.up&buff.unholy_strength.remains<gcd)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice&!talent.glacial_advance))
+actions.cooldowns+=/raise_dead
+actions.cooldowns+=/soul_reaper,if=fight_remains>5&target.time_to_pct_35<5&active_enemies<=2&(talent.obliteration&(buff.pillar_of_frost.up&!buff.killing_machine.react|!buff.pillar_of_frost.up)|talent.breath_of_sindragosa&(buff.breath_of_sindragosa.up&runic_power>40|!buff.breath_of_sindragosa.up)|!talent.breath_of_sindragosa&!talent.obliteration)
+actions.cooldowns+=/sacrificial_pact,if=!talent.glacial_advance&!buff.breath_of_sindragosa.up&pet.ghoul.remains<gcd*2&active_enemies>3
 actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(buff.pillar_of_frost.up&buff.pillar_of_frost.remains>5&buff.pillar_of_frost.remains<11|!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains>10|fight_remains<11)&(active_enemies>5|talent.cleaving_strikes&active_enemies>=2)
 ]]
 	if EmpowerRuneWeapon:Usable() and EmpowerRuneWeapon:Down() and (
 		(Target.boss and Target.timeToDie < 20) or
-		(Obliteration.known and Player.runes.ready < 6 and (self.st_planning or self.adds_remain) and (PillarOfFrost:Up() or PillarOfFrost:Ready(5))) or
-		(BreathOfSindragosa.known and BreathOfSindragosa:Up() and Player.runes.ready < 5 and Player.runic_power.current < (60 - (RuneOfHysteria.known and 5 or 0) - (RampantTransferance.known and 5 or 0))) or
-		(Icecap.known)
+		(Obliteration.known and Player.runes.ready < 6 and (PillarOfFrost:Up() or (PillarOfFrost:Ready(7) and (self.st_planning or self.adds_remain)))) or
+		(BreathOfSindragosa.known and BreathOfSindragosa:Up() and (Player.runic_power.current < 70 and Player.runes.ready < 3 or Player:TimeInCombat() < 10)) or
+		(not BreathOfSindragosa.known and not Obliteration.known and Player.runes.ready < 5 and (not PillarOfFrost.known or PillarOfFrost:Up() or PillarOfFrost:Ready(7)))
 	) then
 		UseCooldown(EmpowerRuneWeapon)
 	end
 	if AbominationLimb:Usable() and (
-		(Obliteration.known and ((PillarOfFrost:Down() and PillarOfFrost:Ready(3)) or (Target.boss and Target.timeToDie < 12)))
+		(Target.boss and Target.timeToDie < 12) or
+		(Obliteration.known and PillarOfFrost:Down() and PillarOfFrost:Ready(3) and (self.st_planning or self.adds_remain)) or
+		(BreathOfSindragosa.known and (self.st_planning or self.adds_remain)) or
+		(not BreathOfSindragosa.known and not Obliteration.known and (self.st_planning or self.adds_remain))
 	) then
 		UseCooldown(AbominationLimb)
 	end
+	if ChillStreak:Usable() and Player.enemies >= 2 and (not CleavingStrikes.known or Player.enemies <= 5 or DeathAndDecay.buff:Down()) then
+		UseCooldown(ChillStreak)
+	end
 	if PillarOfFrost:Usable() and PillarOfFrost:Down() and (
-		(Obliteration.known and ((Player.runic_power.current >= 35 or (AbominationLimb.known and AbominationLimb:Up())) and (self.st_planning or self.adds_remain) and (not GatheringStorm.known or RemorselessWinter:Up()))) or
-		(BreathOfSindragosa.known and (self.st_planning or self.adds_remain) and (not BreathOfSindragosa:Ready() or (BreathOfSindragosa:Up() and Player.runic_power.current > 45) or (BreathOfSindragosa:Ready() and Player.runic_power.current > 65))) or
-		(Icecap.known)
+		(Target.boss and Target.timeToDie < 12) or
+		(Obliteration.known and (self.st_planning or self.adds_remain) and (EmpowerRuneWeapon:Up() or not EmpowerRuneWeapon:Ready())) or
+		(BreathOfSindragosa.known and (self.st_planning or self.adds_remain) and ((not Icecap.known and (Player.runic_power.current > 70 or not BreathOfSindragosa:Ready(40))) or (Icecap.known and (not BreathOfSindragosa:Ready(10) or BreathOfSindragosa:Up())))) or
+		(Icecap.known and not Obliteration.known and not BreathOfSindragosa.known and (self.st_planning or self.adds_remain))
 	) then
 		UseCooldown(PillarOfFrost)
 	end
-	if BreathOfSindragosa:Usable() and BreathOfSindragosa:Down() and Player.runic_power.current > 60 and (PillarOfFrost:Up() or not PillarOfFrost:Ready(15)) then
+	if BreathOfSindragosa:Usable() and BreathOfSindragosa:Down() and Player.runic_power.current > 60 and (self.st_planning or self.adds_remain or (Target.boss and Target.timeToDie < 30)) then
 		UseCooldown(BreathOfSindragosa)
 	end
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
-		(not Obliteration.known and PillarOfFrost:Up() and PillarOfFrost:Remains() < Player.gcd) or
+		(not Obliteration.known and PillarOfFrost:Up() and PillarOfFrost:Remains() < (Player.gcd * 2)) or
 		(Obliteration.known and ((Player.equipped.twohand and PillarOfFrost:Down()) or (not Player.equipped.twohand and PillarOfFrost:Up())) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
-	if HypothermicPresence:Usable() and (
-		(BreathOfSindragosa.known and Player.runic_power.current < 60 and Player.runes.ready <= 3 and (BreathOfSindragosa:Up() or not BreathOfSindragosa:Ready(40))) or
-		(not BreathOfSindragosa.known and Player.runic_power.current <= 75)
-	) then
-		UseCooldown(BreathOfSindragosa)
-	end
-	if RaiseDead:Usable() and PillarOfFrost:Ready(5) then
+	if RaiseDead:Usable() then
 		UseExtra(RaiseDead)
 	end
-	if SacrificialPact:Usable() and Player.enemies >= 2 and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (not Obliteration.known or PillarOfFrost:Down()) and Pet.RisenGhoul:Remains() < 3)) then
+	if SoulReaper:Usable() and Target.timeToDie > 5 and Target:TimeToPct(35) < 5 and Player.enemies <= 2 and ((not Obliteration.known and not BreathOfSindragosa.known) or (Obliteration.known and (PillarOfFrost:Down() or KillingMachine:Down())) or (BreathOfSindragosa.known and (BreathOfSindragosa:Down() or Player.runic_power.current > 40))) then
+		UseCooldown(SoulReaper)
+	end
+	if SacrificialPact:Usable() and Player.enemies > 3 and not GlacialAdvance.known and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (not Obliteration.known or PillarOfFrost:Down()) and Pet.RisenGhoul:Remains() < 3)) then
 		UseExtra(SacrificialPact)
 	end
-	if DeathAndDecay:Usable() and Player.enemies > 1 and DeathAndDecay.buff:Down() and (between(PillarOfFrost:Remains(), 5, 11) or (PillarOfFrost:Down() and not PillarOfFrost:Ready(10) and DeathAndDecay:ChargesFractional() > 1.6) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
+	if DeathAndDecay:Usable() and Player.enemies >= 2 and DeathAndDecay.buff:Down() and (between(PillarOfFrost:Remains(), 5, 11) or (PillarOfFrost:Down() and not PillarOfFrost:Ready(10) and DeathAndDecay:ChargesFractional() > 1.6) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
 		UseCooldown(DeathAndDecay)
 	end
 end
 
 APL[SPEC.FROST].obliteration = function(self)
 --[[
-# Obliteration rotation
-actions.obliteration=remorseless_winter,if=!remains&active_enemies>=3&variable.rw_buffs
-actions.obliteration+=/frost_strike,if=!buff.killing_machine.up&talent.icy_talons&buff.icy_talons.remains<gcd*2
-actions.obliteration+=/howling_blast,target_if=!buff.killing_machine.up&buff.rime.up&(spell_targets.howling_blast>=2|buff.rime.remains<3)
-actions.obliteration+=/glacial_advance,if=!buff.killing_machine.up&spell_targets.glacial_advance>=2|!buff.killing_machine.up&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*4)
-actions.obliteration+=/frostscythe,if=buff.killing_machine.react&spell_targets.frostscythe>2
-actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react
-actions.obliteration+=/frost_strike,if=active_enemies=1&variable.frost_strike_conduits
-actions.obliteration+=/howling_blast,if=variable.rotfc_rime&spell_targets.howling_blast>=2
-actions.obliteration+=/glacial_advance,if=spell_targets.glacial_advance>=2
-actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=!talent.avalanche&!buff.killing_machine.up|talent.avalanche&!variable.rotfc_rime|variable.rotfc_rime&rune.time_to_2>=gcd|variable.frost_strike_conduits
-actions.obliteration+=/howling_blast,if=variable.rotfc_rime
+actions.obliteration=remorseless_winter,if=!remains&active_enemies>3
+actions.obliteration+=/howling_blast,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&buff.rime.react
+actions.obliteration+=/frost_strike,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&active_enemies<=1
+actions.obliteration+=/glacial_advance,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&!death_and_decay.ticking
+actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react&!variable.frostscythe_priority
+actions.obliteration+=/frostscythe,if=buff.killing_machine.react&variable.frostscythe_priority
+actions.obliteration+=/howling_blast,if=!dot.frost_fever.ticking&!buff.killing_machine.react
+actions.obliteration+=/glacial_advance,if=!death_knight.runeforge.razorice&!buff.killing_machine.react&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*3)
+actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=!buff.killing_machine.react&(rune<2|variable.rp_buffs|debuff.razorice.stack=5&talent.shattering_blade)&!variable.pooling_runic_power&(!talent.glacial_advance|active_enemies=1)
+actions.obliteration+=/howling_blast,if=buff.rime.react&!buff.killing_machine.react
+actions.obliteration+=/glacial_advance,if=!variable.pooling_runic_power&variable.rp_buffs&!buff.killing_machine.react&active_enemies>=2
+actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=!buff.killing_machine.react&!variable.pooling_runic_power&(!talent.glacial_advance|active_enemies=1)
+actions.obliteration+=/howling_blast,if=!buff.killing_machine.react&runic_power<25
+actions.obliteration+=/arcane_torrent,if=rune<1&runic_power<25
+actions.obliteration+=/glacial_advance,if=!variable.pooling_runic_power&active_enemies>=2
+actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=!variable.pooling_runic_power&(!talent.glacial_advance|active_enemies=1)
+actions.obliteration+=/howling_blast,if=buff.rime.react
 actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Player.enemies >= 3 and self.rw_buffs then
+	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Player.enemies > 3 then
 		return RemorselessWinter
 	end
-	if FrostStrike:Usable() and KillingMachine:Down() and IcyTalons.known and IcyTalons:Remains() < (Player.gcd * 2) then
-		return FrostStrike
+	if KillingMachine:Stack() < 2 and PillarOfFrost:Remains() < Player.gcd then
+		if HowlingBlast:Usable() and Rime:Up() then
+			return HowlingBlast
+		end
+		if FrostStrike:Usable() and Player.enemies <= 1 then
+			return FrostStrike
+		end
+		if GlacialAdvance:Usable() and DeathAndDecay.buff:Down() then
+			return GlacialAdvance
+		end
 	end
-	if HowlingBlast:Usable() and KillingMachine:Down() and Rime:Up() and (Player.enemies >= 2 or Rime:Remains() < 3) then
-		return HowlingBlast
+	if KillingMachine:Up() then
+		if not self.frostscythe_priority and Obliterate:Usable() then
+			return Obliterate
+		end
+		if self.frostscythe_priority and Frostscythe:Usable() then
+			return Frostscythe
+		end
+	else
+		if HowlingBlast:Usable() and FrostFever:Down() then
+			return HowlingBlast
+		end
+		if not RuneOfRazorice.known and GlacialAdvance:Usable() and (Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 3)) then
+			return GlacialAdvance
+		end
+		if not self.pooling_runic_power and FrostStrike:Usable() and (Player.runes.ready < 2 or self.rp_buffs or (ShatteringBlade.known and Razorice:Stack() >= 5)) and (not GlacialAdvance.known or Player.enemies <= 1) then
+			return FrostStrike
+		end
+		if HowlingBlast:Usable() and Rime:Up() then
+			return HowlingBlast
+		end
+		if not self.pooling_runic_power and GlacialAdvance:Usable() and self.rp_buffs and Player.enemies >= 2 then
+			return GlacialAdvance
+		end
+		if not self.pooling_runic_power and FrostStrike:Usable() and (not GlacialAdvance.known or Player.enemies <= 1) then
+			return FrostStrike
+		end
+		if HowlingBlast:Usable() and Player.runic_power.current < 25 then
+			return HowlingBlast
+		end
 	end
-	if GlacialAdvance:Usable() and KillingMachine:Down() and (Player.enemies >= 2 or Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 4)) then
-		return GlacialAdvance
+	if not self.pooling_runic_power then
+		if GlacialAdvance:Usable() and Player.enemies >= 2 then
+			return GlacialAdvance
+		end
+		if FrostStrike:Usable() and (not GlacialAdvance.known or Player.enemies <= 1) then
+			return FrostStrike
+		end
 	end
-	if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 then
-		return Frostscythe
-	end
-	if Obliterate:Usable() and KillingMachine:Up() then
-		return Obliterate
-	end
-	if FrostStrike:Usable() and Player.enemies == 1 and self.frenzy_expiring then
-		return FrostStrike
-	end
-	if HowlingBlast:Usable() and self.rime and Player.enemies >= 2 then
-		return HowlingBlast
-	end
-	if GlacialAdvance:Usable() and Player.enemies >= 2 then
-		return GlacialAdvance
-	end
-	if FrostStrike:Usable() and ((not Avalanche.known and KillingMachine:Down()) or (Avalanche.known and not self.rime) or (self.rime and Player:RuneTimeTo(2) >= Player.gcd) or self.frenzy_expiring) then
-		return FrostStrike
-	end
-	if HowlingBlast:Usable() and self.rime then
+	if HowlingBlast:Usable() and Rime:Up() then
 		return HowlingBlast
 	end
 	if Obliterate:Usable() then
@@ -2472,132 +2549,76 @@ actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuf
 	end
 end
 
-APL[SPEC.FROST].obliteration_pooling = function(self)
+APL[SPEC.FROST].single_target = function(self)
 --[[
-# Pooling For Obliteration: Starts 10 seconds before Pillar of Frost comes off CD
-actions.obliteration_pooling=remorseless_winter,if=!remains&(variable.rw_buffs|active_enemies>=2)
-actions.obliteration_pooling+=/glacial_advance,if=spell_targets.glacial_advance>=2&talent.frostscythe
-actions.obliteration_pooling+=/frostscythe,if=buff.killing_machine.react&active_enemies>2
-actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react
-actions.obliteration_pooling+=/frost_strike,if=active_enemies=1&variable.frost_strike_conduits
-actions.obliteration_pooling+=/howling_blast,if=variable.rotfc_rime
-actions.obliteration_pooling+=/glacial_advance,if=spell_targets.glacial_advance>=2&runic_power.deficit<60
-actions.obliteration_pooling+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=runic_power.deficit<70
-actions.obliteration_pooling+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=rune>=3&(!main_hand.2h|talent.abomination_limb)|rune>=4&main_hand.2h
-actions.obliteration_pooling+=/frostscythe,if=active_enemies>=4
+actions.single_target=remorseless_winter,if=!remains&(variable.rw_buffs|variable.adds_remain)
+actions.single_target+=/frost_strike,if=buff.killing_machine.stack<2&runic_power.deficit<20&!variable.2h_check
+actions.single_target+=/frostscythe,if=buff.killing_machine.react&variable.frostscythe_priority
+actions.single_target+=/obliterate,if=buff.killing_machine.react
+actions.single_target+=/howling_blast,if=buff.rime.react&talent.icebreaker.rank=2
+actions.single_target+=/horn_of_winter,if=rune<4&runic_power.deficit>25&talent.obliteration&talent.breath_of_sindragosa
+actions.single_target+=/frost_strike,if=!variable.pooling_runic_power&(variable.rp_buffs|runic_power.deficit<25|debuff.razorice.stack=5&talent.shattering_blade)
+actions.single_target+=/howling_blast,if=variable.rime_buffs
+actions.single_target+=/glacial_advance,if=!variable.pooling_runic_power&!death_knight.runeforge.razorice&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*3)
+actions.single_target+=/obliterate,if=!variable.pooling_runes
+actions.single_target+=/horn_of_winter,if=rune<4&runic_power.deficit>25&(!talent.breath_of_sindragosa|cooldown.breath_of_sindragosa.remains>cooldown.horn_of_winter.duration)
+actions.single_target+=/arcane_torrent,if=runic_power.deficit>20
+actions.single_target+=/frost_strike,if=!variable.pooling_runic_power
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Down() and (self.rw_buffs or Player.enemies >= 2) then
+	if RemorselessWinter:Usable() and RemorselessWinter:Down() and (self.rw_buffs or self.adds_remain) then
 		return RemorselessWinter
 	end
-	if Frostscythe.known then
-		if GlacialAdvance:Usable() and Player.enemies >= 2 then
-			return GlacialAdvance
-		end
-		if Frostscythe:Usable() and KillingMachine:Up() and Player.enemies > 2 then
-			return Frostscythe
-		end
-	end
-	if Obliterate:Usable() and KillingMachine:Up() then
-		return Obliterate
-	end
-	if FrostStrike:Usable() and Player.enemies == 1 and self.frenzy_expiring then
+	if not Player.equipped.twohand and FrostStrike:Usable() and KillingMachine:Stack() < 2 and Player.runic_power.deficit < 20 then
 		return FrostStrike
 	end
-	if HowlingBlast:Usable() and self.rime then
-		return HowlingBlast
-	end
-	if GlacialAdvance:Usable() and Player.enemies >= 2 and Player.runic_power.deficit < 60 then
-		return GlacialAdvance
-	end
-	if FrostStrike:Usable() and Player.runic_power.deficit < 70 then
-		return FrostStrike
-	end
-	if Obliterate:Usable() and ((Player.runes.ready >= 3 and (not Player.equipped.twohand or AbominationLimb.known)) or (Player.equipped.twohand and Player.runes.ready >= 4)) then
-		return Obliterate
-	end
-	if Frostscythe:Usable() and Player.enemies >= 4 then
+	if self.frostscythe_priority and Frostscythe:Usable() and KillingMachine:Up() then
 		return Frostscythe
 	end
-end
-
-APL[SPEC.FROST].standard = function(self)
---[[
-# Standard single-target rotation
-actions.standard=remorseless_winter,if=!remains&variable.rw_buffs
-actions.standard+=/obliterate,if=buff.killing_machine.react
-actions.standard+=/howling_blast,if=variable.rotfc_rime&buff.rime.remains<3
-actions.standard+=/frost_strike,if=variable.frost_strike_conduits
-actions.standard+=/glacial_advance,if=!death_knight.runeforge.razorice&(debuff.razorice.stack<5|debuff.razorice.remains<gcd*4)
-actions.standard+=/frost_strike,if=talent.gathering_storm&cooldown.remorseless_winter.remains<gcd*2
-actions.standard+=/howling_blast,if=variable.rotfc_rime
-actions.standard+=/obliterate,if=rune.time_to_5<gcd
-actions.standard+=/frost_strike,if=runic_power.deficit<(15+talent.runic_attenuation*5)
-actions.standard+=/obliterate,if=!buff.frozen_pulse.up&talent.frozen_pulse|runic_power.deficit>(25+talent.runic_attenuation*5)
-actions.standard+=/obliterate,if=talent.gathering_storm&buff.remorseless_winter.up&(!talent.obliteration|buff.remorseless_winter.remains<gcd*1.5|cooldown.pillar_of_frost.remains>rune.time_to_4)
-actions.standard+=/frost_strike,if=!talent.obliteration|cooldown.pillar_of_frost.remains|runic_power>=60
-actions.standard+=/obliterate,if=rune.time_to_4<gcd&(!talent.gathering_storm|cooldown.remorseless_winter.remains>gcd*2)
-actions.standard+=/horn_of_winter
-actions.standard+=/arcane_torrent
-]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Down() and self.rw_buffs then
-		return RemorselessWinter
-	end
 	if Obliterate:Usable() and KillingMachine:Up() then
 		return Obliterate
 	end
-	if HowlingBlast:Usable() and self.rime and Rime:Remains() < 3 then
+	if HowlingBlast:Usable() and Icebreaker.rank == 2 and Rime:Up() then
 		return HowlingBlast
-	end
-	if FrostStrike:Usable() and self.frenzy_expiring then
-		return FrostStrike
-	end
-	if GlacialAdvance:Usable() and not RuneOfRazorice.known and (Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 4)) then
-		return GlacialAdvance
-	end
-	if FrostStrike:Usable() and GatheringStorm.known and RemorselessWinter:Ready(Player.gcd * 2) then
-		return FrostStrike
-	end
-	if HowlingBlast:Usable() and self.rime then
-		return HowlingBlast
-	end
-	if Obliterate:Usable() and Player:RuneTimeTo(5) < Player.gcd then
-		return Obliterate
 	end
 	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
 		UseCooldown(DeathStrike)
 	end
-	if FrostStrike:Usable() and Player.runic_power.deficit < (15 + (RunicAttenuation.known and 5 or 0)) then
+	if HornOfWinter:Usable() and Player.runes.ready < 4 and Player.runic_power.deficit > 25 and Obliteration.known and BreathOfSindragosa.known then
+		return HornOfWinter
+	end
+	if not Player.pooling_runic_power and FrostStrike:Usable() and (self.rp_buffs or Player.runic_power.deficit < 25 or (ShatteringBlade.known and Razorice:Stack() >= 5)) then
 		return FrostStrike
 	end
-	if Obliterate:Usable() and (
-		(FrozenPulse.known and FrozenPulse:Down()) or
-		(Player.runic_power.deficit > (25 + (RunicAttenuation.known and 5 or 0))) or
-		(GatheringStorm.known and RemorselessWinter:Up() and (not Obliteration.known or not Player.use_cds or RemorselessWinter:Remains() < (Player.gcd * 1.5) or not PillarOfFrost:Ready(Player:RuneTimeTo(4))))
-	) then
+	if HowlingBlast:Usable() and self.rime_buffs then
+		return HowlingBlast
+	end
+	if not Player.pooling_runic_power and GlacialAdvance:Usable() and not RuneOfRazorice.known and (Razorice:Stack() < 5 or Razorice:Remains() < (Player.gcd * 3)) then
+		return GlacialAdvance
+	end
+	if not self.pooling_runes and Obliterate:Usable() then
 		return Obliterate
 	end
-	if FrostStrike:Usable() and (not Obliteration.known or not Player.use_cds or not PillarOfFrost:Ready() or Player.runic_power.current >= 60) then
+	if HornOfWinter:Usable() and Player.runes.ready < 4 and Player.runic_power.deficit > 25 and (not BreathOfSindragosa.known or not BreathOfSindragosa:Ready(HornOfWinter:CooldownDuration())) then
+		return HornOfWinter
+	end
+	if not Player.pooling_runic_power and FrostStrike:Usable() then
 		return FrostStrike
-	end
-	if Obliterate:Usable() and Player:RuneTimeTo(4) < Player.gcd and (not GatheringStorm.known or not RemorselessWinter:Ready(Player.gcd * 2)) then
-		return Obliterate
 	end
 	if DeathStrike:Usable() and DarkSuccor:Up() then
 		UseCooldown(DeathStrike)
-	end
-	if HornOfWinter:Usable() then
-		return HornOfWinter
 	end
 end
 
 APL[SPEC.FROST].trinkets = function(self)
 --[[
-# The trinket with the highest estimated value, will be used first and paired with Pillar of Frost.
-actions.trinkets=use_item,slot=trinket1,if=!variable.specified_trinket&buff.pillar_of_frost.up&(!talent.icecap|talent.icecap&buff.pillar_of_frost.remains>=10)&(!trinket.2.has_cooldown|trinket.2.cooldown.remains|variable.trinket_priority=1)|trinket.1.proc.any_dps.duration>=fight_remains
-actions.trinkets+=/use_item,slot=trinket2,if=!variable.specified_trinket&buff.pillar_of_frost.up&(!talent.icecap|talent.icecap&buff.pillar_of_frost.remains>=10)&(!trinket.1.has_cooldown|trinket.1.cooldown.remains|variable.trinket_priority=2)|trinket.2.proc.any_dps.duration>=fight_remains
+actions.trinkets=use_item,use_off_gcd=1,name=algethar_puzzle_box,if=!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains<2&(!talent.breath_of_sindragosa|runic_power>60&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains<2))
+# Trinkets The trinket with the highest estimated value, will be used first and paired with Pillar of Frost.
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&!variable.trinket_1_manual&(!buff.pillar_of_frost.up&trinket.1.cast_time>0|!trinket.1.cast_time>0)&(buff.breath_of_sindragosa.up|buff.pillar_of_frost.up)&(variable.trinket_2_exclude|!trinket.2.has_cooldown|trinket.2.cooldown.remains|variable.trinket_priority=1)|trinket.1.proc.any_dps.duration>=fight_remains
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_buffs&!variable.trinket_2_manual&(!buff.pillar_of_frost.up&trinket.2.cast_time>0|!trinket.2.cast_time>0)&(buff.breath_of_sindragosa.up|buff.pillar_of_frost.up)&(variable.trinket_1_exclude|!trinket.1.has_cooldown|trinket.1.cooldown.remains|variable.trinket_priority=2)|trinket.2.proc.any_dps.duration>=fight_remains
 # If only one on use trinket provides a buff, use the other on cooldown. Or if neither trinket provides a buff, use both on cooldown.
-actions.trinkets+=/use_item,slot=trinket1,if=!variable.specified_trinket&(!trinket.1.has_use_buff&(trinket.2.cooldown.remains|!trinket.2.has_use_buff)|cooldown.pillar_of_frost.remains>20)
-actions.trinkets+=/use_item,slot=trinket2,if=!variable.specified_trinket&(!trinket.2.has_use_buff&(trinket.1.cooldown.remains|!trinket.1.has_use_buff)|cooldown.pillar_of_frost.remains>20)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_buffs&!variable.trinket_1_manual&(!variable.trinket_1_buffs&(trinket.2.cooldown.remains|!variable.trinket_2_buffs)|(trinket.1.cast_time>0&!buff.pillar_of_frost.up|!trinket.1.cast_time>0)|talent.pillar_of_frost&cooldown.pillar_of_frost.remains_expected>20|!talent.pillar_of_frost)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=!variable.trinket_2_buffs&!variable.trinket_2_manual&(!variable.trinket_2_buffs&(trinket.1.cooldown.remains|!variable.trinket_1_buffs)|(trinket.2.cast_time>0&!buff.pillar_of_frost.up|!trinket.2.cast_time>0)|talent.pillar_of_frost&cooldown.pillar_of_frost.remains_expected>20|!talent.pillar_of_frost)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=(!variable.trinket_1_buffs|trinket.1.cooldown.remains)&(!variable.trinket_2_buffs|trinket.2.cooldown.remains)
 ]]
 	if Trinket1:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
 		return UseCooldown(Trinket1)
