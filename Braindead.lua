@@ -2450,7 +2450,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
 		(not Obliteration.known and PillarOfFrost:Up() and PillarOfFrost:Remains() < (Player.gcd * 2)) or
-		(Obliteration.known and ((Player.equipped.twohand and PillarOfFrost:Down()) or (not Player.equipped.twohand and PillarOfFrost:Up())) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (not RuneOfRazorice.known or Razorice:Stack() >= 5))
+		(Obliteration.known and ((Player.equipped.twohand and PillarOfFrost:Down() and not PillarOfFrost:Ready()) or (not Player.equipped.twohand and PillarOfFrost:Up())) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (Razorice:Stack() >= 5 or (not RuneOfRazorice.known and not GlacialAdvance.known)))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
