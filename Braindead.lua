@@ -2405,7 +2405,7 @@ actions.cooldowns+=/abomination_limb,if=talent.obliteration&!buff.pillar_of_fros
 actions.cooldowns+=/abomination_limb,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
 actions.cooldowns+=/abomination_limb,if=!talent.breath_of_sindragosa&!talent.obliteration&(variable.adds_remain|variable.st_planning)
 actions.cooldowns+=/chill_streak,if=active_enemies>=2&(!death_and_decay.ticking&talent.cleaving_strikes|!talent.cleaving_strikes|active_enemies<=5)
-actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(variable.adds_remain|variable.st_planning)&(buff.empower_rune_weapon.up|cooldown.empower_rune_weapon.remains)|fight_remains<12
+actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(variable.adds_remain|variable.st_planning)&(buff.empower_rune_weapon.up|cooldown.empower_rune_weapon.remains)&(!variable.rw_buffs|buff.remorseless_winter.up|cooldown.remorseless_winter.remains)|fight_remains<12
 actions.cooldowns+=/pillar_of_frost,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)&(!talent.icecap&(runic_power>70|cooldown.breath_of_sindragosa.remains>40)|talent.icecap&(cooldown.breath_of_sindragosa.remains>10|buff.breath_of_sindragosa.up))
 actions.cooldowns+=/pillar_of_frost,if=talent.icecap&!talent.obliteration&!talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
 actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_power>60&(variable.adds_remain|variable.st_planning)|fight_remains<30
@@ -2438,7 +2438,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	end
 	if PillarOfFrost:Usable() and PillarOfFrost:Down() and (
 		(Target.boss and Target.timeToDie < 12) or
-		(Obliteration.known and (self.st_planning or self.adds_remain) and (EmpowerRuneWeapon:Up() or not EmpowerRuneWeapon:Ready())) or
+		(Obliteration.known and (self.st_planning or self.adds_remain) and (EmpowerRuneWeapon:Up() or not EmpowerRuneWeapon:Ready()) and (not self.rw_buffs or RemorselessWinter:Up() or not RemorselessWinter:Ready())) or
 		(BreathOfSindragosa.known and (self.st_planning or self.adds_remain) and ((not Icecap.known and (Player.runic_power.current > 70 or not BreathOfSindragosa:Ready(40))) or (Icecap.known and (not BreathOfSindragosa:Ready(10) or BreathOfSindragosa:Up())))) or
 		(Icecap.known and not Obliteration.known and not BreathOfSindragosa.known and (self.st_planning or self.adds_remain))
 	) then
