@@ -1590,7 +1590,7 @@ function Player:UpdateAbilities()
 	DeathAndDecay.buff.known = DeathAndDecay.known
 	DeathAndDecay.damage.known = DeathAndDecay.known
 	Hysteria.known = RuneOfHysteria.known
-	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalance.known
+	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalanche.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
 
 	wipe(abilities.bySpellId)
