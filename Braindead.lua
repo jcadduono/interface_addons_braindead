@@ -1444,6 +1444,7 @@ end
 -- Equipment
 local Trinket1 = InventoryItem:Add(0)
 local Trinket2 = InventoryItem:Add(0)
+Trinket.AlgetharPuzzleBox = InventoryItem:Add(193701)
 -- End Inventory Items
 
 -- Start Player API
@@ -2187,6 +2188,9 @@ actions.precombat+=/variable,name=trinket_2_manual,value=trinket.2.is.algethar_p
 actions.precombat+=/variable,name=rw_buffs,value=talent.gathering_storm|talent.everfrost
 actions.precombat+=/variable,name=2h_check,value=main_hand.2h
 ]]
+		if Opt.trinket and Player.use_cds and Trinket.AlgetharPuzzleBox:Usable() and PillarOfFrost:Ready(2) and EmpowerRuneWeapon:Ready(2) then
+			UseCooldown(Trinket.AlgetharPuzzleBox)
+		end
 		if HowlingBlast:Usable() and FrostFever:Down() and (not Obliteration.known or PillarOfFrost:Down() or KillingMachine:Down()) then
 			return HowlingBlast
 		end
@@ -2620,6 +2624,9 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_b
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=!variable.trinket_2_buffs&!variable.trinket_2_manual&(!variable.trinket_2_buffs&(trinket.1.cooldown.remains|!variable.trinket_1_buffs)|(trinket.2.cast_time>0&!buff.pillar_of_frost.up|!trinket.2.cast_time>0)|talent.pillar_of_frost&cooldown.pillar_of_frost.remains_expected>20|!talent.pillar_of_frost)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=(!variable.trinket_1_buffs|trinket.1.cooldown.remains)&(!variable.trinket_2_buffs|trinket.2.cooldown.remains)
 ]]
+	if Trinket.AlgetharPuzzleBox:Usable() and PillarOfFrost:Down() and PillarOfFrost:Ready(2) and (not BreathOfSindragosa.known or (Player.runic_power.current > 60 and (BreathOfSindragosa:Up() or BreathOfSindragosa:Ready(2)))) then
+		return UseCooldown(Trinket.AlgetharPuzzleBox)
+	end
 	if Trinket1:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
 		return UseCooldown(Trinket1)
 	end
