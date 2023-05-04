@@ -2333,6 +2333,7 @@ actions.aoe+=/howling_blast,if=buff.rime.react|!dot.frost_fever.ticking
 actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power&variable.rp_buffs
 actions.aoe+=/obliterate,if=buff.killing_machine.react&!variable.frostscythe_priority&(talent.cleaving_strikes&death_and_decay.ticking|buff.killing_machine.stack=2|buff.killing_machine.remains<gcd)
 actions.aoe+=/frostscythe,if=buff.killing_machine.react&variable.frostscythe_priority&(buff.killing_machine.stack=2|buff.killing_machine.remains<gcd)
+actions.aoe+=/obliterate,if=!variable.frostscythe_priority&(talent.cleaving_strikes&death_and_decay.ticking|!variable.pooling_runes&buff.killing_machine.react|rune.time_to_4<gcd)
 actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power
 actions.aoe+=/frostscythe,if=variable.frostscythe_priority
 actions.aoe+=/obliterate,if=!variable.frostscythe_priority
@@ -2357,6 +2358,9 @@ actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 	end
 	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
 		UseCooldown(DeathStrike)
+	end
+	if not self.frostscythe_priority and Obliterate:Usable() and (Player:RuneTimeTo(4) < Player.gcd or (not self.pooling_runes and KillingMachine:Up()) or (CleavingStrikes.known and DeathAndDecay.buff:Up())) then
+		return Obliterate
 	end
 	if not self.pooling_runic_power and GlacialAdvance:Usable() then
 		return GlacialAdvance
