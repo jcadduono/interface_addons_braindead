@@ -2443,7 +2443,7 @@ actions.cooldowns+=/breath_of_sindragosa,if=!buff.breath_of_sindragosa.up&runic_
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies=1&(talent.pillar_of_frost&buff.pillar_of_frost.remains<gcd*2&buff.pillar_of_frost.up&!talent.obliteration|!talent.pillar_of_frost)&(!raid_event.adds.exists|(raid_event.adds.in>15+raid_event.adds.duration|talent.absolute_zero&raid_event.adds.in>15+raid_event.adds.duration))|fight_remains<3
 actions.cooldowns+=/frostwyrms_fury,if=active_enemies>=2&(talent.pillar_of_frost&buff.pillar_of_frost.up|raid_event.adds.exists&raid_event.adds.up&raid_event.adds.in>cooldown.pillar_of_frost.remains_expected-raid_event.adds.in-raid_event.adds.duration)&(buff.pillar_of_frost.remains<gcd*2|raid_event.adds.exists&raid_event.adds.remains<gcd*2)
 actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(talent.pillar_of_frost&buff.pillar_of_frost.up&!variable.2h_check|!buff.pillar_of_frost.up&variable.2h_check&cooldown.pillar_of_frost.remains|!talent.pillar_of_frost)&((buff.pillar_of_frost.remains<gcd|buff.unholy_strength.up&buff.unholy_strength.remains<gcd)&(debuff.razorice.stack=5|!death_knight.runeforge.razorice&!talent.glacial_advance))
-actions.cooldowns+=/raise_dead
+actions.cooldowns+=/raise_dead,if=buff.empower_rune_weapon.up|fight_remains<30
 actions.cooldowns+=/soul_reaper,if=fight_remains>5&target.time_to_pct_35<5&active_enemies<=2&(talent.obliteration&(buff.pillar_of_frost.up&!buff.killing_machine.react|!buff.pillar_of_frost.up)|talent.breath_of_sindragosa&(buff.breath_of_sindragosa.up&runic_power>40|!buff.breath_of_sindragosa.up)|!talent.breath_of_sindragosa&!talent.obliteration)
 actions.cooldowns+=/sacrificial_pact,if=!talent.glacial_advance&!buff.breath_of_sindragosa.up&pet.ghoul.remains<gcd*2&active_enemies>3
 actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(buff.pillar_of_frost.remains>5&(buff.killing_machine.up|!talent.obliteration&buff.pillar_of_frost.remains<11)|!buff.pillar_of_frost.up&(cooldown.pillar_of_frost.remains_expected>(55-30*charges_fractional)|buff.enduring_strength.up&buff.killing_machine.up)|fight_remains<11)&(active_enemies>5|talent.cleaving_strikes&active_enemies>=2)
@@ -2485,7 +2485,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
-	if RaiseDead:Usable() then
+	if RaiseDead:Usable() and (EmpowerRuneWeapon:Up() or (Target.boss and Target.timeToDie < 30)) then
 		UseExtra(RaiseDead)
 	end
 	if SoulReaper:Usable() and Target.timeToDie > 5 and Target:TimeToPct(35) < 5 and Player.enemies <= 2 and ((not Obliteration.known and not BreathOfSindragosa.known) or (Obliteration.known and (PillarOfFrost:Down() or KillingMachine:Down())) or (BreathOfSindragosa.known and (BreathOfSindragosa:Down() or Player.runic_power.current > 40))) then
