@@ -2312,7 +2312,8 @@ APL[SPEC.FROST].aoe = function(self)
 actions.aoe=remorseless_winter,if=!remains
 actions.aoe+=/howling_blast,if=buff.rime.react|!dot.frost_fever.ticking
 actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power&variable.rp_buffs
-actions.aoe+=/obliterate,if=buff.killing_machine.react&talent.cleaving_strikes&death_and_decay.ticking&!variable.frostscythe_priority
+actions.aoe+=/obliterate,if=buff.killing_machine.react&!variable.frostscythe_priority&(talent.cleaving_strikes&death_and_decay.ticking|buff.killing_machine.stack=2|buff.killing_machine.remains<gcd)
+actions.aoe+=/frostscythe,if=buff.killing_machine.react&variable.frostscythe_priority&(buff.killing_machine.stack=2|buff.killing_machine.remains<gcd)
 actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power
 actions.aoe+=/frostscythe,if=variable.frostscythe_priority
 actions.aoe+=/obliterate,if=!variable.frostscythe_priority
@@ -2329,8 +2330,11 @@ actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 	if not self.pooling_runic_power and GlacialAdvance:Usable() and self.rp_buffs then
 		return GlacialAdvance
 	end
-	if CleavingStrikes.known and Obliterate:Usable() and KillingMachine:Up() and DeathAndDecay.buff:Up() and not self.frostscythe_priority then
+	if not self.frostscythe_priority and Obliterate:Usable() and KillingMachine:Up() and (KillingMachine:Stack() >= 2 or KillingMachine:Remains() < Player.gcd or (CleavingStrikes.known and DeathAndDecay.buff:Up())) then
 		return Obliterate
+	end
+	if self.frostscythe_priority and Frostscythe:Usable() and KillingMachine:Up() and (KillingMachine:Stack() >= 2 or KillingMachine:Remains() < Player.gcd) then
+		return Frostscythe
 	end
 	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
 		UseCooldown(DeathStrike)
@@ -2475,6 +2479,7 @@ end
 APL[SPEC.FROST].obliteration = function(self)
 --[[
 actions.obliteration=remorseless_winter,if=!remains&active_enemies>3
+actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react&talent.cleaving_strikes&death_and_decay.ticking&!variable.frostscythe_priority
 actions.obliteration+=/howling_blast,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&buff.rime.react
 actions.obliteration+=/frost_strike,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&active_enemies<=1
 actions.obliteration+=/glacial_advance,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&!death_and_decay.ticking
@@ -2495,6 +2500,9 @@ actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuf
 ]]
 	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Player.enemies > 3 then
 		return RemorselessWinter
+	end
+	if not self.frostscythe_priority and Obliterate:Usable() and KillingMachine:Up() and DeathAndDecay.buff:Up() then
+		return Obliterate
 	end
 	if KillingMachine:Stack() < 2 and PillarOfFrost:Remains() < Player.gcd then
 		if HowlingBlast:Usable() and Rime:Up() then
