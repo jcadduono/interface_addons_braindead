@@ -2442,7 +2442,7 @@ actions.cooldowns+=/frostwyrms_fury,if=talent.obliteration&(talent.pillar_of_fro
 actions.cooldowns+=/raise_dead
 actions.cooldowns+=/soul_reaper,if=fight_remains>5&target.time_to_pct_35<5&active_enemies<=2&(talent.obliteration&(buff.pillar_of_frost.up&!buff.killing_machine.react|!buff.pillar_of_frost.up)|talent.breath_of_sindragosa&(buff.breath_of_sindragosa.up&runic_power>40|!buff.breath_of_sindragosa.up)|!talent.breath_of_sindragosa&!talent.obliteration)
 actions.cooldowns+=/sacrificial_pact,if=!talent.glacial_advance&!buff.breath_of_sindragosa.up&pet.ghoul.remains<gcd*2&active_enemies>3
-actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(buff.pillar_of_frost.up&buff.pillar_of_frost.remains>5&buff.pillar_of_frost.remains<11|!buff.pillar_of_frost.up&(cooldown.pillar_of_frost.remains_expected>(55-30*charges_fractional)|buff.enduring_strength.up&buff.killing_machine.up)|fight_remains<11)&(active_enemies>5|talent.cleaving_strikes&active_enemies>=2)
+actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(buff.pillar_of_frost.remains>5&(buff.killing_machine.up|!talent.obliteration&buff.pillar_of_frost.remains<11)|!buff.pillar_of_frost.up&(cooldown.pillar_of_frost.remains_expected>(55-30*charges_fractional)|buff.enduring_strength.up&buff.killing_machine.up)|fight_remains<11)&(active_enemies>5|talent.cleaving_strikes&active_enemies>=2)
 ]]
 	if EmpowerRuneWeapon:Usable() and EmpowerRuneWeapon:Down() and (
 		(Target.boss and Target.timeToDie < 20) or
@@ -2490,15 +2490,14 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	if SacrificialPact:Usable() and Player.enemies > 3 and not GlacialAdvance.known and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (not Obliteration.known or PillarOfFrost:Down()) and Pet.RisenGhoul:Remains() < 3)) then
 		UseExtra(SacrificialPact)
 	end
-	if DeathAndDecay:Usable() and Player.enemies >= 2 and DeathAndDecay.buff:Down() and (between(PillarOfFrost:Remains(), 5, 11) or (PillarOfFrost:Down() and (PillarOfFrost:CooldownExpected() > (55 - (30 * DeathAndDecay:ChargesFractional())) or (EnduringStrength:Up() and KillingMachine:Up()))) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
+	if DeathAndDecay:Usable() and Player.enemies >= 2 and DeathAndDecay.buff:Down() and ((PillarOfFrost:Remains() > 5 and (KillingMachine:Up() or (not Obliteration.known and PillarOfFrost:Remains() < 11))) or (PillarOfFrost:Down() and (PillarOfFrost:CooldownExpected() > (55 - (30 * DeathAndDecay:ChargesFractional())) or (EnduringStrength:Up() and KillingMachine:Up()))) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
 		UseCooldown(DeathAndDecay)
 	end
 end
 
 APL[SPEC.FROST].obliteration = function(self)
 --[[
-actions.obliteration=remorseless_winter,if=!remains&active_enemies>3
-actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react&talent.cleaving_strikes&death_and_decay.ticking&!variable.frostscythe_priority
+actions.obliteration=obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=buff.killing_machine.react&talent.cleaving_strikes&death_and_decay.ticking&!variable.frostscythe_priority
 actions.obliteration+=/howling_blast,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&buff.rime.react
 actions.obliteration+=/frost_strike,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&active_enemies<=1
 actions.obliteration+=/glacial_advance,if=buff.killing_machine.stack<2&buff.pillar_of_frost.remains<gcd&!death_and_decay.ticking
@@ -2515,11 +2514,9 @@ actions.obliteration+=/arcane_torrent,if=rune<1&runic_power<25
 actions.obliteration+=/glacial_advance,if=!variable.pooling_runic_power&active_enemies>=2
 actions.obliteration+=/frost_strike,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice,if=!variable.pooling_runic_power&(!talent.glacial_advance|active_enemies=1)
 actions.obliteration+=/howling_blast,if=buff.rime.react
+actions.obliteration+=/remorseless_winter,if=!remains
 actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razorice.remains+1)*death_knight.runeforge.razorice
 ]]
-	if RemorselessWinter:Usable() and RemorselessWinter:Down() and Player.enemies > 3 then
-		return RemorselessWinter
-	end
 	if not self.frostscythe_priority and Obliterate:Usable() and KillingMachine:Up() and DeathAndDecay.buff:Up() then
 		return Obliterate
 	end
@@ -2574,6 +2571,9 @@ actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuf
 	end
 	if HowlingBlast:Usable() and Rime:Up() then
 		return HowlingBlast
+	end
+	if RemorselessWinter:Usable() and RemorselessWinter:Down() then
+		return RemorselessWinter
 	end
 	if Obliterate:Usable() then
 		return Obliterate
