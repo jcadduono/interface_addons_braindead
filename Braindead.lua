@@ -2333,9 +2333,10 @@ end
 APL[SPEC.FROST].aoe = function(self)
 --[[
 actions.aoe=remorseless_winter,if=!remains
+actions.aoe+=/obliterate,if=buff.killing_machine.react&!variable.frostscythe_priority&talent.cleaving_strikes&death_and_decay.ticking
 actions.aoe+=/howling_blast,if=buff.rime.react|!dot.frost_fever.ticking
 actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power&variable.rp_buffs
-actions.aoe+=/obliterate,if=buff.killing_machine.react&!variable.frostscythe_priority&(talent.cleaving_strikes&death_and_decay.ticking|buff.killing_machine.stack=2|buff.killing_machine.remains<gcd|buff.bonegrinder_crit.up&(buff.bonegrinder_crit.remains<gcd|buff.bonegrinder_crit.stack>=5))
+actions.aoe+=/obliterate,if=buff.killing_machine.react&!variable.frostscythe_priority&(buff.killing_machine.stack=2|buff.killing_machine.remains<gcd|buff.bonegrinder_crit.up&(buff.bonegrinder_crit.remains<gcd|buff.bonegrinder_crit.stack>=5))
 actions.aoe+=/frostscythe,if=buff.killing_machine.react&variable.frostscythe_priority&(buff.killing_machine.stack=2|buff.killing_machine.remains<gcd|buff.bonegrinder_crit.up&(buff.bonegrinder_crit.remains<gcd|buff.bonegrinder_crit.stack>=5))
 actions.aoe+=/obliterate,if=!variable.frostscythe_priority&(talent.cleaving_strikes&death_and_decay.ticking|!variable.pooling_runes&buff.killing_machine.react|rune.time_to_4<gcd)
 actions.aoe+=/glacial_advance,if=!variable.pooling_runic_power
@@ -2348,13 +2349,16 @@ actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 	if RemorselessWinter:Usable() and RemorselessWinter:Down() then
 		return RemorselessWinter
 	end
+	if CleavingStrikes.known and not self.frostscythe_priority and Obliterate:Usable() and KillingMachine:Up() and DeathAndDecay.buff:Up() then
+		return Obliterate
+	end
 	if HowlingBlast:Usable() and (Rime:Up() or FrostFever:Down()) then
 		return HowlingBlast
 	end
 	if not self.pooling_runic_power and GlacialAdvance:Usable() and self.rp_buffs then
 		return GlacialAdvance
 	end
-	if not self.frostscythe_priority and Obliterate:Usable() and KillingMachine:Up() and (KillingMachine:Stack() >= 2 or KillingMachine:Remains() < Player.gcd or (CleavingStrikes.known and DeathAndDecay.buff:Up()) or (Bonegrinder:Up() and (Bonegrinder:Remains() < Player.gcd or Bonegrinder:Stack() >= 5))) then
+	if not self.frostscythe_priority and Obliterate:Usable() and KillingMachine:Up() and (KillingMachine:Stack() >= 2 or KillingMachine:Remains() < Player.gcd or (Bonegrinder:Up() and (Bonegrinder:Remains() < Player.gcd or Bonegrinder:Stack() >= 5))) then
 		return Obliterate
 	end
 	if self.frostscythe_priority and Frostscythe:Usable() and KillingMachine:Up() and (KillingMachine:Stack() >= 2 or KillingMachine:Remains() < Player.gcd or (Bonegrinder:Up() and (Bonegrinder:Remains() < Player.gcd or Bonegrinder:Stack() >= 5))) then
