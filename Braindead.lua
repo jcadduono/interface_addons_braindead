@@ -198,7 +198,10 @@ local Player = {
 	},
 	previous_gcd = {},-- list of previous GCD abilities
 	item_use_blacklist = { -- list of item IDs with on-use effects we should mark unusable
-		[190958] = true,
+		[190958] = true, -- Soleah's Secret Technique
+		[193757] = true, -- Ruby Whelp Shell
+		[202612] = true, -- Screaming Black Dragonscale
+		[203729] = true, -- Ominous Chromatic Essence
 	},
 	main_freecast = false,
 	use_cds = false,
@@ -2187,7 +2190,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 end
 
 APL[SPEC.FROST].Main = function(self)
-	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up())
+	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up()) or (CleavingStrikes.known and Player.enemies >= 2 and DeathAndDecay.buff:Up())
 
 	if Player:TimeInCombat() == 0 then
 --[[
