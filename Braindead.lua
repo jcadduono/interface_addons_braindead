@@ -137,6 +137,17 @@ local Abilities = {
 	trackAuras = {},
 }
 
+-- summoned pet template
+local SummonedPet = {}
+SummonedPet.__index = SummonedPet
+
+-- classified summoned pets
+local SummonedPets = {
+	all = {},
+	known = {},
+	byUnitId = {},
+}
+
 -- methods for target tracking / aoe modes
 local AutoAoe = {
 	targets = {},
@@ -204,11 +215,6 @@ local Player = {
 		regen = 0,
 		remains = {},
 	},
-	pet = {
-		active = false,
-		alive = false,
-		stuck = false,
-	},
 	swing = {
 		mh = {
 			last = 0,
@@ -247,6 +253,22 @@ local Player = {
 	drw_remains = 0,
 	pooling_for_aotd = false,
 	pooling_for_gargoyle = false,
+}
+
+-- current pet information
+local Pet = {
+	active = false,
+	alive = false,
+	stuck = false,
+	health = {
+		current = 0,
+		max = 100,
+		pct = 100,
+	},
+	energy = {
+		current = 0,
+		max = 100,
+	},
 }
 
 -- current target information
@@ -590,6 +612,9 @@ function Ability:Usable(seconds)
 	if not self.known then
 		return false
 	end
+	if self.requires_pet and not Pet.active then
+		return false
+	end
 	if self:RunicPowerCost() > Player.runic_power.current then
 		return false
 	end
@@ -597,9 +622,6 @@ function Ability:Usable(seconds)
 		return false
 	end
 	if self.requires_charge and self:Charges() == 0 then
-		return false
-	end
-	if self.requires_pet and not Player.pet.active then
 		return false
 	end
 	return self:Ready(seconds)
@@ -868,7 +890,7 @@ end
 
 function Ability:CastFailed(dstGUID, missType)
 	if self.requires_pet and missType == 'No path available' then
-		Player.pet.stuck = true
+		Pet.stuck = true
 	end
 end
 
@@ -886,7 +908,7 @@ function Ability:CastSuccess(dstGUID)
 		AutoAoe:Add(dstGUID, true)
 	end
 	if self.requires_pet then
-		Player.pet.stuck = false
+		Pet.stuck = false
 	end
 	if self.traveling and self.next_castGUID then
 		self.traveling[self.next_castGUID] = {
@@ -1330,20 +1352,12 @@ local VirulentEruption = Ability:Add(191685, false, true)
 
 -- Start Summoned Pets
 
-local SummonedPet, Pet = {}, {}
-SummonedPet.__index = SummonedPet
-local summonedPets = {
-	all = {},
-	known = {},
-	byUnitId = {},
-}
-
-function summonedPets:Find(guid)
+function SummonedPets:Find(guid)
 	local unitId = guid:match('^Creature%-0%-%d+%-%d+%-%d+%-(%d+)')
 	return unitId and self.byUnitId[tonumber(unitId)]
 end
 
-function summonedPets:Purge()
+function SummonedPets:Purge()
 	local _, pet, guid, unit
 	for _, pet in next, self.known do
 		for guid, unit in next, pet.active_units do
@@ -1354,19 +1368,19 @@ function summonedPets:Purge()
 	end
 end
 
-function summonedPets:Update()
+function SummonedPets:Update()
 	wipe(self.known)
 	wipe(self.byUnitId)
 	for _, pet in next, self.all do
 		pet.known = pet.summon_spell and pet.summon_spell.known
 		if pet.known then
-			self.known[#summonedPets.known + 1] = pet
+			self.known[#SummonedPets.known + 1] = pet
 			self.byUnitId[pet.unitId] = pet
 		end
 	end
 end
 
-function summonedPets:Count()
+function SummonedPets:Count()
 	local _, pet, guid, unit
 	local count = 0
 	for _, pet in next, self.known do
@@ -1384,7 +1398,7 @@ function SummonedPet:Add(unitId, duration, summonSpell)
 		known = false,
 	}
 	setmetatable(pet, self)
-	summonedPets.all[#summonedPets.all + 1] = pet
+	SummonedPets.all[#SummonedPets.all + 1] = pet
 	return pet
 end
 
@@ -1705,7 +1719,7 @@ function Player:UpdateKnown()
 	end
 
 	Abilities:Update()
-	summonedPets:Update()
+	SummonedPets:Update()
 end
 
 function Player:UpdateThreat()
@@ -1720,12 +1734,6 @@ function Player:UpdateThreat()
 			self.threat.lead = max(0, threat_table[1][6] - threat_table[2][6])
 		end
 	end
-end
-
-function Player:UpdatePet()
-	self.pet.guid = UnitGUID('pet')
-	self.pet.alive = self.pet.guid and not UnitIsDead('pet') and true
-	self.pet.active = (self.pet.alive and not self.pet.stuck or IsFlying()) and true
 end
 
 function Player:UpdateRunes()
@@ -1773,9 +1781,10 @@ function Player:Update()
 	self.moving = GetUnitSpeed('player') ~= 0
 	self:UpdateRunes()
 	self:UpdateThreat()
-	self:UpdatePet()
 
-	summonedPets:Purge()
+	Pet:Update()
+
+	SummonedPets:Purge()
 	trackAuras:Purge()
 	if Opt.auto_aoe then
 		for _, ability in next, Abilities.autoAoe do
@@ -1804,6 +1813,18 @@ function Player:Init()
 end
 
 -- End Player Functions
+
+-- Start Pet Functions
+
+function Pet:Update()
+	self.guid = UnitGUID('pet')
+	self.alive = self.guid and not UnitIsDead('pet')
+	self.active = (self.alive and not self.stuck or IsFlying()) and true
+	self.energy.max = self.active and UnitPowerMax('pet', 3) or 100
+	self.energy.current = UnitPower('pet', 3)
+end
+
+-- End Pet Functions
 
 -- Start Target Functions
 
@@ -1992,14 +2013,14 @@ end
 BlindingSleet.Usable = Asphyxiate.Usable
 
 function RaiseDead:Usable()
-	if Player.pet.alive then
+	if Pet.alive then
 		return false
 	end
 	return Ability.Usable(self)
 end
 
 function SacrificialPact:Usable()
-	if RaiseDeadUnholy.known and not Player.pet.alive then
+	if RaiseDeadUnholy.known and not Pet.alive then
 		return false
 	end
 	if RaiseDead.known and Pet.RisenGhoul:Down() then
@@ -2736,7 +2757,7 @@ APL[SPEC.UNHOLY].Main = function(self)
 	Player.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:Ready(5)
 	Player.pooling_for_gargoyle = Player.use_cds and SummonGargoyle.known and SummonGargoyle:Ready(5)
 
-	if not Player.pet.active and RaiseDeadUnholy:Usable() then
+	if not Pet.active and RaiseDeadUnholy:Usable() then
 		UseExtra(RaiseDeadUnholy)
 	end
 	if Player:TimeInCombat() == 0 then
@@ -3418,7 +3439,7 @@ CombatEvent.UNIT_DIED = function(event, srcGUID, dstGUID)
 	if Opt.auto_aoe then
 		AutoAoe:Remove(dstGUID)
 	end
-	local pet = summonedPets:Find(dstGUID)
+	local pet = SummonedPets:Find(dstGUID)
 	if pet then
 		pet:RemoveUnit(dstGUID)
 	end
@@ -3435,11 +3456,11 @@ CombatEvent.SWING_DAMAGE = function(event, srcGUID, dstGUID, amount, overkill, s
 		if Opt.auto_aoe then
 			AutoAoe:Add(srcGUID, true)
 		end
-	elseif srcGUID == Player.pet.guid then
+	elseif srcGUID == Pet.guid then
 		if Opt.auto_aoe then
 			AutoAoe:Add(dstGUID, true)
 		end
-	elseif dstGUID == Player.pet.guid then
+	elseif dstGUID == Pet.guid then
 		if Opt.auto_aoe then
 			AutoAoe:Add(srcGUID, true)
 		end
@@ -3457,11 +3478,11 @@ CombatEvent.SWING_MISSED = function(event, srcGUID, dstGUID, missType, offHand, 
 		if Opt.auto_aoe then
 			AutoAoe:Add(srcGUID, true)
 		end
-	elseif srcGUID == Player.pet.guid then
+	elseif srcGUID == Pet.guid then
 		if Opt.auto_aoe and not (missType == 'EVADE' or missType == 'IMMUNE') then
 			AutoAoe:Add(dstGUID, true)
 		end
-	elseif dstGUID == Player.pet.guid then
+	elseif dstGUID == Pet.guid then
 		if Opt.auto_aoe then
 			AutoAoe:Add(srcGUID, true)
 		end
@@ -3472,14 +3493,14 @@ CombatEvent.SPELL_SUMMON = function(event, srcGUID, dstGUID)
 	if srcGUID ~= Player.guid then
 		return
 	end
-	local pet = summonedPets:Find(dstGUID)
+	local pet = SummonedPets:Find(dstGUID)
 	if pet then
 		pet:AddUnit(dstGUID)
 	end
 end
 
 CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellSchool, missType, overCap, powerType)
-	local pet = summonedPets:Find(srcGUID)
+	local pet = SummonedPets:Find(srcGUID)
 	if pet then
 		local unit = pet.active_units[srcGUID]
 		if unit then
@@ -3497,15 +3518,15 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 		return
 	end
 
-	if not (srcGUID == Player.guid or srcGUID == Player.pet.guid) then
+	if not (srcGUID == Player.guid or srcGUID == Pet.guid) then
 		return
 	end
 
-	if srcGUID == Player.pet.guid then
-		if Player.pet.stuck and (event == 'SPELL_CAST_SUCCESS' or event == 'SPELL_DAMAGE' or event == 'SWING_DAMAGE') then
-			Player.pet.stuck = false
-		elseif not Player.pet.stuck and event == 'SPELL_CAST_FAILED' and missType == 'No path available' then
-			Player.pet.stuck = true
+	if srcGUID == Pet.guid then
+		if Pet.stuck and (event == 'SPELL_CAST_SUCCESS' or event == 'SPELL_DAMAGE' or event == 'SWING_DAMAGE') then
+			Pet.stuck = false
+		elseif not Pet.stuck and event == 'SPELL_CAST_FAILED' and missType == 'No path available' then
+			Pet.stuck = true
 		end
 	end
 
@@ -3537,7 +3558,7 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 			ability:ApplyAura(dstGUID) -- BUG: VP tick on unrecorded target, assume freshly applied (possibly by Raise Abomination?)
 		end
 	end
-	if dstGUID == Player.guid or dstGUID == Player.pet.guid then
+	if dstGUID == Player.guid or dstGUID == Pet.guid then
 		if event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH' then
 			ability.last_gained = Player.time
 		end
@@ -3582,6 +3603,10 @@ function Events:UNIT_HEALTH(unitId)
 		Player.health.current = UnitHealth('player')
 		Player.health.max = UnitHealthMax('player')
 		Player.health.pct = Player.health.current / Player.health.max * 100
+	elseif unitId == 'pet' then
+		Pet.health.current = UnitHealth('pet')
+		Pet.health.max = UnitHealthMax('pet')
+		Pet.health.pct = Pet.health.current / Pet.health.max * 100
 	end
 end
 
@@ -3631,6 +3656,13 @@ function Events:UNIT_SPELLCAST_SUCCEEDED(unitId, castGUID, spellId)
 	end
 end
 
+function Events:UNIT_PET(unitId)
+	if unitId ~= 'player' then
+		return
+	end
+	Pet:Update()
+end
+
 function Events:PLAYER_REGEN_DISABLED()
 	Player:UpdateTime()
 	Player.combat_start = Player.time
@@ -3639,8 +3671,8 @@ end
 function Events:PLAYER_REGEN_ENABLED()
 	Player:UpdateTime()
 	Player.combat_start = 0
-	Player.pet.stuck = false
 	Player.swing.last_taken = 0
+	Pet.stuck = false
 	Target.estimated_range = 30
 	wipe(Player.previous_gcd)
 	if Player.last_ability then
@@ -3738,16 +3770,6 @@ function Events:ACTIONBAR_SLOT_CHANGED()
 	UI:UpdateGlows()
 end
 
-function Events:UI_ERROR_MESSAGE(errorId)
-	if (
-	    errorId == 394 or -- pet is rooted
-	    errorId == 396 or -- target out of pet range
-	    errorId == 400    -- no pet path to target
-	) then
-		Player.pet.stuck = true
-	end
-end
-
 function Events:GROUP_ROSTER_UPDATE()
 	Player.group_size = clamp(GetNumGroupMembers(), 1, 40)
 end
@@ -3756,6 +3778,16 @@ function Events:PLAYER_ENTERING_WORLD()
 	Player:Init()
 	Target:Update()
 	C_Timer.After(5, function() Events:PLAYER_EQUIPMENT_CHANGED() end)
+end
+
+function Events:UI_ERROR_MESSAGE(errorId)
+	if (
+	    errorId == 394 or -- pet is rooted
+	    errorId == 396 or -- target out of pet range
+	    errorId == 400    -- no pet path to target
+	) then
+		Pet.stuck = true
+	end
 end
 
 braindeadPanel.button:SetScript('OnClick', function(self, button, down)
