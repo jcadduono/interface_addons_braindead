@@ -2238,11 +2238,14 @@ actions.drw_up+=/consumption
 actions.drw_up+=/blood_boil,if=charges_fractional>=1.1&buff.hemostasis.stack<5
 actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variable.heart_strike_rp_drw
 ]]
+	if AshenDecay.known and HeartStrike:Usable() and Player.runic_power.deficit >= self.heart_strike_rp and AshenDecay:Up() and AshenDecay.debuff:Down() and min(5, Player.enemies) <= HeartStrike:Targets() then
+		return HeartStrike
+	end
 	if BloodBoil:Usable() and BloodPlague:Down() then
 		return BloodBoil
 	end
 	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
-		(ShatteringBone.known and DeathAndDecay.buff:Up()) or
+		(ShatteringBone.known and DeathAndDecay.buff:Up() and (not AshenDecay.known or AshenDecay.debuff:Up() or AshenDecay:Down())) or
 		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
 	) then
 		UseCooldown(Tombstone)
@@ -2293,7 +2296,7 @@ actions.standard+=/blood_boil,if=charges_fractional>=1.1
 actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7))
 ]]
 	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
-		(ShatteringBone.known and DeathAndDecay.buff:Up() and not DancingRuneWeapon:Ready(25)) or
+		(ShatteringBone.known and DeathAndDecay.buff:Up() and not DancingRuneWeapon:Ready(25) and (not AshenDecay.known or AshenDecay.debuff:Up() or AshenDecay:Down())) or
 		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
 	) then
 		UseCooldown(Tombstone)
@@ -2306,6 +2309,9 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	end
 	if Marrowrend:Usable() and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
 		return Marrowrend
+	end
+	if AshenDecay.known and HeartStrike:Usable() and Player.runic_power.deficit >= self.heart_strike_rp and AshenDecay:Up() and AshenDecay.debuff:Down() and min(5, Player.enemies) <= HeartStrike:Targets() then
+		return HeartStrike
 	end
 	if Player.use_cds and Consumption:Usable() then
 		UseCooldown(Consumption)
