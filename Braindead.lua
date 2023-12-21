@@ -1207,7 +1207,10 @@ BoneShield.buff_duration = 30
 local CrimsonScourge = Ability:Add(81136, true, true, 81141)
 CrimsonScourge.buff_duration = 15
 ------ Tier Bonuses
-
+local AshenDecay = Ability:Add(425721, true, true) -- T31 2pc
+AshenDecay.buff_duration = 20
+AshenDecay.debuff = Ability:Add(425719, false, true)
+AshenDecay.debuff.buff_duration = 8
 ---- Frost
 ------ Talents
 local Avalanche = Ability:Add(207142, false, true, 207150)
@@ -1746,6 +1749,10 @@ function Player:UpdateKnown()
 	Hysteria.known = RuneOfHysteria.known
 	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalanche.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
+	if self.spec == SPEC.BLOOD then
+		AshenDecay.known = self.set_bonus.t31 >= 2
+		AshenDecay.debuff.known = AshenDecay.known
+	end
 
 	if DancingRuneWeapon.known then
 		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 14, 'OUTLINE')
@@ -2110,8 +2117,11 @@ actions.precombat=flask
 actions.precombat+=/food
 actions.precombat+=/augmentation
 actions.precombat+=/snapshot_stats
-actions.precombat+=/variable,name=trinket_1_buffs,value=trinket.1.has_buff.strength|trinket.1.has_buff.mastery|trinket.1.has_buff.versatility|trinket.1.has_buff.haste|trinket.1.has_buff.crit
-actions.precombat+=/variable,name=trinket_2_buffs,value=trinket.2.has_buff.strength|trinket.2.has_buff.mastery|trinket.2.has_buff.versatility|trinket.2.has_buff.haste|trinket.2.has_buff.crit
+actions.precombat+=/variable,name=trinket_1_buffs,value=trinket.1.has_use_buff|(trinket.1.has_buff.strength|trinket.1.has_buff.mastery|trinket.1.has_buff.versatility|trinket.1.has_buff.haste|trinket.1.has_buff.crit)
+actions.precombat+=/variable,name=trinket_2_buffs,value=trinket.2.has_use_buff|(trinket.2.has_buff.strength|trinket.2.has_buff.mastery|trinket.2.has_buff.versatility|trinket.2.has_buff.haste|trinket.2.has_buff.crit)
+actions.precombat+=/variable,name=trinket_1_exclude,value=trinket.1.is.ruby_whelp_shell|trinket.1.is.whispering_incarnate_icon
+actions.precombat+=/variable,name=trinket_2_exclude,value=trinket.2.is.ruby_whelp_shell|trinket.2.is.whispering_incarnate_icon
+actions.precombat+=/variable,name=damage_trinket_priority,op=setif,value=2,value_else=1,condition=trinket.2.ilvl>trinket.1.ilvl
 ]]
 		if DeathAndDecay:Usable() then
 			UseCooldown(DeathAndDecay)
@@ -2130,10 +2140,11 @@ actions+=/potion,if=buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=trinkets
 actions+=/raise_dead
 actions+=/icebound_fortitude,if=!(buff.dancing_rune_weapon.up|buff.vampiric_blood.up)&(target.cooldown.pause_action.remains>=8|target.cooldown.pause_action.duration>0)
-actions+=/vampiric_blood,if=!(buff.dancing_rune_weapon.up|buff.icebound_fortitude.up)&(target.cooldown.pause_action.remains>=13|target.cooldown.pause_action.duration>0)
+actions+=/vampiric_blood,if=!buff.vampiric_blood.up&!buff.vampiric_strength.up
+actions+=/vampiric_blood,if=!(buff.dancing_rune_weapon.up|buff.icebound_fortitude.up|buff.vampiric_blood.up|buff.vampiric_strength.up)&(target.cooldown.pause_action.remains>=13|target.cooldown.pause_action.duration>0)
 actions+=/deaths_caress,if=!buff.bone_shield.up
-actions+=/death_and_decay,if=!death_and_decay.ticking&(talent.unholy_ground|talent.sanguine_ground)|spell_targets.death_and_decay>3|buff.crimson_scourge.up
-actions+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd|runic_power<=variable.death_strike_dump_amount|runic_power.deficit<=variable.heart_strike_rp|target.time_to_die<10
+actions+=/death_and_decay,if=!death_and_decay.ticking&(talent.unholy_ground|talent.sanguine_ground|spell_targets.death_and_decay>3|buff.crimson_scourge.up)
+actions+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd|runic_power>=variable.death_strike_dump_amount|runic_power.deficit<=variable.heart_strike_rp|target.time_to_die<10
 actions+=/blooddrinker,if=!buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=racials
 actions+=/sacrificial_pact,if=!buff.dancing_rune_weapon.up&(pet.ghoul.remains<2|target.time_to_die<gcd)
@@ -2153,11 +2164,7 @@ actions+=/call_action_list,name=standard
 
 	if Player.use_cds then
 		if Opt.trinket then
-			if Trinket1:Usable() then
-				UseCooldown(Trinket1)
-			elseif Trinket2:Usable() then
-				UseCooldown(Trinket2)
-			end
+			self:trinkets()
 		end
 		if RaiseDead:Usable() then
 			UseExtra(RaiseDead)
@@ -2169,7 +2176,7 @@ actions+=/call_action_list,name=standard
 			end
 		end
 	end
-	if DeathStrike:Usable() and Player.health.pct < 30 then
+	if DeathStrike:Usable() and Player.health.pct < 50 then
 		return DeathStrike
 	end
 	if Marrowrend:Usable() and BoneShield:Down() and Player:UnderAttack() then
@@ -2178,8 +2185,16 @@ actions+=/call_action_list,name=standard
 	if DeathsCaress:Usable() and BoneShield:Down() then
 		return DeathsCaress
 	end
-	if DeathAndDecay:Usable() and ((DeathAndDecay.buff:Down() and (SanguineGround.known or UnholyGround.known)) or (Player.enemies > 3 and (DeathAndDecay.buff:Down() or DeathAndDecay:ChargesFractional() > 1.5)) or CrimsonScourge:Up()) then
+	if DeathAndDecay:Usable() and DeathAndDecay.buff:Down() and (SanguineGround.known or UnholyGround.known or Player.enemies > 3 or CrimsonScourge:Up()) then
 		return DeathAndDecay
+	end
+	if DeathStrike:Usable() and (
+		(Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or
+		(IcyTalons.known and IcyTalons:Remains() <= Player.gcd) or
+		(Player.runic_power.current >= self.death_strike_dump_amount) or
+		(Player.runic_power.deficit <= self.heart_strike_rp)
+	) then
+		return DeathStrike
 	end
 	if Player.use_cds then
 		if Blooddrinker:Usable() and Player.drw_remains == 0 then
@@ -2210,11 +2225,12 @@ end
 APL[SPEC.BLOOD].drw_up = function(self)
 --[[
 actions.drw_up=blood_boil,if=!dot.blood_plague.ticking
-actions.drw_up+=/tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&(!talent.shattering_bone.enabled|!talent.sanguine_ground|buff.sanguine_ground.up)
+actions.drw_up+=/tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&!talent.shattering_bone|(talent.shattering_bone.enabled&death_and_decay.ticking)
 actions.drw_up+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd
-actions.drw_up+=/marrowrend,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value&runic_power.deficit>20))
+actions.drw_up+=/marrowrend,if=(buff.bone_shield.remains<=4|buff.bone_shield.stack<variable.bone_shield_refresh_value)&runic_power.deficit>20
 actions.drw_up+=/soul_reaper,if=active_enemies=1&target.time_to_pct_35<5&target.time_to_die>(dot.soul_reaper.remains+5)
 actions.drw_up+=/soul_reaper,target_if=min:dot.soul_reaper.remains,if=target.time_to_pct_35<5&active_enemies>=2&target.time_to_die>(dot.soul_reaper.remains+5)
+actions.drw_up+=/death_and_decay,if=!death_and_decay.ticking&(talent.sanguine_ground|talent.unholy_ground)
 actions.drw_up+=/blood_boil,if=spell_targets.blood_boil>2&charges_fractional>=1.1
 actions.drw_up+=/variable,name=heart_strike_rp_drw,value=(25+spell_targets.heart_strike*talent.heartbreaker.enabled*2)
 actions.drw_up+=/death_strike,if=runic_power.deficit<=variable.heart_strike_rp_drw|runic_power>=variable.death_strike_dump_amount
@@ -2225,7 +2241,10 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	if BloodBoil:Usable() and BloodPlague:Down() then
 		return BloodBoil
 	end
-	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30 and (not ShatteringBone.known or not SanguineGround.known or DeathAndDecay.buff:Up()) then
+	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
+		(ShatteringBone.known and DeathAndDecay.buff:Up()) or
+		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
+	) then
 		UseCooldown(Tombstone)
 	end
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd)) then
@@ -2236,6 +2255,9 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	end
 	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
 		UseCooldown(SoulReaper)
+	end
+	if DeathAndDecay:Usable() and DeathAndDecay.buff:Down() and (SanguineBlood.known or UnholyGround.known) then
+		return DeathAndDecay
 	end
 	if BloodBoil:Usable() and Player.enemies > 2 and BloodBoil:ChargesFractional() >= 1.1 then
 		return BloodBoil
@@ -2256,11 +2278,11 @@ end
 
 APL[SPEC.BLOOD].standard = function(self)
 --[[
-actions.standard=tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&cooldown.dancing_rune_weapon.remains>=25&(!talent.shattering_bone.enabled|!talent.sanguine_ground|buff.sanguine_ground.up)
+actions.standard=tombstone,if=buff.bone_shield.stack>5&rune>=2&runic_power.deficit>=30&!talent.shattering_bone|(talent.shattering_bone.enabled&death_and_decay.ticking)&cooldown.dancing_rune_weapon.remains>=25
 actions.standard+=/variable,name=heart_strike_rp,value=(10+spell_targets.heart_strike*talent.heartbreaker.enabled*2)
 actions.standard+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd|runic_power>=variable.death_strike_dump_amount|runic_power.deficit<=variable.heart_strike_rp|target.time_to_die<10
-actions.standard+=/deaths_caress,if=(buff.bone_shield.remains<=5|(buff.bone_shield.stack<variable.bone_shield_refresh_value+1&runic_power.deficit>10))&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)&!talent.consumption.enabled&!talent.blooddrinker.enabled&rune.time_to_3>gcd
-actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=5|(buff.bone_shield.stack<variable.bone_shield_refresh_value&runic_power.deficit>20))&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)
+actions.standard+=/deaths_caress,if=(buff.bone_shield.remains<=4|(buff.bone_shield.stack<variable.bone_shield_refresh_value+1))&runic_power.deficit>10&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)&!talent.consumption.enabled&!talent.blooddrinker.enabled&rune.time_to_3>gcd
+actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=4|buff.bone_shield.stack<variable.bone_shield_refresh_value)&runic_power.deficit>20&!(talent.insatiable_blade&cooldown.dancing_rune_weapon.remains<buff.bone_shield.remains)
 actions.standard+=/consumption
 actions.standard+=/soul_reaper,if=active_enemies=1&target.time_to_pct_35<5&target.time_to_die>(dot.soul_reaper.remains+5)
 actions.standard+=/soul_reaper,target_if=min:dot.soul_reaper.remains,if=target.time_to_pct_35<5&active_enemies>=2&target.time_to_die>(dot.soul_reaper.remains+5)
@@ -2270,7 +2292,10 @@ actions.standard+=/heart_strike,if=rune.time_to_4<gcd
 actions.standard+=/blood_boil,if=charges_fractional>=1.1
 actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7))
 ]]
-	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30 and not DancingRuneWeapon:Ready(25) and (not ShatteringBone.known or not SanguineGround.known or DeathAndDecay.buff:Up()) then
+	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
+		(ShatteringBone.known and DeathAndDecay.buff:Up() and not DancingRuneWeapon:Ready(25)) or
+		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
+	) then
 		UseCooldown(Tombstone)
 	end
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd) or (Player.runic_power.current >= self.death_strike_dump_amount) or (Player.runic_power.deficit <= self.heart_strike_rp)) then
@@ -2304,6 +2329,24 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 		return HeartStrike
 	end
 end
+
+APL[SPEC.BLOOD].trinkets = function(self)
+--[[
+actions.trinkets=use_item,name=fyralath_the_dreamrender,if=dot.mark_of_fyralath.ticking
+# Prioritize damage dealing on use trinkets over trinkets that give buffs
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_buffs&(variable.damage_trinket_priority=1|trinket.2.cooldown.remains|!trinket.2.has_cooldown)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=!variable.trinket_2_buffs&(variable.damage_trinket_priority=2|trinket.1.cooldown.remains|!trinket.1.has_cooldown)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=!equipped.fyralath_the_dreamrender&(variable.trinket_1_buffs|trinket.1.cooldown.remains)&(variable.trinket_2_buffs|trinket.2.cooldown.remains)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_2_exclude|trinket.2.cooldown.remains|!trinket.2.has_cooldown|variable.trinket_2_buffs)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_1_exclude|trinket.1.cooldown.remains|!trinket.1.has_cooldown|variable.trinket_1_buffs)
+]]
+	if Trinket1:Usable() then
+		return UseCooldown(Trinket1)
+	elseif Trinket2:Usable() then
+		return UseCooldown(Trinket2)
+	end
+end
+
 
 APL[SPEC.FROST].Main = function(self)
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up()) or (CleavingStrikes.known and Player.enemies >= 2 and DeathAndDecay.buff:Up())
