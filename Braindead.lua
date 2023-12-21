@@ -240,6 +240,7 @@ local Player = {
 	set_bonus = {
 		t29 = 0, -- Haunted Frostbrood Remains
 		t30 = 0, -- Lingering Phantom's Encasement
+		t31 = 0, -- Risen Nightmare's Gravemantle
 	},
 	previous_gcd = {},-- list of previous GCD abilities
 	item_use_blacklist = { -- list of item IDs with on-use effects we should mark unusable
@@ -627,7 +628,7 @@ function Ability:Usable(seconds)
 	return self:Ready(seconds)
 end
 
-function Ability:Remains()
+function Ability:Remains(offGCD)
 	if self:Casting() or self:Traveling() > 0 then
 		return self:Duration()
 	end
@@ -640,10 +641,15 @@ function Ability:Remains()
 			if expires == 0 then
 				return 600 -- infinite duration
 			end
-			return max(0, expires - Player.ctime - Player.execute_remains)
+			return max(0, expires - Player.ctime - (offGCD and 0 or Player.execute_remains))
 		end
 	end
 	return 0
+end
+
+function Ability:Expiring(seconds)
+	local remains = self:Remains()
+	return remains > 0 and remains < (seconds or Player.gcd)
 end
 
 function Ability:Refreshable()
@@ -678,7 +684,7 @@ function Ability:Traveling(all)
 	local count = 0
 	for _, cast in next, self.traveling do
 		if all or cast.dstGUID == Target.guid then
-			if Player.time - cast.start < self.max_range / self.velocity then
+			if Player.time - cast.start < self.max_range / self.velocity + (self.travel_delay or 0) then
 				count = count + 1
 			end
 		end
@@ -687,21 +693,21 @@ function Ability:Traveling(all)
 end
 
 function Ability:TravelTime()
-	return Target.estimated_range / self.velocity
+	return Target.estimated_range / self.velocity + (self.travel_delay or 0)
 end
 
 function Ability:Ticking()
 	local count, ticking = 0, {}
 	if self.aura_targets then
 		for guid, aura in next, self.aura_targets do
-			if aura.expires - Player.time > Player.execute_remains then
+			if aura.expires - Player.time > (self.off_gcd and 0 or Player.execute_remains) then
 				ticking[guid] = true
 			end
 		end
 	end
 	if self.traveling then
 		for _, cast in next, self.traveling do
-			if Player.time - cast.start < self.max_range / self.velocity then
+			if Player.time - cast.start < self.max_range / self.velocity + (self.travel_delay or 0) then
 				ticking[cast.dstGUID] = true
 			end
 		end
@@ -728,7 +734,7 @@ function Ability:Cooldown()
 	if start == 0 then
 		return 0
 	end
-	return max(0, duration - (Player.ctime - start) - Player.execute_remains)
+	return max(0, duration - (Player.ctime - start) - (self.off_gcd and 0 or Player.execute_remains))
 end
 
 function Ability:CooldownExpected()
@@ -744,7 +750,7 @@ function Ability:CooldownExpected()
 	end
 	local remains = duration - (Player.ctime - start)
 	local reduction = (Player.time - self.last_used) / (self:CooldownDuration() - remains)
-	return max(0, (remains * reduction) - Player.execute_remains)
+	return max(0, (remains * reduction) - (self.off_gcd and 0 or Player.execute_remains))
 end
 
 function Ability:Stack()
@@ -754,7 +760,7 @@ function Ability:Stack()
 		if not id then
 			return 0
 		elseif self:Match(id) then
-			return (expires == 0 or expires - Player.ctime > Player.execute_remains) and count or 0
+			return (expires == 0 or expires - Player.ctime > (self.off_gcd and 0 or Player.execute_remains)) and count or 0
 		end
 	end
 	return 0
@@ -779,7 +785,7 @@ function Ability:ChargesFractional()
 	if charges >= max_charges then
 		return charges
 	end
-	return charges + ((max(0, Player.ctime - recharge_start + Player.execute_remains)) / recharge_time)
+	return charges + ((max(0, Player.ctime - recharge_start + (self.off_gcd and 0 or Player.execute_remains))) / recharge_time)
 end
 
 function Ability:Charges()
@@ -802,7 +808,7 @@ function Ability:FullRechargeTime()
 	if charges >= max_charges then
 		return 0
 	end
-	return (max_charges - charges - 1) * recharge_time + (recharge_time - (Player.ctime - recharge_start) - Player.execute_remains)
+	return (max_charges - charges - 1) * recharge_time + (recharge_time - (Player.ctime - recharge_start) - (self.off_gcd and 0 or Player.execute_remains))
 end
 
 function Ability:Duration()
@@ -896,6 +902,12 @@ end
 
 function Ability:CastSuccess(dstGUID)
 	self.last_used = Player.time
+	if self.requires_pet then
+		Pet.stuck = false
+	end
+	if self.pet_spell and not self.player_triggered then
+		return
+	end
 	Player.last_ability = self
 	if self.triggers_gcd then
 		Player.previous_gcd[10] = nil
@@ -906,9 +918,6 @@ function Ability:CastSuccess(dstGUID)
 	end
 	if Opt.auto_aoe and self.auto_aoe and self.auto_aoe.trigger == 'SPELL_CAST_SUCCESS' then
 		AutoAoe:Add(dstGUID, true)
-	end
-	if self.requires_pet then
-		Pet.stuck = false
 	end
 	if self.traveling and self.next_castGUID then
 		self.traveling[self.next_castGUID] = {
@@ -930,22 +939,29 @@ function Ability:CastLanded(dstGUID, event, missType)
 	if self.traveling then
 		local oldest
 		for guid, cast in next, self.traveling do
-			if Player.time - cast.start >= self.max_range / self.velocity + 0.2 then
+			if Player.time - cast.start >= self.max_range / self.velocity + (self.travel_delay or 0) + 0.2 then
 				self.traveling[guid] = nil -- spell traveled 0.2s past max range, delete it, this should never happen
 			elseif cast.dstGUID == dstGUID and (not oldest or cast.start < oldest.start) then
 				oldest = cast
 			end
 		end
 		if oldest then
-			Target.estimated_range = floor(clamp(self.velocity * max(0, Player.time - oldest.start), 0, self.max_range))
+			Target.estimated_range = floor(clamp(self.velocity * max(0, Player.time - oldest.start - (self.travel_delay or 0)), 0, self.max_range))
 			self.traveling[oldest.guid] = nil
 		end
 	end
 	if self.range_est_start then
-		Target.estimated_range = floor(clamp(self.velocity * (Player.time - self.range_est_start), 5, self.max_range))
+		Target.estimated_range = floor(clamp(self.velocity * (Player.time - self.range_est_start - (self.travel_delay or 0)), 5, self.max_range))
 		self.range_est_start = nil
 	elseif self.max_range < Target.estimated_range then
 		Target.estimated_range = self.max_range
+	end
+	if Opt.auto_aoe and self.auto_aoe then
+		if event == 'SPELL_MISSED' and (missType == 'EVADE' or (missType == 'IMMUNE' and not self.ignore_immune)) then
+			AutoAoe:Remove(dstGUID)
+		elseif event == self.auto_aoe.trigger or (self.auto_aoe.trigger == 'SPELL_AURA_APPLIED' and event == 'SPELL_AURA_REFRESH') then
+			self:RecordTargetHit(dstGUID)
+		end
 	end
 	if Opt.previous and Opt.miss_effect and event == 'SPELL_MISSED' and braindeadPreviousPanel.ability == self then
 		braindeadPreviousPanel.border:SetTexture(ADDON_PATH .. 'misseffect.blp')
@@ -1358,7 +1374,6 @@ function SummonedPets:Find(guid)
 end
 
 function SummonedPets:Purge()
-	local _, pet, guid, unit
 	for _, pet in next, self.known do
 		for guid, unit in next, pet.active_units do
 			if unit.expires <= Player.time then
@@ -1381,12 +1396,17 @@ function SummonedPets:Update()
 end
 
 function SummonedPets:Count()
-	local _, pet, guid, unit
 	local count = 0
 	for _, pet in next, self.known do
 		count = count + pet:Count()
 	end
 	return count
+end
+
+function SummonedPets:Clear()
+	for _, pet in next, self.known do
+		pet:Clear()
+	end
 end
 
 function SummonedPet:Add(unitId, duration, summonSpell)
@@ -1403,7 +1423,7 @@ function SummonedPet:Add(unitId, duration, summonSpell)
 end
 
 function SummonedPet:Remains(initial)
-	local expires_max, guid, unit = 0
+	local expires_max = 0
 	for guid, unit in next, self.active_units do
 		if (not initial or unit.initial) and unit.expires > expires_max then
 			expires_max = unit.expires
@@ -1421,7 +1441,7 @@ function SummonedPet:Down(...)
 end
 
 function SummonedPet:Count()
-	local count, guid, unit = 0
+	local count = 0
 	for guid, unit in next, self.active_units do
 		if unit.expires - Player.time > Player.execute_remains then
 			count = count + 1
@@ -1431,7 +1451,7 @@ function SummonedPet:Count()
 end
 
 function SummonedPet:Expiring(seconds)
-	local count, guid, unit = 0
+	local count = 0
 	for guid, unit in next, self.active_units do
 		if unit.expires - Player.time <= (seconds or Player.execute_remains) then
 			count = count + 1
@@ -1443,6 +1463,7 @@ end
 function SummonedPet:AddUnit(guid)
 	local unit = {
 		guid = guid,
+		spawn = Player.time,
 		expires = Player.time + self.duration,
 	}
 	self.active_units[guid] = unit
@@ -1451,6 +1472,20 @@ end
 
 function SummonedPet:RemoveUnit(guid)
 	if self.active_units[guid] then
+		self.active_units[guid] = nil
+	end
+end
+
+function SummonedPet:ExtendAll(seconds)
+	for guid, unit in next, self.active_units do
+		if unit.expires > Player.time then
+			unit.expires = unit.expires + seconds
+		end
+	end
+end
+
+function SummonedPet:Clear()
+	for guid in next, self.active_units do
 		self.active_units[guid] = nil
 	end
 end
@@ -1720,6 +1755,10 @@ function Player:UpdateKnown()
 
 	Abilities:Update()
 	SummonedPets:Update()
+
+	if APL[self.spec].precombat_variables then
+		APL[self.spec]:precombat_variables()
+	end
 end
 
 function Player:UpdateThreat()
@@ -1767,10 +1806,12 @@ function Player:Update()
 		self.cast.ability = Abilities.bySpellId[spellId]
 		self.cast.start = start / 1000
 		self.cast.ends = ends / 1000
+		self.cast.remains = self.cast.ends - self.ctime
 	else
 		self.cast.ability = nil
 		self.cast.start = 0
 		self.cast.ends = 0
+		self.cast.remains = 0
 	end
 	self.execute_remains = max(self.cast.ends - self.ctime, self.gcd_remains)
 	speed_mh, speed_oh = UnitAttackSpeed('player')
@@ -1882,21 +1923,21 @@ function Target:Update()
 	self.stunnable = true
 	self.classification = UnitClassification('target')
 	self.player = UnitIsPlayer('target')
-	self.level = UnitLevel('target')
 	self.hostile = UnitCanAttack('player', 'target') and not UnitIsDead('target')
+	self.level = UnitLevel('target')
+	if self.level == -1 then
+		self.level = Player.level + 3
+	end
 	if not self.player and self.classification ~= 'minus' and self.classification ~= 'normal' then
-		if self.level == -1 or (Player.instance == 'party' and self.level >= Player.level + 2) then
-			self.boss = true
-			self.stunnable = false
-		elseif Player.instance == 'raid' or (self.health.max > Player.health.max * 10) then
-			self.stunnable = false
-		end
+		self.boss = self.level >= (Player.level + 3)
+		self.stunnable = self.level < (Player.level + 2)
 	end
 	if self.hostile or Opt.always_on then
 		UI:UpdateCombat()
 		braindeadPanel:Show()
 		return true
 	end
+	UI:Disappear()
 end
 
 function Target:TimeToPct(pct)
@@ -3198,29 +3239,29 @@ UI.anchor_points = {
 	blizzard = { -- Blizzard Personal Resource Display (Default)
 		[SPEC.BLOOD] = {
 			['above'] = { 'BOTTOM', 'TOP', 0, 49 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -12 }
+			['below'] = { 'TOP', 'BOTTOM', 0, -12 },
 		},
 		[SPEC.FROST] = {
 			['above'] = { 'BOTTOM', 'TOP', 0, 49 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -12 }
+			['below'] = { 'TOP', 'BOTTOM', 0, -12 },
 		},
 		[SPEC.UNHOLY] = {
 			['above'] = { 'BOTTOM', 'TOP', 0, 49 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -12 }
+			['below'] = { 'TOP', 'BOTTOM', 0, -12 },
 		}
 	},
 	kui = { -- Kui Nameplates
 		[SPEC.BLOOD] = {
 			['above'] = { 'BOTTOM', 'TOP', 0, 28 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -2 }
+			['below'] = { 'TOP', 'BOTTOM', 0, -2 },
 		},
 		[SPEC.FROST] = {
 			['above'] = { 'BOTTOM', 'TOP', 0, 28 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -2 }
+			['below'] = { 'TOP', 'BOTTOM', 0, -2 },
 		},
 		[SPEC.UNHOLY] = {
 			['above'] = { 'BOTTOM', 'TOP', 0, 28 },
-			['below'] = { 'TOP', 'BOTTOM', 0, -2 }
+			['below'] = { 'TOP', 'BOTTOM', 0, -2 },
 		},
 	},
 }
@@ -3420,6 +3461,7 @@ CombatEvent.TRIGGER = function(timeStamp, event, _, srcGUID, _, _, _, dstGUID, _
 	   e == 'SPELL_CAST_SUCCESS' or
 	   e == 'SPELL_CAST_FAILED' or
 	   e == 'SPELL_DAMAGE' or
+	   e == 'SPELL_ABSORBED' or
 	   e == 'SPELL_ENERGIZE' or
 	   e == 'SPELL_PERIODIC_DAMAGE' or
 	   e == 'SPELL_MISSED' or
@@ -3500,25 +3542,23 @@ CombatEvent.SPELL_SUMMON = function(event, srcGUID, dstGUID)
 end
 
 CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellSchool, missType, overCap, powerType)
-	local pet = SummonedPets:Find(srcGUID)
-	if pet then
-		local unit = pet.active_units[srcGUID]
-		if unit then
-			if event == 'SPELL_CAST_SUCCESS' and pet.CastSuccess then
-				pet:CastSuccess(unit, spellId, dstGUID)
-			elseif event == 'SPELL_CAST_START' and pet.CastStart then
-				pet:CastStart(unit, spellId, dstGUID)
-			elseif event == 'SPELL_CAST_FAILED' and pet.CastFailed then
-				pet:CastFailed(unit, spellId, dstGUID, missType)
-			elseif event == 'SPELL_DAMAGE' and pet.SpellDamage then
-				pet:SpellDamage(unit, spellId, dstGUID)
-			end
-			--print(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
-		end
-		return
-	end
-
 	if not (srcGUID == Player.guid or srcGUID == Pet.guid) then
+		local pet = SummonedPets:Find(srcGUID)
+		if pet then
+			local unit = pet.active_units[srcGUID]
+			if unit then
+				if event == 'SPELL_CAST_SUCCESS' and pet.CastSuccess then
+					pet:CastSuccess(unit, spellId, dstGUID)
+				elseif event == 'SPELL_CAST_START' and pet.CastStart then
+					pet:CastStart(unit, spellId, dstGUID)
+				elseif event == 'SPELL_CAST_FAILED' and pet.CastFailed then
+					pet:CastFailed(unit, spellId, dstGUID, missType)
+				elseif (event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED' or event == 'SPELL_MISSED' or event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH') and pet.CastLanded then
+					pet:CastLanded(unit, spellId, dstGUID, event, missType)
+				end
+				--print(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+			end
+		end
 		return
 	end
 
@@ -3687,6 +3727,9 @@ function Events:PLAYER_REGEN_ENABLED()
 	if Opt.auto_aoe then
 		AutoAoe:Clear()
 	end
+	if APL[Player.spec].precombat_variables then
+		APL[Player.spec]:precombat_variables()
+	end
 end
 
 function Events:PLAYER_EQUIPMENT_CHANGED()
@@ -3724,6 +3767,7 @@ function Events:PLAYER_EQUIPMENT_CHANGED()
 
 	Player.set_bonus.t29 = (Player:Equipped(200405) and 1 or 0) + (Player:Equipped(200407) and 1 or 0) + (Player:Equipped(200408) and 1 or 0) + (Player:Equipped(200409) and 1 or 0) + (Player:Equipped(200410) and 1 or 0)
 	Player.set_bonus.t30 = (Player:Equipped(202459) and 1 or 0) + (Player:Equipped(202460) and 1 or 0) + (Player:Equipped(202461) and 1 or 0) + (Player:Equipped(202462) and 1 or 0) + (Player:Equipped(202464) and 1 or 0)
+	Player.set_bonus.t31 = (Player:Equipped(207198) and 1 or 0) + (Player:Equipped(207199) and 1 or 0) + (Player:Equipped(207200) and 1 or 0) + (Player:Equipped(207201) and 1 or 0) + (Player:Equipped(207203) and 1 or 0)
 
 	Player:ResetSwing(true, true)
 	Player:UpdateKnown()
@@ -4105,7 +4149,7 @@ SlashCmdList[ADDON] = function(msg, editbox)
 	end
 	if msg[1] == 'ds' then
 		if msg[2] then
-			Opt.death_strike_threshold = max(0, min(100, tonumber(msg[2]) or 60))
+			Opt.death_strike_threshold = clamp(tonumber(msg[2]) or 60, 0, 100)
 		end
 		return Status('Health percentage threshold to recommend Death Strike', Opt.death_strike_threshold .. '%')
 	end
