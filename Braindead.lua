@@ -1291,7 +1291,8 @@ KillingMachine.buff_duration = 10
 local Rime = Ability:Add(59057, true, true, 59052)
 Rime.buff_duration = 15
 ------ Tier Bonuses
-
+local ChillingRage = Ability:Add(424165, true, true)
+ChillingRage.buff_duration = 12
 ---- Unholy
 ------ Talents
 local Apocalypse = Ability:Add(275699, false, true)
@@ -1752,6 +1753,8 @@ function Player:UpdateKnown()
 	if self.spec == SPEC.BLOOD then
 		AshenDecay.known = self.set_bonus.t31 >= 2
 		AshenDecay.debuff.known = AshenDecay.known
+	elseif self.spec == SPEC.FROST then
+		ChillingRage.known = self.set_bonus.t31 >= 2
 	end
 
 	if DancingRuneWeapon.known then
@@ -2611,7 +2614,8 @@ actions.cooldowns+=/empower_rune_weapon,use_off_gcd=1,if=!talent.breath_of_sindr
 actions.cooldowns+=/abomination_limb,if=talent.obliteration&!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains<3&(variable.adds_remain|variable.st_planning)|fight_remains<12
 actions.cooldowns+=/abomination_limb,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
 actions.cooldowns+=/abomination_limb,if=!talent.breath_of_sindragosa&!talent.obliteration&(variable.adds_remain|variable.st_planning)
-actions.cooldowns+=/chill_streak,if=active_enemies>=2&(!death_and_decay.ticking&talent.cleaving_strikes|!talent.cleaving_strikes|active_enemies<=5)
+actions.cooldowns+=/chill_streak,if=set_bonus.tier31_2pc&buff.chilling_rage.remains<3
+actions.cooldowns+=/chill_streak,if=!set_bonus.tier31_2pc&active_enemies>=2&(!death_and_decay.ticking&talent.cleaving_strikes|!talent.cleaving_strikes|active_enemies<=5)
 actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(variable.adds_remain|variable.st_planning)&(buff.empower_rune_weapon.up|cooldown.empower_rune_weapon.remains)&!variable.rw_wait|fight_remains<12
 actions.cooldowns+=/pillar_of_frost,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)&(!talent.icecap&(runic_power>70|cooldown.breath_of_sindragosa.remains>40)|talent.icecap&(cooldown.breath_of_sindragosa.remains>10|buff.breath_of_sindragosa.up))
 actions.cooldowns+=/pillar_of_frost,if=talent.icecap&!talent.obliteration&!talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
@@ -2640,7 +2644,10 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	) then
 		UseCooldown(AbominationLimb)
 	end
-	if ChillStreak:Usable() and Player.enemies >= 2 and (not CleavingStrikes.known or Player.enemies <= 5 or DeathAndDecay.buff:Down()) then
+	if ChillStreak:Usable() and (
+		(ChillingRage.known and ChillingRage:Remains() < 3) or
+		(not ChillingRage.known and Player.enemies >= 2 and (not CleavingStrikes.known or Player.enemies <= 5 or DeathAndDecay.buff:Down()))
+	) then
 		UseCooldown(ChillStreak)
 	end
 	if PillarOfFrost:Usable() and PillarOfFrost:Down() and (
