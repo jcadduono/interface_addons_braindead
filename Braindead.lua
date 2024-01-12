@@ -1211,6 +1211,7 @@ local AshenDecay = Ability:Add(425721, true, true) -- T31 2pc
 AshenDecay.buff_duration = 20
 AshenDecay.debuff = Ability:Add(425719, false, true)
 AshenDecay.debuff.buff_duration = 8
+AshenDecay.debuff:TrackAuras()
 ---- Frost
 ------ Talents
 local Avalanche = Ability:Add(207142, false, true, 207150)
@@ -1367,7 +1368,12 @@ local VirulentEruption = Ability:Add(191685, false, true)
 -- Racials
 
 -- Trinket effects
-
+local MarkOfFyralath = Ability:Add(414532, false, true) -- DoT applied by Fyr'alath the Dreamrender
+MarkOfFyralath.buff_duration = 15
+MarkOfFyralath.tick_interval = 3
+MarkOfFyralath.hasted_ticks = true
+MarkOfFyralath.no_pandemic = true
+MarkOfFyralath:TrackAuras()
 -- End Abilities
 
 -- Start Summoned Pets
@@ -1537,13 +1543,16 @@ function InventoryItem:Count()
 end
 
 function InventoryItem:Cooldown()
-	local startTime, duration
+	local start, duration
 	if self.equip_slot then
-		startTime, duration = GetInventoryItemCooldown('player', self.equip_slot)
+		start, duration = GetInventoryItemCooldown('player', self.equip_slot)
 	else
-		startTime, duration = GetItemCooldown(self.itemId)
+		start, duration = GetItemCooldown(self.itemId)
 	end
-	return startTime == 0 and 0 or duration - (Player.ctime - startTime)
+	if start == 0 then
+		return 0
+	end
+	return max(0, duration - (Player.ctime - start) - (self.off_gcd and 0 or Player.execute_remains))
 end
 
 function InventoryItem:Ready(seconds)
@@ -1570,6 +1579,8 @@ end
 local Trinket1 = InventoryItem:Add(0)
 local Trinket2 = InventoryItem:Add(0)
 Trinket.AlgetharPuzzleBox = InventoryItem:Add(193701)
+local FyralathTheDreamrender = InventoryItem:Add(206448)
+FyralathTheDreamrender.cooldown_duration = 120
 -- End Inventory Items
 
 -- Start Abilities Functions
@@ -1756,6 +1767,7 @@ function Player:UpdateKnown()
 	elseif self.spec == SPEC.FROST then
 		ChillingRage.known = self.set_bonus.t31 >= 2
 	end
+	MarkOfFyralath.known = FyralathTheDreamrender:Equipped()
 
 	if DancingRuneWeapon.known then
 		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 14, 'OUTLINE')
@@ -2080,6 +2092,25 @@ function SacrificialPact:Usable()
 	return Ability.Usable(self)
 end
 
+function MarkOfFyralath:Refresh(guid)
+	if self.known and self.aura_targets[guid] then
+		self.aura_targets[guid].expires = Player.time + self.buff_duration
+	end
+end
+
+function HeartStrike:CastLanded(dstGUID, event, ...)
+	if MarkOfFyralath.known and event == 'SPELL_DAMAGE' then
+		MarkOfFyralath:Refresh(dstGUID)
+	end
+	Ability.CastLanded(self, dstGUID, event, ...)
+end
+DeathStrike.CastLanded = HeartStrike.CastLanded
+Marrowrend.CastLanded = HeartStrike.CastLanded
+FrostStrike.CastLanded = HeartStrike.CastLanded
+Obliterate.CastLanded = HeartStrike.CastLanded
+FesteringStrike.CastLanded = HeartStrike.CastLanded
+ScourgeStrike.CastLanded = HeartStrike.CastLanded
+
 -- End Ability Modifications
 
 -- Start Summoned Pet Modifications
@@ -2349,9 +2380,16 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=!equipped.fyralath_t
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_2_exclude|trinket.2.cooldown.remains|!trinket.2.has_cooldown|variable.trinket_2_buffs)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_1_exclude|trinket.1.cooldown.remains|!trinket.1.has_cooldown|variable.trinket_1_buffs)
 ]]
+	if FyralathTheDreamrender:Usable() and MarkOfFyralath:Ticking() >= HeartStrike:Targets() and Player.drw_remains == 0 and (not AshenDecay.known or (AshenDecay.debuff:Remains() >= 4 and AshenDecay.debuff:Ticking() >= HeartStrike:Targets())) and (
+		not Player:UnderAttack() or
+		(Player.runic_power.current >= 35 and Player.health.pct >= 80 and BoneShield:Stack() >= self.bone_shield_refresh_value and BloodShield:Up())
+	) then
+		return UseCooldown(FyralathTheDreamrender)
+	end
 	if Trinket1:Usable() then
 		return UseCooldown(Trinket1)
-	elseif Trinket2:Usable() then
+	end
+	if Trinket2:Usable() then
 		return UseCooldown(Trinket2)
 	end
 end
@@ -2829,7 +2867,8 @@ end
 
 APL[SPEC.FROST].trinkets = function(self)
 --[[
-actions.trinkets=use_item,use_off_gcd=1,name=algethar_puzzle_box,if=!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains<2&(!talent.breath_of_sindragosa|runic_power>60&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains<2))
+actions.trinkets=use_item,name=fyralath_the_dreamrender,if=dot.mark_of_fyralath.ticking&!buff.pillar_of_frost.up&!buff.bloodlust.up&!buff.empower_rune_weapon.up&!variable.rp_buffs
+actions.trinkets+=/use_item,use_off_gcd=1,name=algethar_puzzle_box,if=!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains<2&(!talent.breath_of_sindragosa|runic_power>60&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains<2))
 # Trinkets The trinket with the highest estimated value, will be used first and paired with Pillar of Frost.
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&!variable.trinket_1_manual&(!buff.pillar_of_frost.up&trinket.1.cast_time>0|!trinket.1.cast_time>0)&(buff.breath_of_sindragosa.up|buff.pillar_of_frost.up)&(variable.trinket_2_exclude|!trinket.2.has_cooldown|trinket.2.cooldown.remains|variable.trinket_priority=1)|trinket.1.proc.any_dps.duration>=fight_remains
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_buffs&!variable.trinket_2_manual&(!buff.pillar_of_frost.up&trinket.2.cast_time>0|!trinket.2.cast_time>0)&(buff.breath_of_sindragosa.up|buff.pillar_of_frost.up)&(variable.trinket_1_exclude|!trinket.1.has_cooldown|trinket.1.cooldown.remains|variable.trinket_priority=2)|trinket.2.proc.any_dps.duration>=fight_remains
@@ -2838,6 +2877,9 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_b
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=!variable.trinket_2_buffs&!variable.trinket_2_manual&(!variable.trinket_2_buffs&(trinket.1.cooldown.remains|!variable.trinket_1_buffs)|(trinket.2.cast_time>0&!buff.pillar_of_frost.up|!trinket.2.cast_time>0)|talent.pillar_of_frost&cooldown.pillar_of_frost.remains_expected>20|!talent.pillar_of_frost)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=(!variable.trinket_1_buffs|trinket.1.cooldown.remains)&(!variable.trinket_2_buffs|trinket.2.cooldown.remains)
 ]]
+	if FyralathTheDreamrender:Usable() and MarkOfFyralath:Ticking() >= Obliterate:Targets() and PillarOfFrost:Down() and not Player:BloodlustActive() and EmpowerRuneWeapon:Down() and not self.rp_buffs then
+		return UseCooldown(FyralathTheDreamrender)
+	end
 	if Trinket.AlgetharPuzzleBox:Usable() and PillarOfFrost:Down() and PillarOfFrost:Ready(2) and (not BreathOfSindragosa.known or (Player.runic_power.current > 60 and (BreathOfSindragosa:Up() or BreathOfSindragosa:Ready(2)))) then
 		return UseCooldown(Trinket.AlgetharPuzzleBox)
 	end
@@ -3549,6 +3591,7 @@ CombatEvent.SWING_DAMAGE = function(event, srcGUID, dstGUID, amount, overkill, s
 		if Opt.auto_aoe then
 			AutoAoe:Add(dstGUID, true)
 		end
+		MarkOfFyralath:Refresh(dstGUID)
 	elseif dstGUID == Player.guid then
 		Player.swing.last_taken = Player.time
 		if Opt.auto_aoe then
