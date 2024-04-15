@@ -1,23 +1,23 @@
 <Bindings>
-	<Binding name="Toggle Targets +" header="BRAINDEAD" category="ADDONS">
+	<Binding name="BRAINDEAD_TARGETMORE" category="BINDING_CATEGORY_BRAINDEAD">
 		Braindead_ToggleTargetMode()
 	</Binding>
-	<Binding name="Toggle Targets -" category="ADDONS">
+	<Binding name="BRAINDEAD_TARGETLESS" category="BINDING_CATEGORY_BRAINDEAD">
 		Braindead_ToggleTargetModeReverse()
 	</Binding>
-	<Binding name="Set Targets to 1" category="ADDONS">
+	<Binding name="BRAINDEAD_TARGET1" category="BINDING_CATEGORY_BRAINDEAD">
 		Braindead_SetTargetMode(1)
 	</Binding>
-	<Binding name="Set Targets to 2" category="ADDONS">
+	<Binding name="BRAINDEAD_TARGET2" category="BINDING_CATEGORY_BRAINDEAD">
 		Braindead_SetTargetMode(2)
 	</Binding>
-	<Binding name="Set Targets to 3" category="ADDONS">
+	<Binding name="BRAINDEAD_TARGET3" category="BINDING_CATEGORY_BRAINDEAD">
 		Braindead_SetTargetMode(3)
 	</Binding>
-	<Binding name="Set Targets to 4" category="ADDONS">
+	<Binding name="BRAINDEAD_TARGET4" category="BINDING_CATEGORY_BRAINDEAD">
 		Braindead_SetTargetMode(4)
 	</Binding>
-	<Binding name="Set Targets to 5+" category="ADDONS">
+	<Binding name="BRAINDEAD_TARGET5" category="BINDING_CATEGORY_BRAINDEAD">
 		Braindead_SetTargetMode(5)
 	</Binding>
 </Bindings>

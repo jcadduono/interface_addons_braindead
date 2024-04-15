@@ -1,9 +1,23 @@
 local ADDON = 'Braindead'
+local ADDON_PATH = 'Interface\\AddOns\\' .. ADDON .. '\\'
+
+BINDING_CATEGORY_BRAINDEAD = ADDON
+BINDING_NAME_BRAINDEAD_TARGETMORE = "Toggle Targets +"
+BINDING_NAME_BRAINDEAD_TARGETLESS = "Toggle Targets -"
+BINDING_NAME_BRAINDEAD_TARGET1 = "Set Targets to 1"
+BINDING_NAME_BRAINDEAD_TARGET2 = "Set Targets to 2"
+BINDING_NAME_BRAINDEAD_TARGET3 = "Set Targets to 3"
+BINDING_NAME_BRAINDEAD_TARGET4 = "Set Targets to 4"
+BINDING_NAME_BRAINDEAD_TARGET5 = "Set Targets to 5+"
+
+local function log(...)
+	print(ADDON, '-', ...)
+end
+
 if select(2, UnitClass('player')) ~= 'DEATHKNIGHT' then
-	DisableAddOn(ADDON)
+	log('[|cFFFF0000Error|r]', 'Not loading because you are not the correct class! Consider disabling', ADDON, 'for this character.')
 	return
 end
-local ADDON_PATH = 'Interface\\AddOns\\' .. ADDON .. '\\'
 
 -- reference heavily accessed global functions from local scope for performance
 local min = math.min
@@ -24,6 +38,7 @@ local UnitHealth = _G.UnitHealth
 local UnitHealthMax = _G.UnitHealthMax
 local UnitPower = _G.UnitPower
 local UnitPowerMax = _G.UnitPowerMax
+local UnitSpellHaste = _G.UnitSpellHaste
 -- end reference global functions
 
 -- useful functions
@@ -47,7 +62,6 @@ Braindead = {}
 local Opt -- use this as a local table reference to Braindead
 
 SLASH_Braindead1, SLASH_Braindead2, SLASH_Braindead3 = '/bd', '/brain', '/braindead'
-BINDING_HEADER_BRAINDEAD = ADDON
 
 local function InitOpts()
 	local function SetDefaults(t, ref)
@@ -215,6 +229,11 @@ local Player = {
 		regen = 0,
 		remains = {},
 	},
+	threat = {
+		status = 0,
+		pct = 0,
+		lead = 0,
+	},
 	swing = {
 		mh = {
 			last = 0,
@@ -227,11 +246,6 @@ local Player = {
 			remains = 0,
 		},
 		last_taken = 0,
-	},
-	threat = {
-		status = 0,
-		pct = 0,
-		lead = 0,
 	},
 	equipped = {
 		twohand = false,
@@ -286,135 +300,6 @@ local Target = {
 	hostile = false,
 	estimated_range = 30,
 }
-
-local braindeadPanel = CreateFrame('Frame', 'braindeadPanel', UIParent)
-braindeadPanel:SetPoint('CENTER', 0, -169)
-braindeadPanel:SetFrameStrata('BACKGROUND')
-braindeadPanel:SetSize(64, 64)
-braindeadPanel:SetMovable(true)
-braindeadPanel:SetUserPlaced(true)
-braindeadPanel:RegisterForDrag('LeftButton')
-braindeadPanel:SetScript('OnDragStart', braindeadPanel.StartMoving)
-braindeadPanel:SetScript('OnDragStop', braindeadPanel.StopMovingOrSizing)
-braindeadPanel:Hide()
-braindeadPanel.icon = braindeadPanel:CreateTexture(nil, 'BACKGROUND')
-braindeadPanel.icon:SetAllPoints(braindeadPanel)
-braindeadPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-braindeadPanel.border = braindeadPanel:CreateTexture(nil, 'ARTWORK')
-braindeadPanel.border:SetAllPoints(braindeadPanel)
-braindeadPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
-braindeadPanel.border:Hide()
-braindeadPanel.dimmer = braindeadPanel:CreateTexture(nil, 'BORDER')
-braindeadPanel.dimmer:SetAllPoints(braindeadPanel)
-braindeadPanel.dimmer:SetColorTexture(0, 0, 0, 0.6)
-braindeadPanel.dimmer:Hide()
-braindeadPanel.swipe = CreateFrame('Cooldown', nil, braindeadPanel, 'CooldownFrameTemplate')
-braindeadPanel.swipe:SetAllPoints(braindeadPanel)
-braindeadPanel.swipe:SetDrawBling(false)
-braindeadPanel.swipe:SetDrawEdge(false)
-braindeadPanel.text = CreateFrame('Frame', nil, braindeadPanel)
-braindeadPanel.text:SetAllPoints(braindeadPanel)
-braindeadPanel.text.tl = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.text.tl:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
-braindeadPanel.text.tl:SetPoint('TOPLEFT', braindeadPanel, 'TOPLEFT', 2.5, -3)
-braindeadPanel.text.tl:SetJustifyH('LEFT')
-braindeadPanel.text.tr = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.text.tr:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
-braindeadPanel.text.tr:SetPoint('TOPRIGHT', braindeadPanel, 'TOPRIGHT', -2.5, -3)
-braindeadPanel.text.tr:SetJustifyH('RIGHT')
-braindeadPanel.text.bl = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.text.bl:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
-braindeadPanel.text.bl:SetPoint('BOTTOMLEFT', braindeadPanel, 'BOTTOMLEFT', 2.5, 3)
-braindeadPanel.text.bl:SetJustifyH('LEFT')
-braindeadPanel.text.br = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.text.br:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
-braindeadPanel.text.br:SetPoint('BOTTOMRIGHT', braindeadPanel, 'BOTTOMRIGHT', -2.5, 3)
-braindeadPanel.text.br:SetJustifyH('RIGHT')
-braindeadPanel.text.center = braindeadPanel.text:CreateFontString(nil, 'OVERLAY')
-braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 9, 'OUTLINE')
-braindeadPanel.text.center:SetAllPoints(braindeadPanel.text)
-braindeadPanel.text.center:SetJustifyH('CENTER')
-braindeadPanel.text.center:SetJustifyV('CENTER')
-braindeadPanel.button = CreateFrame('Button', nil, braindeadPanel)
-braindeadPanel.button:SetAllPoints(braindeadPanel)
-braindeadPanel.button:RegisterForClicks('LeftButtonDown', 'RightButtonDown', 'MiddleButtonDown')
-local braindeadPreviousPanel = CreateFrame('Frame', 'braindeadPreviousPanel', UIParent)
-braindeadPreviousPanel:SetFrameStrata('BACKGROUND')
-braindeadPreviousPanel:SetSize(64, 64)
-braindeadPreviousPanel:SetMovable(true)
-braindeadPreviousPanel:SetUserPlaced(true)
-braindeadPreviousPanel:RegisterForDrag('LeftButton')
-braindeadPreviousPanel:SetScript('OnDragStart', braindeadPreviousPanel.StartMoving)
-braindeadPreviousPanel:SetScript('OnDragStop', braindeadPreviousPanel.StopMovingOrSizing)
-braindeadPreviousPanel:Hide()
-braindeadPreviousPanel.icon = braindeadPreviousPanel:CreateTexture(nil, 'BACKGROUND')
-braindeadPreviousPanel.icon:SetAllPoints(braindeadPreviousPanel)
-braindeadPreviousPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-braindeadPreviousPanel.border = braindeadPreviousPanel:CreateTexture(nil, 'ARTWORK')
-braindeadPreviousPanel.border:SetAllPoints(braindeadPreviousPanel)
-braindeadPreviousPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
-local braindeadCooldownPanel = CreateFrame('Frame', 'braindeadCooldownPanel', UIParent)
-braindeadCooldownPanel:SetFrameStrata('BACKGROUND')
-braindeadCooldownPanel:SetSize(64, 64)
-braindeadCooldownPanel:SetMovable(true)
-braindeadCooldownPanel:SetUserPlaced(true)
-braindeadCooldownPanel:RegisterForDrag('LeftButton')
-braindeadCooldownPanel:SetScript('OnDragStart', braindeadCooldownPanel.StartMoving)
-braindeadCooldownPanel:SetScript('OnDragStop', braindeadCooldownPanel.StopMovingOrSizing)
-braindeadCooldownPanel:Hide()
-braindeadCooldownPanel.icon = braindeadCooldownPanel:CreateTexture(nil, 'BACKGROUND')
-braindeadCooldownPanel.icon:SetAllPoints(braindeadCooldownPanel)
-braindeadCooldownPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-braindeadCooldownPanel.border = braindeadCooldownPanel:CreateTexture(nil, 'ARTWORK')
-braindeadCooldownPanel.border:SetAllPoints(braindeadCooldownPanel)
-braindeadCooldownPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
-braindeadCooldownPanel.dimmer = braindeadCooldownPanel:CreateTexture(nil, 'BORDER')
-braindeadCooldownPanel.dimmer:SetAllPoints(braindeadCooldownPanel)
-braindeadCooldownPanel.dimmer:SetColorTexture(0, 0, 0, 0.6)
-braindeadCooldownPanel.dimmer:Hide()
-braindeadCooldownPanel.swipe = CreateFrame('Cooldown', nil, braindeadCooldownPanel, 'CooldownFrameTemplate')
-braindeadCooldownPanel.swipe:SetAllPoints(braindeadCooldownPanel)
-braindeadCooldownPanel.swipe:SetDrawBling(false)
-braindeadCooldownPanel.swipe:SetDrawEdge(false)
-braindeadCooldownPanel.text = braindeadCooldownPanel:CreateFontString(nil, 'OVERLAY')
-braindeadCooldownPanel.text:SetFont('Fonts\\FRIZQT__.TTF', 12, 'OUTLINE')
-braindeadCooldownPanel.text:SetAllPoints(braindeadCooldownPanel)
-braindeadCooldownPanel.text:SetJustifyH('CENTER')
-braindeadCooldownPanel.text:SetJustifyV('CENTER')
-local braindeadInterruptPanel = CreateFrame('Frame', 'braindeadInterruptPanel', UIParent)
-braindeadInterruptPanel:SetFrameStrata('BACKGROUND')
-braindeadInterruptPanel:SetSize(64, 64)
-braindeadInterruptPanel:SetMovable(true)
-braindeadInterruptPanel:SetUserPlaced(true)
-braindeadInterruptPanel:RegisterForDrag('LeftButton')
-braindeadInterruptPanel:SetScript('OnDragStart', braindeadInterruptPanel.StartMoving)
-braindeadInterruptPanel:SetScript('OnDragStop', braindeadInterruptPanel.StopMovingOrSizing)
-braindeadInterruptPanel:Hide()
-braindeadInterruptPanel.icon = braindeadInterruptPanel:CreateTexture(nil, 'BACKGROUND')
-braindeadInterruptPanel.icon:SetAllPoints(braindeadInterruptPanel)
-braindeadInterruptPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-braindeadInterruptPanel.border = braindeadInterruptPanel:CreateTexture(nil, 'ARTWORK')
-braindeadInterruptPanel.border:SetAllPoints(braindeadInterruptPanel)
-braindeadInterruptPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
-braindeadInterruptPanel.swipe = CreateFrame('Cooldown', nil, braindeadInterruptPanel, 'CooldownFrameTemplate')
-braindeadInterruptPanel.swipe:SetAllPoints(braindeadInterruptPanel)
-braindeadInterruptPanel.swipe:SetDrawBling(false)
-braindeadInterruptPanel.swipe:SetDrawEdge(false)
-local braindeadExtraPanel = CreateFrame('Frame', 'braindeadExtraPanel', UIParent)
-braindeadExtraPanel:SetFrameStrata('BACKGROUND')
-braindeadExtraPanel:SetSize(64, 64)
-braindeadExtraPanel:SetMovable(true)
-braindeadExtraPanel:SetUserPlaced(true)
-braindeadExtraPanel:RegisterForDrag('LeftButton')
-braindeadExtraPanel:SetScript('OnDragStart', braindeadExtraPanel.StartMoving)
-braindeadExtraPanel:SetScript('OnDragStop', braindeadExtraPanel.StopMovingOrSizing)
-braindeadExtraPanel:Hide()
-braindeadExtraPanel.icon = braindeadExtraPanel:CreateTexture(nil, 'BACKGROUND')
-braindeadExtraPanel.icon:SetAllPoints(braindeadExtraPanel)
-braindeadExtraPanel.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-braindeadExtraPanel.border = braindeadExtraPanel:CreateTexture(nil, 'ARTWORK')
-braindeadExtraPanel.border:SetAllPoints(braindeadExtraPanel)
-braindeadExtraPanel.border:SetTexture(ADDON_PATH .. 'border.blp')
 
 -- Start AoE
 
@@ -628,7 +513,7 @@ function Ability:Usable(seconds)
 	return self:Ready(seconds)
 end
 
-function Ability:Remains(offGCD)
+function Ability:Remains()
 	if self:Casting() or self:Traveling() > 0 then
 		return self:Duration()
 	end
@@ -641,7 +526,7 @@ function Ability:Remains(offGCD)
 			if expires == 0 then
 				return 600 -- infinite duration
 			end
-			return max(0, expires - Player.ctime - (offGCD and 0 or Player.execute_remains))
+			return max(0, expires - Player.ctime - (self.off_gcd and 0 or Player.execute_remains))
 		end
 	end
 	return 0
@@ -1326,6 +1211,7 @@ local FesteringStrike = Ability:Add(85948, false, true)
 FesteringStrike.rune_cost = 2
 local FesteringWound = Ability:Add(194310, false, true, 194311)
 FesteringWound.buff_duration = 30
+FesteringWound:AutoAoe(false, 'apply')
 local Outbreak = Ability:Add(77575, false, true)
 Outbreak.rune_cost = 1
 local Pestilence = Ability:Add(277234, false, true)
@@ -1520,6 +1406,7 @@ function InventoryItem:Add(itemId)
 		name = name,
 		icon = icon,
 		can_use = false,
+		off_gcd = true,
 	}
 	setmetatable(item, self)
 	inventoryItems[#inventoryItems + 1] = item
@@ -1581,6 +1468,7 @@ local Trinket2 = InventoryItem:Add(0)
 Trinket.AlgetharPuzzleBox = InventoryItem:Add(193701)
 local FyralathTheDreamrender = InventoryItem:Add(206448)
 FyralathTheDreamrender.cooldown_duration = 120
+FyralathTheDreamrender.off_gcd = false
 -- End Inventory Items
 
 -- Start Abilities Functions
@@ -1835,7 +1723,7 @@ function Player:Update()
 		self.cast.ends = 0
 		self.cast.remains = 0
 	end
-	self.execute_remains = max(self.cast.ends - self.ctime, self.gcd_remains)
+	self.execute_remains = max(self.cast.remains, self.gcd_remains)
 	speed_mh, speed_oh = UnitAttackSpeed('player')
 	self.swing.mh.speed = speed_mh or 0
 	self.swing.oh.speed = speed_oh or 0
@@ -2067,6 +1955,13 @@ function Outbreak:CastLanded(...)
 	VirulentPlague:RefreshAuraAll()
 end
 
+function FesteringWound:CastLanded(dstGUID, event, ...)
+	if Opt.auto_aoe and BurstingSores.known and (event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED') then
+		BurstingSores:RecordTargetHit(dstGUID)
+	end
+	Ability.CastLanded(self, dstGUID, event, ...)
+end
+
 function Asphyxiate:Usable()
 	if not Target.stunnable then
 		return false
@@ -2097,19 +1992,6 @@ function MarkOfFyralath:Refresh(guid)
 		self.aura_targets[guid].expires = Player.time + self.buff_duration
 	end
 end
-
-function HeartStrike:CastLanded(dstGUID, event, ...)
-	if MarkOfFyralath.known and event == 'SPELL_DAMAGE' then
-		MarkOfFyralath:Refresh(dstGUID)
-	end
-	Ability.CastLanded(self, dstGUID, event, ...)
-end
-DeathStrike.CastLanded = HeartStrike.CastLanded
-Marrowrend.CastLanded = HeartStrike.CastLanded
-FrostStrike.CastLanded = HeartStrike.CastLanded
-Obliterate.CastLanded = HeartStrike.CastLanded
-FesteringStrike.CastLanded = HeartStrike.CastLanded
-ScourgeStrike.CastLanded = HeartStrike.CastLanded
 
 -- End Ability Modifications
 
@@ -3262,7 +3144,7 @@ function UI:CreateOverlayGlows()
 			end
 		end
 	end
-	UI:UpdateGlowColorAndScale()
+	self:UpdateGlowColorAndScale()
 end
 
 function UI:UpdateGlows()
@@ -3298,6 +3180,18 @@ end
 
 function UI:UpdateDraggable()
 	local draggable = not (Opt.locked or Opt.snap or Opt.aoe)
+	braindeadPanel:SetMovable(not Opt.snap)
+	braindeadPreviousPanel:SetMovable(not Opt.snap)
+	braindeadCooldownPanel:SetMovable(not Opt.snap)
+	braindeadInterruptPanel:SetMovable(not Opt.snap)
+	braindeadExtraPanel:SetMovable(not Opt.snap)
+	if not Opt.snap then
+		braindeadPanel:SetUserPlaced(true)
+		braindeadPreviousPanel:SetUserPlaced(true)
+		braindeadCooldownPanel:SetUserPlaced(true)
+		braindeadInterruptPanel:SetUserPlaced(true)
+		braindeadExtraPanel:SetUserPlaced(true)
+	end
 	braindeadPanel:EnableMouse(draggable or Opt.aoe)
 	braindeadPanel.button:SetShown(Opt.aoe)
 	braindeadPreviousPanel:EnableMouse(draggable)
@@ -3413,7 +3307,13 @@ function UI:Disappear()
 	Player.cd = nil
 	Player.interrupt = nil
 	Player.extra = nil
-	UI:UpdateGlows()
+	self:UpdateGlows()
+end
+
+function UI:Reset()
+	braindeadPanel:ClearAllPoints()
+	braindeadPanel:SetPoint('CENTER', 0, -169)
+	self:SnapAllPanels()
 end
 
 function UI:UpdateDisplay()
@@ -3471,7 +3371,7 @@ function UI:UpdateCombat()
 
 	if Player.main then
 		braindeadPanel.icon:SetTexture(Player.main.icon)
-		Player.main_freecast = (Player.main.runic_power_cost > 0 and Player.main:RunicPowerCost() == 0) or (Player.main.rune_cost > 0 and Player.main:RuneCost() == 0)
+		Player.main_freecast = (Player.main.runic_power_cost > 0 and Player.main:RunicPowerCost() == 0) or (Player.main.rune_cost > 0 and Player.main:RuneCost() == 0) or (Player.main.Free and Player.main:Free())
 	end
 	if Player.cd then
 		braindeadCooldownPanel.icon:SetTexture(Player.cd.icon)
@@ -3534,12 +3434,12 @@ function Events:ADDON_LOADED(name)
 		UI:UpdateAlpha()
 		UI:UpdateScale()
 		if firstRun then
-			print('It looks like this is your first time running ' .. ADDON .. ', why don\'t you take some time to familiarize yourself with the commands?')
-			print('Type |cFFFFD000' .. SLASH_Braindead1 .. '|r for a list of commands.')
+			log('It looks like this is your first time running ' .. ADDON .. ', why don\'t you take some time to familiarize yourself with the commands?')
+			log('Type |cFFFFD000' .. SLASH_Braindead1 .. '|r for a list of commands.')
 			UI:SnapAllPanels()
 		end
 		if UnitLevel('player') < 10 then
-			print('[|cFFFFD000Warning|r] ' .. ADDON .. ' is not designed for players under level 10, and almost certainly will not operate properly!')
+			log('[|cFFFFD000Warning|r]', ADDON, 'is not designed for players under level 10, and almost certainly will not operate properly!')
 		end
 	end
 end
@@ -3655,7 +3555,7 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 				elseif (event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED' or event == 'SPELL_MISSED' or event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH') and pet.CastLanded then
 					pet:CastLanded(unit, spellId, dstGUID, event, missType)
 				end
-				--print(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+				--log(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
 			end
 		end
 		return
@@ -3671,7 +3571,7 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 
 	local ability = spellId and Abilities.bySpellId[spellId]
 	if not ability then
-		--print(format('EVENT %s TRACK CHECK FOR UNKNOWN %s ID %d', event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+		--log(format('EVENT %s TRACK CHECK FOR UNKNOWN %s ID %d', event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
 		return
 	end
 
@@ -3703,17 +3603,11 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 		end
 		return -- ignore buffs beyond here
 	end
-	if Opt.auto_aoe then
-		if event == 'SPELL_MISSED' and (missType == 'EVADE' or (missType == 'IMMUNE' and not ability.ignore_immune)) then
-			AutoAoe:Remove(dstGUID)
-		elseif ability.auto_aoe and (event == ability.auto_aoe.trigger or ability.auto_aoe.trigger == 'SPELL_AURA_APPLIED' and event == 'SPELL_AURA_REFRESH') then
-			ability:RecordTargetHit(dstGUID)
-		elseif BurstingSores.known and ability == FesteringWound and (event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED') then
-			BurstingSores:RecordTargetHit(dstGUID)
-		end
-	end
 	if event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED' or event == 'SPELL_MISSED' or event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH' then
 		ability:CastLanded(dstGUID, event, missType)
+		if MarkOfFyralath.known and event ~= 'SPELL_MISSED' then
+			MarkOfFyralath:Refresh(dstGUID)
+		end
 	end
 end
 
@@ -3769,18 +3663,6 @@ function Events:UNIT_SPELLCAST_STOP(unitId, castGUID, spellId)
 end
 Events.UNIT_SPELLCAST_FAILED = Events.UNIT_SPELLCAST_STOP
 Events.UNIT_SPELLCAST_INTERRUPTED = Events.UNIT_SPELLCAST_STOP
-
---[[
-function Events:UNIT_SPELLCAST_SENT(unitId, destName, castGUID, spellId)
-	if unitId ~= 'player' or not spellId or castGUID:sub(6, 6) ~= '3' then
-		return
-	end
-	local ability = Abilities.bySpellId[spellId]
-	if not ability then
-		return
-	end
-end
-]]
 
 function Events:UNIT_SPELLCAST_SUCCEEDED(unitId, castGUID, spellId)
 	if unitId ~= 'player' or not spellId or castGUID:sub(6, 6) ~= '3' then
@@ -3993,7 +3875,7 @@ local function Status(desc, opt, ...)
 	else
 		opt_view = opt and '|cFF00C000On|r' or '|cFFC00000Off|r'
 	end
-	print(ADDON, '-', desc .. ':', opt_view, ...)
+	log(desc .. ':', opt_view, ...)
 end
 
 SlashCmdList[ADDON] = function(msg, editbox)
@@ -4019,7 +3901,7 @@ SlashCmdList[ADDON] = function(msg, editbox)
 			else
 				Opt.snap = false
 				Opt.locked = false
-				braindeadPanel:ClearAllPoints()
+				UI:Reset()
 			end
 			UI:UpdateDraggable()
 			UI.OnResourceFrameShow()
@@ -4253,9 +4135,7 @@ SlashCmdList[ADDON] = function(msg, editbox)
 		return Status('Health percentage threshold to recommend Death Strike', Opt.death_strike_threshold .. '%')
 	end
 	if msg[1] == 'reset' then
-		braindeadPanel:ClearAllPoints()
-		braindeadPanel:SetPoint('CENTER', 0, -169)
-		UI:SnapAllPanels()
+		UI:Reset()
 		return Status('Position has been reset to', 'default')
 	end
 	print(ADDON, '(version: |cFFFFD000' .. GetAddOnMetadata(ADDON, 'Version') .. '|r) - Commands:')
