@@ -1,8 +1,8 @@
-## Interface: 100206
+## Interface: 100207
 ## Title: Braindead
 ## Notes: Braindead is an addon for death knights that simplifies gameplay and maximizes DPS by doing all the decision making for you
 ## Author: jcadduono @ curseforge.com or Spy#1955 @ BattleTag
 ## SavedVariablesPerCharacter: Braindead
-## Version: 10.2.6-1
+## Version: 10.2.7-0
 Braindead.xml
 Braindead.lua

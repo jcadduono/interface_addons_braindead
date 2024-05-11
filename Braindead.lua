@@ -207,6 +207,7 @@ local Player = {
 	execute_remains = 0,
 	haste_factor = 1,
 	moving = false,
+	movement_speed = 100,
 	health = {
 		current = 0,
 		max = 100,
@@ -255,6 +256,7 @@ local Player = {
 		t29 = 0, -- Haunted Frostbrood Remains
 		t30 = 0, -- Lingering Phantom's Encasement
 		t31 = 0, -- Risen Nightmare's Gravemantle
+		t32 = 0, -- Risen Nightmare's Gravemantle (Awakened)
 	},
 	previous_gcd = {},-- list of previous GCD abilities
 	item_use_blacklist = { -- list of item IDs with on-use effects we should mark unusable
@@ -289,7 +291,6 @@ local Pet = {
 -- current target information
 local Target = {
 	boss = false,
-	guid = 0,
 	health = {
 		current = 0,
 		loss_per_sec = 0,
@@ -299,6 +300,16 @@ local Target = {
 	},
 	hostile = false,
 	estimated_range = 30,
+}
+
+-- target dummy unit IDs (count these units as bosses)
+Target.Dummies = {
+	[194643] = true,
+	[194648] = true,
+	[198594] = true,
+	[194644] = true,
+	[194649] = true,
+	[197833] = true,
 }
 
 -- Start AoE
@@ -467,6 +478,7 @@ function Ability:Add(spellId, buff, player, spellId2)
 		cooldown_duration = 0,
 		buff_duration = 0,
 		tick_interval = 0,
+		summon_count = 0,
 		max_range = 40,
 		velocity = 0,
 		last_gained = 0,
@@ -790,7 +802,7 @@ function Ability:CastSuccess(dstGUID)
 	if self.requires_pet then
 		Pet.stuck = false
 	end
-	if self.pet_spell and not self.player_triggered then
+	if self.ignore_cast or (self.pet_spell and not self.player_triggered) then
 		return
 	end
 	Player.last_ability = self
@@ -887,7 +899,7 @@ function Ability:ApplyAura(guid)
 	return aura
 end
 
-function Ability:RefreshAura(guid)
+function Ability:RefreshAura(guid, extend)
 	if AutoAoe.blacklist[guid] then
 		return
 	end
@@ -896,14 +908,14 @@ function Ability:RefreshAura(guid)
 		return self:ApplyAura(guid)
 	end
 	local duration = self:Duration()
-	aura.expires = max(aura.expires, Player.time + min(duration * (self.no_pandemic and 1.0 or 1.3), (aura.expires - Player.time) + duration))
+	aura.expires = max(aura.expires, Player.time + min(duration * (self.no_pandemic and 1.0 or 1.3), (aura.expires - Player.time) + (extend or duration)))
 	return aura
 end
 
-function Ability:RefreshAuraAll()
+function Ability:RefreshAuraAll(extend)
 	local duration = self:Duration()
 	for guid, aura in next, self.aura_targets do
-		aura.expires = max(aura.expires, Player.time + min(duration * (self.no_pandemic and 1.0 or 1.3), (aura.expires - Player.time) + duration))
+		aura.expires = max(aura.expires, Player.time + min(duration * (self.no_pandemic and 1.0 or 1.3), (aura.expires - Player.time) + (extend or duration)))
 	end
 end
 
@@ -1319,6 +1331,9 @@ function SummonedPet:Add(unitId, duration, summonSpell)
 end
 
 function SummonedPet:Remains(initial)
+	if self.summon_spell and self.summon_spell.summon_count > 0 and self.summon_spell:Casting() then
+		return self.duration
+	end
 	local expires_max = 0
 	for guid, unit in next, self.active_units do
 		if (not initial or unit.initial) and unit.expires > expires_max then
@@ -1338,6 +1353,9 @@ end
 
 function SummonedPet:Count()
 	local count = 0
+	if self.summon_spell and self.summon_spell:Casting() then
+		count = count + self.summon_spell.summon_count
+	end
 	for guid, unit in next, self.active_units do
 		if unit.expires - Player.time > Player.execute_remains then
 			count = count + 1
@@ -1461,7 +1479,9 @@ function InventoryItem:Usable(seconds)
 end
 
 -- Inventory Items
-
+local Healthstone = InventoryItem:Add(5512)
+Healthstone.created_by = CreateHealthstone
+Healthstone.max_charges = 3
 -- Equipment
 local Trinket1 = InventoryItem:Add(0)
 local Trinket2 = InventoryItem:Add(0)
@@ -1596,9 +1616,6 @@ function Player:UpdateTime(timeStamp)
 end
 
 function Player:UpdateKnown()
-	self.runes.max = UnitPowerMax('player', 5)
-	self.runic_power.max = UnitPowerMax('player', 6)
-
 	local node
 	local configId = C_ClassTalents.GetActiveConfigID()
 	for _, ability in next, Abilities.all do
@@ -1701,7 +1718,7 @@ function Player:UpdateRunes()
 end
 
 function Player:Update()
-	local _, start, ends, duration, spellId, speed_mh, speed_oh
+	local _, start, ends, duration, spellId, speed, max_speed, speed_mh, speed_oh
 	self.main =  nil
 	self.cd = nil
 	self.interrupt = nil
@@ -1724,12 +1741,14 @@ function Player:Update()
 		self.cast.remains = 0
 	end
 	self.execute_remains = max(self.cast.remains, self.gcd_remains)
+	speed, max_speed = GetUnitSpeed('player')
+	self.moving = speed ~= 0
+	self.movement_speed = max_speed / 7 * 100
 	speed_mh, speed_oh = UnitAttackSpeed('player')
 	self.swing.mh.speed = speed_mh or 0
 	self.swing.oh.speed = speed_oh or 0
 	self.swing.mh.remains = max(0, self.swing.mh.last + self.swing.mh.speed - self.time)
 	self.swing.oh.remains = max(0, self.swing.oh.last + self.swing.oh.speed - self.time)
-	self.moving = GetUnitSpeed('player') ~= 0
 	self:UpdateRunes()
 	self:UpdateThreat()
 
@@ -1757,7 +1776,6 @@ function Player:Init()
 	braindeadPreviousPanel.ability = nil
 	self.guid = UnitGUID('player')
 	self.name = UnitName('player')
-	self.level = UnitLevel('player')
 	_, self.instance = IsInInstance()
 	Events:GROUP_ROSTER_UPDATE()
 	Events:PLAYER_SPECIALIZATION_CHANGED('player')
@@ -1808,6 +1826,7 @@ function Target:Update()
 	local guid = UnitGUID('target')
 	if not guid then
 		self.guid = nil
+		self.uid = nil
 		self.boss = false
 		self.stunnable = true
 		self.classification = 'normal'
@@ -1827,6 +1846,7 @@ function Target:Update()
 	end
 	if guid ~= self.guid then
 		self.guid = guid
+		self.uid = tonumber(guid:match('^%w+-%d+-%d+-%d+-%d+-(%d+)') or 0)
 		self:UpdateHealth(true)
 	end
 	self.boss = false
@@ -1841,6 +1861,9 @@ function Target:Update()
 	if not self.player and self.classification ~= 'minus' and self.classification ~= 'normal' then
 		self.boss = self.level >= (Player.level + 3)
 		self.stunnable = self.level < (Player.level + 2)
+	end
+	if self.Dummies[self.uid] then
+		self.boss = true
 	end
 	if self.hostile or Opt.always_on then
 		UI:UpdateCombat()
@@ -3633,13 +3656,21 @@ end
 
 function Events:UNIT_HEALTH(unitId)
 	if unitId == 'player' then
-		Player.health.current = UnitHealth('player')
-		Player.health.max = UnitHealthMax('player')
+		Player.health.current = UnitHealth(unitId)
+		Player.health.max = UnitHealthMax(unitId)
 		Player.health.pct = Player.health.current / Player.health.max * 100
 	elseif unitId == 'pet' then
-		Pet.health.current = UnitHealth('pet')
-		Pet.health.max = UnitHealthMax('pet')
+		Pet.health.current = UnitHealth(unitId)
+		Pet.health.max = UnitHealthMax(unitId)
 		Pet.health.pct = Pet.health.current / Pet.health.max * 100
+	end
+end
+
+function Events:UNIT_MAXPOWER(unitId)
+	if unitId == 'player' then
+		Player.level = UnitLevel(unitId)
+		Player.runes.max = UnitPowerMax(unitId, 5)
+		Player.runic_power.max = UnitPowerMax(unitId, 6)
 	end
 end
 
@@ -3749,6 +3780,7 @@ function Events:PLAYER_EQUIPMENT_CHANGED()
 	Player.set_bonus.t29 = (Player:Equipped(200405) and 1 or 0) + (Player:Equipped(200407) and 1 or 0) + (Player:Equipped(200408) and 1 or 0) + (Player:Equipped(200409) and 1 or 0) + (Player:Equipped(200410) and 1 or 0)
 	Player.set_bonus.t30 = (Player:Equipped(202459) and 1 or 0) + (Player:Equipped(202460) and 1 or 0) + (Player:Equipped(202461) and 1 or 0) + (Player:Equipped(202462) and 1 or 0) + (Player:Equipped(202464) and 1 or 0)
 	Player.set_bonus.t31 = (Player:Equipped(207198) and 1 or 0) + (Player:Equipped(207199) and 1 or 0) + (Player:Equipped(207200) and 1 or 0) + (Player:Equipped(207201) and 1 or 0) + (Player:Equipped(207203) and 1 or 0)
+	Player.set_bonus.t32 = (Player:Equipped(217221) and 1 or 0) + (Player:Equipped(217222) and 1 or 0) + (Player:Equipped(217223) and 1 or 0) + (Player:Equipped(217224) and 1 or 0) + (Player:Equipped(217225) and 1 or 0)
 
 	Player:ResetSwing(true, true)
 	Player:UpdateKnown()
@@ -3764,6 +3796,7 @@ function Events:PLAYER_SPECIALIZATION_CHANGED(unitId)
 	Events:PLAYER_EQUIPMENT_CHANGED()
 	Events:PLAYER_REGEN_ENABLED()
 	Events:UNIT_HEALTH('player')
+	Events:UNIT_MAXPOWER('player')
 	UI.OnResourceFrameShow()
 	Target:Update()
 	Player:Update()
