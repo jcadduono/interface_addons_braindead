@@ -1077,6 +1077,7 @@ local SoulReaper = Ability:Add(343294, false, true)
 SoulReaper.rune_cost = 1
 SoulReaper.buff_duration = 5
 SoulReaper.cooldown_duration = 6
+local UnholyEndurance = Ability:Add(389682, true, true)
 local UnholyGround = Ability:Add(374265, true, true, 374271)
 ---- Blood
 local BloodShield = Ability:Add(77513, true, true, 77535)
@@ -1131,6 +1132,8 @@ local Marrowrend = Ability:Add(195182, false, true)
 Marrowrend.rune_cost = 2
 local Ossuary = Ability:Add(219786, true, true, 219788)
 local RapidDecomposition = Ability:Add(194662, false, true)
+local RedThirst = Ability:Add(205723, false, true)
+RedThirst.talent_node = 76132
 local RelishInBlood = Ability:Add(317610, true, true)
 local SanguineGround = Ability:Add(391458, true, true, 391459)
 local ShatteringBone = Ability:Add(377640, false, true, 377642)
@@ -1154,6 +1157,8 @@ AshenDecay.buff_duration = 20
 AshenDecay.debuff = Ability:Add(425719, false, true)
 AshenDecay.debuff.buff_duration = 8
 AshenDecay.debuff:TrackAuras()
+local VampiricStrength = Ability:Add(408356, true, true) -- T30/T32 4pc
+VampiricStrength.buff_duration = 5
 ---- Frost
 ------ Talents
 local Avalanche = Ability:Add(207142, false, true, 207150)
@@ -1714,6 +1719,7 @@ function Player:UpdateKnown()
 	if self.spec == SPEC.BLOOD then
 		AshenDecay.known = self.set_bonus.t31 >= 2
 		AshenDecay.debuff.known = AshenDecay.known
+		VampiricStrength.known = self.set_bonus.t30 >= 4 or self.set_bonus.t32 >= 4
 	elseif self.spec == SPEC.FROST then
 		ChillingRage.known = self.set_bonus.t31 >= 2
 	end
@@ -2156,12 +2162,8 @@ actions+=/call_action_list,name=standard
 		end
 		if RaiseDead:Usable() then
 			UseExtra(RaiseDead)
-		elseif Player:UnderAttack() and Player.drw_remains == 0 and IceboundFortitude:Down() and VampiricBlood:Down() and not DancingRuneWeapon:Ready(InsatiableBlade.known and 10 or 0) then
-			if IceboundFortitude:Usable() then
-				UseExtra(IceboundFortitude)
-			elseif VampiricBlood:Usable() then
-				UseExtra(VampiricBlood)
-			end
+		else
+			self:defensives()
 		end
 	end
 	if DeathStrike:Usable() and Player.health.pct < 50 then
@@ -2208,6 +2210,31 @@ actions+=/call_action_list,name=standard
 		return self:drw_up()
 	end
 	return self:standard()
+end
+
+APL[SPEC.BLOOD].defensives = function(self)
+	self.defensive_active = (
+		(IceboundFortitude.known and IceboundFortitude:Up()) or
+		(VampiricBlood.known and VampiricBlood:Up()) or
+		(UnholyEndurance.known and Lichborne:Up())
+	)
+	if self.defensive_active then
+		return
+	end
+	if RedThirst.known and VampiricStrength.known and VampiricBlood:Usable() and VampiricStrength:Down() then
+		return UseExtra(VampiricBlood)
+	end
+	if Player:UnderAttack() and Player.drw_remains == 0 and not DancingRuneWeapon:Ready(InsatiableBlade.known and 10 or 0) then
+		if RedThirst.known and VampiricBlood:Usable() then
+			UseExtra(VampiricBlood)
+		elseif IceboundFortitude:Usable() then
+			UseExtra(IceboundFortitude)
+		elseif VampiricBlood:Usable() then
+			UseExtra(VampiricBlood)
+		elseif UnholyEndurance.known and Lichborne:Usable() then
+			UseExtra(Lichborne)
+		end
+	end
 end
 
 APL[SPEC.BLOOD].drw_up = function(self)
