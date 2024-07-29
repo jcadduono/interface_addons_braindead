@@ -56,6 +56,11 @@ local function startsWith(str, start) -- case insensitive check to see if a stri
 	end
 	return string.lower(str:sub(1, start:len())) == start:lower()
 end
+
+local function ToUID(guid)
+	local uid = guid:match('^%w+-%d+-%d+-%d+-%d+-(%d+)')
+	return uid and tonumber(uid)
+end
 -- end useful functions
 
 Braindead = {}
@@ -122,7 +127,8 @@ local function InitOpts()
 		cd_ttd = 8,
 		pot = false,
 		trinket = true,
-		death_strike_threshold = 60,
+		heal = 60,
+		defensives = true,
 	})
 end
 
@@ -384,8 +390,8 @@ function AutoAoe:Add(guid, update)
 	if self.blacklist[guid] then
 		return
 	end
-	local unitId = guid:match('^%w+-%d+-%d+-%d+-%d+-(%d+)')
-	if unitId and self.ignored_units[tonumber(unitId)] then
+	local uid = ToUID(guid)
+	if uid and self.ignored_units[uid] then
 		self.blacklist[guid] = Player.time + 10
 		return
 	end
@@ -974,11 +980,18 @@ end
 
 --[[
 Note: To get talent_node value for a talent, hover over talent and use macro:
-/dump GetMouseFocus():GetNodeID()
+/dump GetMouseFoci()[1]:GetNodeID()
 ]]
 
 -- Death Knight Abilities
 ---- Baseline
+local AntiMagicShell = Ability:Add(48707, true, true)
+AntiMagicShell.buff_duration = 5
+AntiMagicShell.cooldown_duration = 60
+AntiMagicShell.triggers_gcd = false
+local ChainsOfIce = Ability:Add(45524, false)
+ChainsOfIce.buff_duration = 8
+ChainsOfIce.rune_cost = 1
 local DarkCommand = Ability:Add(56222, false)
 DarkCommand.buff_duration = 3
 DarkCommand.cooldown_duration = 8
@@ -1012,13 +1025,9 @@ local RuneOfRazorice = Ability:Add(53343, true, true)
 RuneOfRazorice.bonus_id = 3370
 local RuneOfTheFallenCrusader = Ability:Add(53344, true, true)
 RuneOfTheFallenCrusader.bonus_id = 3368
-local RuneOfHysteria = Ability:Add(326911, true, true)
-RuneOfHysteria.bonus_id = 6243
 local RuneOfTheStoneskinGargoyle = Ability:Add(62158, true, true)
 RuneOfTheStoneskinGargoyle.bonus_id = 3847
 ------ Procs
-local Hysteria = Ability:Add(326913, true, true, 326918) -- triggered by Rune of Hysteria
-Hysteria.buff_duration = 8
 local Razorice = Ability:Add(51714, false, true) -- triggered by Rune of Razorice
 Razorice.buff_duration = 20
 local UnholyStrength = Ability:Add(53365, true, true) -- triggered by Rune of the Fallen Crusader
@@ -1028,10 +1037,6 @@ local AbominationLimb = Ability:Add(383269, true, true)
 AbominationLimb.buff_duration = 12
 AbominationLimb.cooldown_duration = 120
 AbominationLimb.tick_interval = 1
-local AntiMagicShell = Ability:Add(48707, true, true)
-AntiMagicShell.buff_duration = 5
-AntiMagicShell.cooldown_duration = 60
-AntiMagicShell.triggers_gcd = false
 local AntiMagicZone = Ability:Add(51052, true, true)
 AntiMagicZone.buff_duration = 8
 AntiMagicZone.cooldown_duration = 120
@@ -1041,9 +1046,6 @@ Asphyxiate.cooldown_duration = 45
 local BlindingSleet = Ability:Add(207167, false)
 BlindingSleet.buff_duration = 5
 BlindingSleet.cooldown_duration = 60
-local ChainsOfIce = Ability:Add(45524, false)
-ChainsOfIce.buff_duration = 8
-ChainsOfIce.rune_cost = 1
 local CleavingStrikes = Ability:Add(316916, true, true)
 local ControlUndead = Ability:Add(111673, true, true)
 ControlUndead.buff_duration = 300
@@ -1057,11 +1059,10 @@ local DeathStrike = Ability:Add(49998, false, true)
 DeathStrike.runic_power_cost = 45
 local IceboundFortitude = Ability:Add(48792, true, true)
 IceboundFortitude.buff_duration = 8
-IceboundFortitude.cooldown_duration = 180
+IceboundFortitude.cooldown_duration = 120
 IceboundFortitude.triggers_gcd = false
 local IcyTalons = Ability:Add(194878, true, true, 194879)
 IcyTalons.buff_duration = 10
-IcyTalons.talent_node = 76051
 local ImprovedDeathStrike = Ability:Add(374277, true, true)
 local MindFreeze = Ability:Add(47528, false, true)
 MindFreeze.buff_duration = 3
@@ -1082,6 +1083,9 @@ local UnholyGround = Ability:Add(374265, true, true, 374271)
 ---- Blood
 local BloodShield = Ability:Add(77513, true, true, 77535)
 BloodShield.buff_duration = 10
+local DeathsCaress = Ability:Add(195292, false, true)
+DeathsCaress.rune_cost = 1
+DeathsCaress:SetVelocity(45)
 ------ Talents
 local BloodBoil = Ability:Add(50842, false, true)
 BloodBoil.cooldown_duration = 7.5
@@ -1101,6 +1105,7 @@ BloodPlague:TrackAuras()
 local BloodTap = Ability:Add(221699, true, true)
 BloodTap.cooldown_duration = 60
 BloodTap.requires_charge = true
+local BoneCollector = Ability:Add(458572, false, true)
 local Bonestorm = Ability:Add(194844, true, true)
 Bonestorm.buff_duration = 1
 Bonestorm.cooldown_duration = 60
@@ -1116,9 +1121,6 @@ Consumption:AutoAoe()
 local DancingRuneWeapon = Ability:Add(49028, true, true, 81256)
 DancingRuneWeapon.buff_duration = 8
 DancingRuneWeapon.cooldown_duration = 120
-local DeathsCaress = Ability:Add(195292, false, true)
-DeathsCaress.rune_cost = 1
-DeathsCaress:SetVelocity(45)
 local GorefiendsGrasp = Ability:Add(108199, false, true)
 GorefiendsGrasp.cooldown_duration = 120
 local Heartbreaker = Ability:Add(210738, false, true)
@@ -1133,11 +1135,10 @@ Marrowrend.rune_cost = 2
 local Ossuary = Ability:Add(219786, true, true, 219788)
 local RapidDecomposition = Ability:Add(194662, false, true)
 local RedThirst = Ability:Add(205723, false, true)
-RedThirst.talent_node = 76132
+local ReinforcedBones = Ability:Add(374737, false, true)
 local RelishInBlood = Ability:Add(317610, true, true)
 local SanguineGround = Ability:Add(391458, true, true, 391459)
 local ShatteringBone = Ability:Add(377640, false, true, 377642)
-ShatteringBone.talent_node = 76128
 ShatteringBone:AutoAoe()
 local Tombstone = Ability:Add(219809, true, true)
 Tombstone.buff_duration = 8
@@ -1325,11 +1326,6 @@ MarkOfFyralath:TrackAuras()
 -- End Abilities
 
 -- Start Summoned Pets
-
-function SummonedPets:Find(guid)
-	local unitId = guid:match('^Creature%-0%-%d+%-%d+%-%d+%-(%d+)')
-	return unitId and self.byUnitId[tonumber(unitId)]
-end
 
 function SummonedPets:Purge()
 	for _, pet in next, self.known do
@@ -1713,7 +1709,6 @@ function Player:UpdateKnown()
 	end
 	DeathAndDecay.buff.known = DeathAndDecay.known
 	DeathAndDecay.damage.known = DeathAndDecay.known
-	Hysteria.known = RuneOfHysteria.known
 	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalanche.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
 	if self.spec == SPEC.BLOOD then
@@ -1902,7 +1897,7 @@ function Target:Update()
 	end
 	if guid ~= self.guid then
 		self.guid = guid
-		self.uid = tonumber(guid:match('^%w+-%d+-%d+-%d+-%d+-(%d+)') or 0)
+		self.uid = ToUID(guid) or 0
 		self:UpdateHealth(true)
 	end
 	self.boss = false
@@ -2111,11 +2106,11 @@ actions.precombat=flask
 actions.precombat+=/food
 actions.precombat+=/augmentation
 actions.precombat+=/snapshot_stats
-actions.precombat+=/variable,name=trinket_1_buffs,value=trinket.1.has_use_buff|(trinket.1.has_buff.strength|trinket.1.has_buff.mastery|trinket.1.has_buff.versatility|trinket.1.has_buff.haste|trinket.1.has_buff.crit)
-actions.precombat+=/variable,name=trinket_2_buffs,value=trinket.2.has_use_buff|(trinket.2.has_buff.strength|trinket.2.has_buff.mastery|trinket.2.has_buff.versatility|trinket.2.has_buff.haste|trinket.2.has_buff.crit)
+actions.precombat+=/variable,name=trinket_1_buffs,value=trinket.1.has_use_buff|(trinket.1.has_buff.strength|trinket.1.has_buff.mastery|trinket.1.has_buff.versatility|trinket.1.has_buff.haste|trinket.1.has_buff.crit)|trinket.1.is.mirror_of_fractured_tomorrows
+actions.precombat+=/variable,name=trinket_2_buffs,value=trinket.2.has_use_buff|(trinket.2.has_buff.strength|trinket.2.has_buff.mastery|trinket.2.has_buff.versatility|trinket.2.has_buff.haste|trinket.2.has_buff.crit)|trinket.2.is.mirror_of_fractured_tomorrows
 actions.precombat+=/variable,name=trinket_1_exclude,value=trinket.1.is.ruby_whelp_shell|trinket.1.is.whispering_incarnate_icon
 actions.precombat+=/variable,name=trinket_2_exclude,value=trinket.2.is.ruby_whelp_shell|trinket.2.is.whispering_incarnate_icon
-actions.precombat+=/variable,name=damage_trinket_priority,op=setif,value=2,value_else=1,condition=trinket.2.ilvl>trinket.1.ilvl
+actions.precombat+=/variable,name=damage_trinket_priority,op=setif,value=2,value_else=1,condition=!variable.trinket_2_buffs&trinket.2.ilvl>=trinket.1.ilvl|variable.trinket_1_buffs
 ]]
 		if DeathAndDecay:Usable() then
 			UseCooldown(DeathAndDecay)
@@ -2126,16 +2121,16 @@ actions.precombat+=/variable,name=damage_trinket_priority,op=setif,value=2,value
 --[[
 actions=auto_attack
 actions+=/variable,name=death_strike_dump_amount,value=65
-actions+=/variable,name=bone_shield_refresh_value,value=4,op=setif,condition=!talent.deaths_caress.enabled|talent.consumption.enabled|talent.blooddrinker.enabled,value_else=5
+actions+=/variable,name=bone_shield_refresh_value,value=4,op=setif,condition=talent.consumption.enabled|talent.blooddrinker.enabled,value_else=5
 actions+=/mind_freeze,if=target.debuff.casting.react
 # Use <a href='https://www.wowhead.com/spell=10060/power-infusion'>Power Infusion</a> while <a href='https://www.wowhead.com/spell=49028/dancing-rune-weapon'>Dancing Rune Weapon</a> is up, or on cooldown if <a href='https://www.wowhead.com/spell=49028/dancing-rune-weapon'>Dancing Rune Weapon</a> is not talented
 actions+=/invoke_external_buff,name=power_infusion,if=buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon
 actions+=/potion,if=buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=trinkets
 actions+=/raise_dead
+actions+=/reapers_mark
 actions+=/icebound_fortitude,if=!(buff.dancing_rune_weapon.up|buff.vampiric_blood.up)&(target.cooldown.pause_action.remains>=8|target.cooldown.pause_action.duration>0)
-actions+=/vampiric_blood,if=!buff.vampiric_blood.up&!buff.vampiric_strength.up
-actions+=/vampiric_blood,if=!(buff.dancing_rune_weapon.up|buff.icebound_fortitude.up|buff.vampiric_blood.up|buff.vampiric_strength.up)&(target.cooldown.pause_action.remains>=13|target.cooldown.pause_action.duration>0)
+actions+=/vampiric_blood,if=!(buff.dancing_rune_weapon.up|buff.icebound_fortitude.up|buff.vampiric_blood.up)&(target.cooldown.pause_action.remains>=13|target.cooldown.pause_action.duration>0)
 actions+=/deaths_caress,if=!buff.bone_shield.up
 actions+=/death_and_decay,if=!death_and_decay.ticking&(talent.unholy_ground|talent.sanguine_ground|spell_targets.death_and_decay>3|buff.crimson_scourge.up)
 actions+=/death_strike,if=buff.coagulopathy.remains<=gcd|buff.icy_talons.remains<=gcd|runic_power>=variable.death_strike_dump_amount|runic_power.deficit<=variable.heart_strike_rp|target.time_to_die<10
@@ -2144,7 +2139,6 @@ actions+=/call_action_list,name=racials
 actions+=/sacrificial_pact,if=!buff.dancing_rune_weapon.up&(pet.ghoul.remains<2|target.time_to_die<gcd)
 actions+=/blood_tap,if=(rune<=2&rune.time_to_4>gcd&charges_fractional>=1.8)|rune.time_to_3>gcd
 actions+=/gorefiends_grasp,if=talent.tightening_grasp.enabled
-actions+=/empower_rune_weapon,if=rune<6&runic_power.deficit>5
 actions+=/abomination_limb
 actions+=/dancing_rune_weapon,if=!buff.dancing_rune_weapon.up
 actions+=/run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
@@ -2154,7 +2148,8 @@ actions+=/call_action_list,name=standard
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.drw_remains > 0
 	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0))
 	self.death_strike_dump_amount = (BloodShield:Up() and Player.health.pct > 70) and 90 or 65
-	self.bone_shield_refresh_value = (not DeathsCaress.known or Consumption.known or Blooddrinker.known) and 4 or 5
+	self.bone_shield_refresh_value = (Consumption.known or Blooddrinker.known) and 4 or 5
+	self.bonestorm_refresh = not Bonestorm.known or Bonestorm:Down() or self.bone_shield_refresh_value >= (BoneShield:Stack() + Bonestorm:Remains())
 
 	if Player.use_cds then
 		if Opt.trinket then
@@ -2162,17 +2157,17 @@ actions+=/call_action_list,name=standard
 		end
 		if RaiseDead:Usable() then
 			UseExtra(RaiseDead)
-		else
+		elseif Opt.defensives and (Target.boss or Target.classification == 'elite') then
 			self:defensives()
 		end
 	end
 	if DeathStrike:Usable() and Player.health.pct < 50 then
 		return DeathStrike
 	end
-	if Marrowrend:Usable() and BoneShield:Down() and Player:UnderAttack() then
+	if Marrowrend:Usable() and self.bonestorm_refresh and BoneShield:Down() and Player:UnderAttack() then
 		return Marrowrend
 	end
-	if DeathsCaress:Usable() and BoneShield:Down() then
+	if DeathsCaress:Usable() and self.bonestorm_refresh and BoneShield:Down() then
 		return DeathsCaress
 	end
 	if DeathAndDecay:Usable() and DeathAndDecay.buff:Down() and (SanguineGround.known or UnholyGround.known or Player.enemies > 3 or CrimsonScourge:Up()) then
@@ -2201,9 +2196,6 @@ actions+=/call_action_list,name=standard
 		end
 		if DancingRuneWeapon:Usable() and Player.drw_remains == 0 then
 			UseCooldown(DancingRuneWeapon)
-		end
-		if EmpowerRuneWeapon:Usable() and Player.runes.ready < 6 and Player.runic_power.deficit > 5 then
-			UseCooldown(EmpowerRuneWeapon)
 		end
 	end
 	if Player.drw_remains > 0 then
@@ -2268,7 +2260,7 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd)) then
 		return DeathStrike
 	end
-	if Marrowrend:Usable() and (BoneShield:Remains() <= 4 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) then
+	if Marrowrend:Usable() and self.bonestorm_refresh and (BoneShield:Remains() <= 4 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) then
 		return Marrowrend
 	end
 	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
@@ -2304,7 +2296,7 @@ actions.standard+=/marrowrend,if=(buff.bone_shield.remains<=4|buff.bone_shield.s
 actions.standard+=/consumption
 actions.standard+=/soul_reaper,if=active_enemies=1&target.time_to_pct_35<5&target.time_to_die>(dot.soul_reaper.remains+5)
 actions.standard+=/soul_reaper,target_if=min:dot.soul_reaper.remains,if=target.time_to_pct_35<5&active_enemies>=2&target.time_to_die>(dot.soul_reaper.remains+5)
-actions.standard+=/bonestorm,if=runic_power>=100
+actions.standard+=/bonestorm,if=buff.bone_shield.stack>=5
 actions.standard+=/blood_boil,if=charges_fractional>=1.8&(buff.hemostasis.stack<=(5-spell_targets.blood_boil)|spell_targets.blood_boil>2)
 actions.standard+=/heart_strike,if=rune.time_to_4<gcd
 actions.standard+=/blood_boil,if=charges_fractional>=1.1
@@ -2319,10 +2311,10 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd) or (Player.runic_power.current >= self.death_strike_dump_amount) or (Player.runic_power.deficit <= self.heart_strike_rp)) then
 		return DeathStrike
 	end
-	if DeathsCaress:Usable() and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd then
+	if DeathsCaress:Usable() and self.bonestorm_refresh and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd then
 		return DeathsCaress
 	end
-	if Marrowrend:Usable() and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
+	if Marrowrend:Usable() and self.bonestorm_refresh and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
 		return Marrowrend
 	end
 	if AshenDecay.known and HeartStrike:Usable() and Player.runic_power.deficit >= self.heart_strike_rp and AshenDecay:Up() and AshenDecay.debuff:Down() and min(5, Player.enemies) <= HeartStrike:Targets() then
@@ -2334,7 +2326,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
 		UseCooldown(SoulReaper)
 	end
-	if Player.use_cds and Bonestorm:Usable() and Player.runic_power.current >= 100 then
+	if Player.use_cds and Bonestorm:Usable() and BoneShield:Stack() >= (6 + (ReinforcedBones.known and 2 or 0)) then
 		UseCooldown(Bonestorm)
 	end
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.8 and (Player.enemies > 2 or Hemostasis:Stack() <= (5 - Player.enemies)) then
@@ -2345,6 +2337,12 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	end
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.1 then
 		return BloodBoil
+	end
+	if Player.use_cds and Bonestorm.known and Bonestorm:Ready(Player.gcd * 3) and BoneShield:Stack() < (6 + (ReinforcedBones.known and 2 or 0)) and Bonestorm:Down() and (
+		(not BoneCollector.known or not AbominationLimb.known or (not AbominationLimb:Ready(Player.gcd * 3) and AbominationLimb:Down())) and
+		(not DancingRuneWeapon.known or not DancingRuneWeapon:Ready(Player.gcd * 3))
+	) then
+		return Marrowrend
 	end
 	if HeartStrike:Usable() and Player.runes.ready > 1 and (Player:RuneTimeTo(3) < Player.gcd or BoneShield:Stack() > 7) then
 		return HeartStrike
@@ -2361,9 +2359,9 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=!equipped.fyralath_t
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_2_exclude|trinket.2.cooldown.remains|!trinket.2.has_cooldown|variable.trinket_2_buffs)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_1_exclude|trinket.1.cooldown.remains|!trinket.1.has_cooldown|variable.trinket_1_buffs)
 ]]
-	if FyralathTheDreamrender:Usable() and MarkOfFyralath:Ticking() >= HeartStrike:Targets() and Player.drw_remains == 0 and (not AshenDecay.known or (AshenDecay.debuff:Remains() >= 4 and AshenDecay.debuff:Ticking() >= HeartStrike:Targets())) and (
+	if FyralathTheDreamrender:Usable() and MarkOfFyralath:Ticking() >= HeartStrike:Targets() and Player.drw_remains == 0 and (not AshenDecay.known or (AshenDecay.debuff:Remains() >= 4 and AshenDecay.debuff:Ticking() >= HeartStrike:Targets())) and (not Bonestorm.known or not Bonestorm:Ready()) and (
 		not Player:UnderAttack() or
-		(Player.runic_power.current >= 35 and Player.health.pct >= 80 and BoneShield:Stack() >= self.bone_shield_refresh_value and BloodShield:Up())
+		(Player.runic_power.current >= 35 and Player.health.pct >= 80 and ((BoneShield:Stack() >= self.bone_shield_refresh_value and BloodShield:Up()) or (Bonestorm.known and Bonestorm:Remains() >= 2)))
 	) then
 		return UseCooldown(FyralathTheDreamrender)
 	end
@@ -2374,7 +2372,6 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_bu
 		return UseCooldown(Trinket2)
 	end
 end
-
 
 APL[SPEC.FROST].Main = function(self)
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up()) or (CleavingStrikes.known and Player.enemies >= 2 and DeathAndDecay.buff:Up())
@@ -2470,6 +2467,9 @@ actions+=/call_action_list,name=single_target,if=active_enemies=1
 	self.pooling_runes = Player.use_cds and Obliteration.known and Player.runes.ready < 4 and PillarOfFrost:CooldownExpected() < self.oblit_pooling_time
 	self.pooling_runic_power = Player.use_cds and ((BreathOfSindragosa.known and BreathOfSindragosa:Ready(self.breath_pooling_time)) or (Obliteration.known and Player.runic_power.current < 35 and PillarOfFrost:CooldownExpected() < self.oblit_pooling_time))
 
+	if Player.use_cds and Opt.defensives and Player:UnderAttack() and (Target.boss or Target.classification == 'elite') then
+		self:defensives()
+	end
 	if HowlingBlast:Usable() and Player.enemies >= 2 and FrostFever:Down() and (not Obliteration.known or PillarOfFrost:Down() or KillingMachine:Down()) then
 		return HowlingBlast
 	end
@@ -2520,6 +2520,21 @@ actions+=/call_action_list,name=single_target,if=active_enemies=1
 	return self:single_target()
 end
 
+APL[SPEC.FROST].defensives = function(self)
+	self.defensive_active = (
+		(IceboundFortitude.known and IceboundFortitude:Up()) or
+		(UnholyEndurance.known and Lichborne:Up())
+	)
+	if self.defensive_active then
+		return
+	end
+	if IceboundFortitude:Usable() then
+		UseExtra(IceboundFortitude)
+	elseif UnholyEndurance.known and Lichborne:Usable() then
+		UseExtra(Lichborne)
+	end
+end
+
 APL[SPEC.FROST].aoe = function(self)
 --[[
 actions.aoe=remorseless_winter,if=!remains
@@ -2554,7 +2569,7 @@ actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 	if self.frostscythe_priority and Frostscythe:Usable() and KillingMachine:Up() and (KillingMachine:Stack() >= 2 or KillingMachine:Remains() < Player.gcd or (Bonegrinder:Up() and (Bonegrinder:Remains() < Player.gcd or Bonegrinder:Stack() >= 5))) then
 		return Frostscythe
 	end
-	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
+	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.heal) then
 		UseCooldown(DeathStrike)
 	end
 	if not self.frostscythe_priority and Obliterate:Usable() and (Player:RuneTimeTo(4) < Player.gcd or (not self.pooling_runes and KillingMachine:Up()) or (CleavingStrikes.known and DeathAndDecay.buff:Up())) then
@@ -2817,7 +2832,7 @@ actions.single_target+=/frost_strike,if=!variable.pooling_runic_power
 	if HowlingBlast:Usable() and Icebreaker.rank == 2 and Rime:Up() then
 		return HowlingBlast
 	end
-	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.death_strike_threshold) then
+	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.heal) then
 		UseCooldown(DeathStrike)
 	end
 	if HornOfWinter:Usable() and Player.runes.ready < 4 and Player.runic_power.deficit > 25 and Obliteration.known and BreathOfSindragosa.known then
@@ -3053,7 +3068,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		if SacrificialPact:Usable() and RaiseDeadUnholy:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
 			UseCooldown(SacrificialPact)
 		end
-		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.heal and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3070,7 +3085,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 		if SacrificialPact:Usable() and RaiseDeadUnholy:Usable(Player.gcd) and not DarkTransformation:Ready(3) and DarkTransformation:Down() and (not UnholyAssault.known or UnholyAssault:Down()) then
 			UseCooldown(SacrificialPact)
 		end
-		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.heal and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3118,7 +3133,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		end
 	end
 	if Player.runic_power.deficit < 20 and not Player.pooling_for_gargoyle then
-		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.heal and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3132,7 +3147,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
-		if Player.health.pct < Opt.death_strike_threshold and DeathStrike:Usable() then
+		if Player.health.pct < Opt.heal and DeathStrike:Usable() then
 			return DeathStrike
 		end
 		if DeathCoil:Usable() then
@@ -3574,11 +3589,15 @@ CombatEvent.TRIGGER = function(timeStamp, event, _, srcGUID, _, _, _, dstGUID, _
 end
 
 CombatEvent.UNIT_DIED = function(event, srcGUID, dstGUID)
+	local uid = ToUID(dstGUID)
+	if not uid or Target.Dummies[uid] then
+		return
+	end
 	trackAuras:Remove(dstGUID)
 	if Opt.auto_aoe then
 		AutoAoe:Remove(dstGUID)
 	end
-	local pet = SummonedPets:Find(dstGUID)
+	local pet = SummonedPets.byUnitId[uid]
 	if pet then
 		pet:RemoveUnit(dstGUID)
 	end
@@ -3633,39 +3652,44 @@ CombatEvent.SPELL_SUMMON = function(event, srcGUID, dstGUID)
 	if srcGUID ~= Player.guid then
 		return
 	end
-	local pet = SummonedPets:Find(dstGUID)
+	local uid = ToUID(dstGUID)
+	if not uid then
+		return
+	end
+	local pet = SummonedPets.byUnitId[uid]
 	if pet then
 		pet:AddUnit(dstGUID)
 	end
 end
 
 CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellSchool, missType, overCap, powerType)
-	if not (srcGUID == Player.guid or srcGUID == Pet.guid) then
-		local pet = SummonedPets:Find(srcGUID)
-		if pet then
-			local unit = pet.active_units[srcGUID]
-			if unit then
-				if event == 'SPELL_CAST_SUCCESS' and pet.CastSuccess then
-					pet:CastSuccess(unit, spellId, dstGUID)
-				elseif event == 'SPELL_CAST_START' and pet.CastStart then
-					pet:CastStart(unit, spellId, dstGUID)
-				elseif event == 'SPELL_CAST_FAILED' and pet.CastFailed then
-					pet:CastFailed(unit, spellId, dstGUID, missType)
-				elseif (event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED' or event == 'SPELL_MISSED' or event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH') and pet.CastLanded then
-					pet:CastLanded(unit, spellId, dstGUID, event, missType)
-				end
-				--log(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
-			end
-		end
-		return
-	end
-
 	if srcGUID == Pet.guid then
 		if Pet.stuck and (event == 'SPELL_CAST_SUCCESS' or event == 'SPELL_DAMAGE' or event == 'SWING_DAMAGE') then
 			Pet.stuck = false
 		elseif not Pet.stuck and event == 'SPELL_CAST_FAILED' and missType == 'No path available' then
 			Pet.stuck = true
 		end
+	elseif srcGUID ~= Player.guid then
+		local uid = ToUID(srcGUID)
+		if uid then
+			local pet = SummonedPets.byUnitId[uid]
+			if pet then
+				local unit = pet.active_units[srcGUID]
+				if unit then
+					if event == 'SPELL_CAST_SUCCESS' and pet.CastSuccess then
+						pet:CastSuccess(unit, spellId, dstGUID)
+					elseif event == 'SPELL_CAST_START' and pet.CastStart then
+						pet:CastStart(unit, spellId, dstGUID)
+					elseif event == 'SPELL_CAST_FAILED' and pet.CastFailed then
+						pet:CastFailed(unit, spellId, dstGUID, missType)
+					elseif (event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED' or event == 'SPELL_MISSED' or event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH') and pet.CastLanded then
+						pet:CastLanded(unit, spellId, dstGUID, event, missType)
+					end
+					--log(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+				end
+			end
+		end
+		return
 	end
 
 	local ability = spellId and Abilities.bySpellId[spellId]
@@ -4237,11 +4261,17 @@ SlashCmdList[ADDON] = function(msg, editbox)
 		end
 		return Status('Show on-use trinkets in cooldown UI', Opt.trinket)
 	end
-	if msg[1] == 'ds' then
+	if startsWith(msg[1], 'he') then
 		if msg[2] then
-			Opt.death_strike_threshold = clamp(tonumber(msg[2]) or 60, 0, 100)
+			Opt.heal = clamp(tonumber(msg[2]) or 60, 0, 100)
 		end
-		return Status('Health percentage threshold to recommend Death Strike', Opt.death_strike_threshold .. '%')
+		return Status('Health percentage threshold to recommend self healing spells', Opt.heal .. '%')
+	end
+	if startsWith(msg[1], 'de') then
+		if msg[2] then
+			Opt.defensives = msg[2] == 'on'
+		end
+		return Status('Show defensives/emergency heals in extra UI', Opt.defensives)
 	end
 	if msg[1] == 'reset' then
 		UI:Reset()
@@ -4271,7 +4301,8 @@ SlashCmdList[ADDON] = function(msg, editbox)
 		'ttd |cFFFFD000[seconds]|r  - minimum enemy lifetime to use cooldowns on (default is 8 seconds, ignored on bosses)',
 		'pot |cFF00C000on|r/|cFFC00000off|r - show flasks and battle potions in cooldown UI',
 		'trinket |cFF00C000on|r/|cFFC00000off|r - show on-use trinkets in cooldown UI',
-		'ds |cFFFFD000[percent]|r - health percentage threshold to recommend Death Strike',
+		'heal |cFFFFD000[percent]|r - health percentage threshold to recommend self healing spells (default is 60%, 0 to disable)',
+		'defensives |cFF00C000on|r/|cFFC00000off|r - show defensives/emergency heals in extra UI',
 		'|cFFFFD000reset|r - reset the location of the ' .. ADDON .. ' UI to default',
 	} do
 		print('  ' .. SLASH_Braindead1 .. ' ' .. cmd)
