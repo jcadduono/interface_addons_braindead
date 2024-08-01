@@ -1162,6 +1162,7 @@ local VampiricStrength = Ability:Add(408356, true, true) -- T30/T32 4pc
 VampiricStrength.buff_duration = 5
 ---- Frost
 ------ Talents
+local ArcticAssault = Ability:Add(456230, false, true)
 local Avalanche = Ability:Add(207142, false, true, 207150)
 local BitingCold = Ability:Add(377056, false, true)
 local Bonegrinder = Ability:Add(377098, true, true, 377101)
@@ -1229,6 +1230,7 @@ RemorselessWinter.cooldown_duration = 20
 RemorselessWinter.rune_cost = 1
 RemorselessWinter.damage = Ability:Add(196771, false, true)
 RemorselessWinter.damage:AutoAoe(true)
+local ShatteredFrost = Ability:Add(455993, false, true)
 local ShatteringBlade = Ability:Add(207057, false, true)
 local UnleashedFrenzy = Ability:Add(376905, true, true, 376907)
 UnleashedFrenzy.buff_duration = 10
@@ -2008,6 +2010,14 @@ function Obliterate:Targets()
 	return min(Player.enemies, (CleavingStrikes.known and DeathAndDecay.buff:Up()) and 3 or 1)
 end
 
+function PillarOfFrost:CooldownDuration()
+	local duration = Ability.CooldownDuration(self)
+	if Icecap.known then
+		duration = duration - 15
+	end
+	return max(0, duration)
+end
+
 function Tombstone:Usable()
 	if BoneShield:Down() then
 		return false
@@ -2575,6 +2585,9 @@ actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 	if not self.frostscythe_priority and Obliterate:Usable() and (Player:RuneTimeTo(4) < Player.gcd or (not self.pooling_runes and KillingMachine:Up()) or (CleavingStrikes.known and DeathAndDecay.buff:Up())) then
 		return Obliterate
 	end
+	if not self.pooling_runic_power and ShatteredFrost.known and FrostStrike:Usable() and Razorice:Stack() >= 5 then
+		return FrostStrike
+	end
 	if not self.pooling_runic_power and GlacialAdvance:Usable() then
 		return GlacialAdvance
 	end
@@ -2664,7 +2677,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 ]]
 	if EmpowerRuneWeapon:Usable() and EmpowerRuneWeapon:Down() and (
 		(Target.boss and Target.timeToDie < 20) or
-		(Obliteration.known and Player.runes.ready < 6 and (PillarOfFrost:Up() or (not self.rw_wait and PillarOfFrost:CooldownExpected() < 7 and (self.st_planning or self.adds_remain)))) or
+		(Obliteration.known and Player.runes.ready < 6 and (PillarOfFrost:Up() or (not self.rw_wait and PillarOfFrost:CooldownExpected() < 3 and (self.st_planning or self.adds_remain)))) or
 		(BreathOfSindragosa.known and BreathOfSindragosa:Up() and (Player.runic_power.current < 70 and Player.runes.ready < 3 or Player:TimeInCombat() < 10)) or
 		(not BreathOfSindragosa.known and not Obliteration.known and Player.runes.ready < 5 and (not PillarOfFrost.known or PillarOfFrost:Up() or PillarOfFrost:CooldownExpected() < 7))
 	) then
@@ -2698,7 +2711,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
 		(not Obliteration.known and PillarOfFrost:Up() and PillarOfFrost:Remains() < (Player.gcd * 2)) or
-		(Obliteration.known and ((Player.equipped.twohand and PillarOfFrost:Down() and not PillarOfFrost:Ready() and (not EnduringStrength.known or EnduringStrength:Up() or Player.enemies >= 5)) or (not Player.equipped.twohand and PillarOfFrost:Up())) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (Razorice:Stack() >= 5 or (not RuneOfRazorice.known and not GlacialAdvance.known)))
+		(Obliteration.known and not PillarOfFrost:Ready() and (not EnduringStrength.known or EnduringStrength:Up() or Player.enemies >= 5) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (Razorice:Stack() >= 5 or (not RuneOfRazorice.known and not GlacialAdvance.known and not ArcticAssault.known)) and (DeathAndDecay.buff:Down() or (Player.runes.ready < 2 and (Player.runic_power.current < 30 or KillingMachine:Stack() >= 2))))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
@@ -2711,7 +2724,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	if SacrificialPact:Usable() and Player.enemies > 3 and not GlacialAdvance.known and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (not Obliteration.known or PillarOfFrost:Down()) and Pet.RisenGhoul:Remains() < 3)) then
 		UseExtra(SacrificialPact)
 	end
-	if DeathAndDecay:Usable() and Player.enemies >= 2 and DeathAndDecay.buff:Down() and ((PillarOfFrost:Remains() > 5 and (KillingMachine:Up() or (not Obliteration.known and PillarOfFrost:Remains() < 11))) or (PillarOfFrost:Down() and (DeathAndDecay:ChargesFractional() > 1.75 or EnduringStrength:Remains() > 10 or (KillingMachine:Up() and PillarOfFrost:CooldownExpected() > (30 * (2 - DeathAndDecay:ChargesFractional()))))) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
+	if DeathAndDecay:Usable() and Player.enemies >= 2 and DeathAndDecay.buff:Down() and ((PillarOfFrost:Remains() > 5 and (KillingMachine:Up() or (not Obliteration.known and PillarOfFrost:Remains() < 11))) or (PillarOfFrost:Down() and (DeathAndDecay:ChargesFractional() > 1.75 or (KillingMachine:Up() and PillarOfFrost:CooldownExpected() > (30 * (2 - DeathAndDecay:ChargesFractional()))))) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
 		UseCooldown(DeathAndDecay)
 	end
 end
