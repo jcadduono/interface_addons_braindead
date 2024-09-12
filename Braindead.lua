@@ -721,6 +721,10 @@ function Ability:Stack()
 	return 0
 end
 
+function Ability:MaxStack()
+	return self.max_stack
+end
+
 function Ability:RuneCost()
 	return self.rune_cost
 end
@@ -1327,6 +1331,21 @@ SuddenDoom.buff_duration = 10
 local VirulentEruption = Ability:Add(191685, false, true)
 ------ Tier Bonuses
 
+-- Hero talents
+local Exterminate = Ability:Add(441378, false, true, 441426)
+Exterminate.max_stack = 2
+Exterminate:AutoAoe()
+Exterminate[1] = Ability:Add(441416, true, true)
+Exterminate[1].buff_duration = 600
+Exterminate[2] = Ability:Add(447954, true, true)
+Exterminate[2].buff_duration = 600
+local PainfulDeath = Ability:Add(443564, false, true)
+local ReapersMark = Ability:Add(439843, false, true, 434765)
+ReapersMark.rune_cost = 2
+ReapersMark.cooldown_duration = 45
+ReapersMark.buff_duration = 12
+ReapersMark:TrackAuras()
+local SwiftEnd = Ability:Add(443560, false, true)
 -- PvP talents
 
 -- Racials
@@ -1725,6 +1744,10 @@ function Player:UpdateKnown()
 	if RaiseAbomination.known then
 		ArmyOfTheDead.known = false
 	end
+	if Exterminate.known then
+		Exterminate[1].known = true
+		Exterminate[2].known = true
+	end
 	DeathAndDecay.buff.known = DeathAndDecay.known
 	DeathAndDecay.damage.known = DeathAndDecay.known
 	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalanche.known
@@ -1983,11 +2006,35 @@ function DeathAndDecay:RuneCost()
 	return Ability.RuneCost(self)
 end
 
+function Marrowrend:RuneCost()
+	local cost = Ability.RuneCost(self)
+	if Exterminate.known and Exterminate:Up() then
+		cost = cost - (PainfulDeath.known and 1 or 2)
+	end
+	return max(0, cost)
+end
+
 function HowlingBlast:RuneCost()
 	if Rime.known and Rime:Up() then
 		return 0
 	end
 	return Ability.RuneCost(self)
+end
+
+function Obliterate:RuneCost()
+	local cost = Ability.RuneCost(self)
+	if Exterminate.known and Exterminate:Up() then
+		cost = cost - (PainfulDeath.known and 1 or 2)
+	end
+	return max(0, cost)
+end
+
+function ReapersMark:RuneCost()
+	local cost = Ability.RuneCost(self)
+	if SwiftEnd.known then
+		cost = cost - 1
+	end
+	return max(0, cost)
 end
 
 function DeathCoil:RunicPowerCost()
@@ -2024,6 +2071,14 @@ end
 
 function Obliterate:Targets()
 	return min(Player.enemies, (CleavingStrikes.known and DeathAndDecay.buff:Up()) and 3 or 1)
+end
+
+function Exterminate:Remains()
+	return self[1]:Remains() + self[2]:Remains()
+end
+
+function Exterminate:Stack()
+	return (self[1]:Up() and 2 or 0) + (self[2]:Up() and 1 or 0)
 end
 
 function PillarOfFrost:CooldownDuration()
@@ -2214,6 +2269,9 @@ actions+=/call_action_list,name=standard
 		if SacrificialPact:Usable() and Player.drw_remains == 0 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
 			UseExtra(SacrificialPact)
 		end
+		if ReapersMark:Usable() and Player.drw_remains == 0 and ReapersMark:Down() then
+			UseCooldown(ReapersMark)
+		end
 		if BloodTap:Usable() and (Player:RuneTimeTo(3) > Player.gcd or (Player.runes.ready <= 2 and Player:RuneTimeTo(4) > Player.gcd and BloodTap:ChargesFractional() >= 1.8)) then
 			UseCooldown(BloodTap)
 		end
@@ -2307,6 +2365,15 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	if Hemostasis.known and BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.1 and Hemostasis:Stack() < 5 then
 		return BloodBoil
 	end
+	if Exterminate.known and Marrowrend:Usable() and Exterminate:Up() and (
+		BoneShield:Remains() <= 10 or
+		BoneShield:Stack() < self.bone_shield_refresh_value or
+		Exterminate:Stack() >= Exterminate:MaxStack() or
+		ReapersMark:Ready(Player.gcd * 2) or
+		ReapersMark:Ticking() > 0
+	) then
+		return Marrowrend
+	end
 	if HeartStrike:Usable() and (Player:RuneTimeTo(2) < Player.gcd or Player.runic_power.deficit >= self.heart_strike_rp) then
 		return HeartStrike
 	end
@@ -2337,7 +2404,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if DeathStrike:Usable() and ((Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or (IcyTalons.known and IcyTalons:Remains() <= Player.gcd) or (Player.runic_power.current >= self.death_strike_dump_amount) or (Player.runic_power.deficit <= self.heart_strike_rp)) then
 		return DeathStrike
 	end
-	if DeathsCaress:Usable() and self.bonestorm_refresh and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd then
+	if DeathsCaress:Usable() and self.bonestorm_refresh and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd and (not Exterminate.known or Exterminate:Down()) then
 		return DeathsCaress
 	end
 	if Marrowrend:Usable() and self.bonestorm_refresh and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
@@ -2357,6 +2424,15 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	end
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.8 and (Player.enemies > 2 or Hemostasis:Stack() <= (5 - Player.enemies)) then
 		return BloodBoil
+	end
+	if Exterminate.known and Marrowrend:Usable() and Exterminate:Up() and (
+		BoneShield:Remains() <= 10 or
+		BoneShield:Stack() < self.bone_shield_refresh_value or
+		Exterminate:Stack() >= Exterminate:MaxStack() or
+		ReapersMark:Ready(Player.gcd * 2) or
+		ReapersMark:Ticking() > 0
+	) then
+		return Marrowrend
 	end
 	if HeartStrike:Usable() and Player:RuneTimeTo(4) < Player.gcd then
 		return HeartStrike
