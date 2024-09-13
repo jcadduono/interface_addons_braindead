@@ -160,7 +160,7 @@ local Abilities = {
 	bySpellId = {},
 	velocity = {},
 	autoAoe = {},
-	trackAuras = {},
+	tracked = {},
 }
 
 -- summoned pet template
@@ -180,6 +180,9 @@ local AutoAoe = {
 	blacklist = {},
 	ignored_units = {},
 }
+
+-- methods for tracking ticking debuffs on targets
+local TrackedAuras = {}
 
 -- timers for updating combat/display/hp info
 local Timer = {
@@ -265,10 +268,6 @@ local Player = {
 		offhand = false,
 	},
 	set_bonus = {
-		t29 = 0, -- Haunted Frostbrood Remains
-		t30 = 0, -- Lingering Phantom's Encasement
-		t31 = 0, -- Risen Nightmare's Gravemantle
-		t32 = 0, -- Risen Nightmare's Gravemantle (Awakened)
 		t33 = 0, -- Exhumed Centurion's Relics
 	},
 	previous_gcd = {},-- list of previous GCD abilities
@@ -326,6 +325,14 @@ Target.Dummies = {
 	[194649] = true,
 	[197833] = true,
 	[198594] = true,
+	[219250] = true,
+	[225983] = true,
+	[225984] = true,
+	[225985] = true,
+	[225976] = true,
+	[225977] = true,
+	[225978] = true,
+	[225982] = true,
 }
 
 -- Start AoE
@@ -558,6 +565,10 @@ function Ability:Remains()
 		end
 	end
 	return 0
+end
+
+function Ability:React()
+	return self:Remains()
 end
 
 function Ability:Expiring(seconds)
@@ -878,9 +889,6 @@ function Ability:CastSuccess(dstGUID)
 		Player.previous_gcd[10] = nil
 		table.insert(Player.previous_gcd, 1, self)
 	end
-	if self.aura_targets and self.requires_react then
-		self:RemoveAura(self.aura_target == 'player' and Player.guid or dstGUID)
-	end
 	if Opt.auto_aoe and self.auto_aoe and self.auto_aoe.trigger == 'SPELL_CAST_SUCCESS' then
 		AutoAoe:Add(dstGUID, true)
 	end
@@ -935,10 +943,8 @@ end
 
 -- Start DoT tracking
 
-local trackAuras = {}
-
-function trackAuras:Purge()
-	for _, ability in next, Abilities.trackAuras do
+function TrackedAuras:Purge()
+	for _, ability in next, Abilities.tracked do
 		for guid, aura in next, ability.aura_targets do
 			if aura.expires <= Player.time then
 				ability:RemoveAura(guid)
@@ -947,13 +953,13 @@ function trackAuras:Purge()
 	end
 end
 
-function trackAuras:Remove(guid)
-	for _, ability in next, Abilities.trackAuras do
+function TrackedAuras:Remove(guid)
+	for _, ability in next, Abilities.tracked do
 		ability:RemoveAura(guid)
 	end
 end
 
-function Ability:TrackAuras()
+function Ability:Track()
 	self.aura_targets = {}
 end
 
@@ -1118,7 +1124,7 @@ Blooddrinker.hasted_ticks = true
 local BloodPlague = Ability:Add(55078, false, true)
 BloodPlague.buff_duration = 24
 BloodPlague.tick_interval = 3
-BloodPlague:TrackAuras()
+BloodPlague:Track()
 local BloodTap = Ability:Add(221699, true, true)
 BloodTap.cooldown_duration = 60
 BloodTap.requires_charge = true
@@ -1170,13 +1176,7 @@ BoneShield.buff_duration = 30
 local CrimsonScourge = Ability:Add(81136, true, true, 81141)
 CrimsonScourge.buff_duration = 15
 ------ Tier Bonuses
-local AshenDecay = Ability:Add(425721, true, true) -- T31 2pc
-AshenDecay.buff_duration = 20
-AshenDecay.debuff = Ability:Add(425719, false, true)
-AshenDecay.debuff.buff_duration = 8
-AshenDecay.debuff:TrackAuras()
-local VampiricStrength = Ability:Add(408356, true, true) -- T30/T32 4pc
-VampiricStrength.buff_duration = 5
+
 ---- Frost
 ------ Talents
 local ArcticAssault = Ability:Add(456230, false, true)
@@ -1207,7 +1207,7 @@ Everfrost.buff_duration = 8
 local FrostFever = Ability:Add(55095, false, true)
 FrostFever.buff_duration = 24
 FrostFever.tick_interval = 3
-FrostFever:TrackAuras()
+FrostFever:Track()
 local Frostscythe = Ability:Add(207230, false, true)
 Frostscythe.rune_cost = 1
 Frostscythe:AutoAoe()
@@ -1259,8 +1259,7 @@ KillingMachine.buff_duration = 10
 local Rime = Ability:Add(59057, true, true, 59052)
 Rime.buff_duration = 15
 ------ Tier Bonuses
-local ChillingRage = Ability:Add(424165, true, true)
-ChillingRage.buff_duration = 12
+
 ---- Unholy
 ------ Talents
 local Apocalypse = Ability:Add(275699, false, true)
@@ -1322,7 +1321,7 @@ local VirulentPlague = Ability:Add(191587, false, true)
 VirulentPlague.buff_duration = 27
 VirulentPlague.tick_interval = 3
 VirulentPlague:AutoAoe(false, 'apply')
-VirulentPlague:TrackAuras()
+VirulentPlague:Track()
 ------ Procs
 local RunicCorruption = Ability:Add(51462, true, true, 51460)
 RunicCorruption.buff_duration = 3
@@ -1344,19 +1343,15 @@ local ReapersMark = Ability:Add(439843, false, true, 434765)
 ReapersMark.rune_cost = 2
 ReapersMark.cooldown_duration = 45
 ReapersMark.buff_duration = 12
-ReapersMark:TrackAuras()
+ReapersMark:Track()
 local SwiftEnd = Ability:Add(443560, false, true)
 -- PvP talents
 
 -- Racials
 
 -- Trinket effects
-local MarkOfFyralath = Ability:Add(414532, false, true) -- DoT applied by Fyr'alath the Dreamrender
-MarkOfFyralath.buff_duration = 15
-MarkOfFyralath.tick_interval = 3
-MarkOfFyralath.hasted_ticks = true
-MarkOfFyralath.no_pandemic = true
-MarkOfFyralath:TrackAuras()
+
+
 -- End Abilities
 
 -- Start Summoned Pets
@@ -1412,7 +1407,7 @@ end
 
 function SummonedPet:Remains(initial)
 	if self.summon_spell and self.summon_spell.summon_count > 0 and self.summon_spell:Casting() then
-		return self.duration
+		return self:Duration()
 	end
 	local expires_max = 0
 	for guid, unit in next, self.active_units do
@@ -1444,6 +1439,10 @@ function SummonedPet:Count()
 	return count
 end
 
+function SummonedPet:Duration()
+	return self.duration
+end
+
 function SummonedPet:Expiring(seconds)
 	local count = 0
 	for guid, unit in next, self.active_units do
@@ -1458,7 +1457,7 @@ function SummonedPet:AddUnit(guid)
 	local unit = {
 		guid = guid,
 		spawn = Player.time,
-		expires = Player.time + self.duration,
+		expires = Player.time + self:Duration(),
 	}
 	self.active_units[guid] = unit
 	return unit
@@ -1560,15 +1559,10 @@ end
 
 -- Inventory Items
 local Healthstone = InventoryItem:Add(5512)
-Healthstone.created_by = CreateHealthstone
 Healthstone.max_charges = 3
 -- Equipment
 local Trinket1 = InventoryItem:Add(0)
 local Trinket2 = InventoryItem:Add(0)
-Trinket.AlgetharPuzzleBox = InventoryItem:Add(193701)
-local FyralathTheDreamrender = InventoryItem:Add(206448)
-FyralathTheDreamrender.cooldown_duration = 120
-FyralathTheDreamrender.off_gcd = false
 -- End Inventory Items
 
 -- Start Abilities Functions
@@ -1577,7 +1571,7 @@ function Abilities:Update()
 	wipe(self.bySpellId)
 	wipe(self.velocity)
 	wipe(self.autoAoe)
-	wipe(self.trackAuras)
+	wipe(self.tracked)
 	for _, ability in next, self.all do
 		if ability.known then
 			self.bySpellId[ability.spellId] = ability
@@ -1591,7 +1585,7 @@ function Abilities:Update()
 				self.autoAoe[#self.autoAoe + 1] = ability
 			end
 			if ability.aura_targets then
-				self.trackAuras[#self.trackAuras + 1] = ability
+				self.tracked[#self.tracked + 1] = ability
 			end
 		end
 	end
@@ -1752,14 +1746,6 @@ function Player:UpdateKnown()
 	DeathAndDecay.damage.known = DeathAndDecay.known
 	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalanche.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
-	if self.spec == SPEC.BLOOD then
-		AshenDecay.known = self.set_bonus.t31 >= 2
-		AshenDecay.debuff.known = AshenDecay.known
-		VampiricStrength.known = self.set_bonus.t30 >= 4 or self.set_bonus.t32 >= 4
-	elseif self.spec == SPEC.FROST then
-		ChillingRage.known = self.set_bonus.t31 >= 2
-	end
-	MarkOfFyralath.known = FyralathTheDreamrender:Equipped()
 
 	if DancingRuneWeapon.known then
 		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 14, 'OUTLINE')
@@ -1828,21 +1814,21 @@ function Player:Update()
 		self.cast.remains = 0
 	end
 	self.execute_remains = max(self.cast.remains, self.gcd_remains)
-	speed, max_speed = GetUnitSpeed('player')
-	self.moving = speed ~= 0
-	self.movement_speed = max_speed / 7 * 100
 	speed_mh, speed_oh = UnitAttackSpeed('player')
 	self.swing.mh.speed = speed_mh or 0
 	self.swing.oh.speed = speed_oh or 0
 	self.swing.mh.remains = max(0, self.swing.mh.last + self.swing.mh.speed - self.time)
 	self.swing.oh.remains = max(0, self.swing.oh.last + self.swing.oh.speed - self.time)
+	speed, max_speed = GetUnitSpeed('player')
+	self.moving = speed ~= 0
+	self.movement_speed = max_speed / 7 * 100
 	self:UpdateRunes()
 	self:UpdateThreat()
 
 	Pet:Update()
 
 	SummonedPets:Purge()
-	trackAuras:Purge()
+	TrackedAuras:Purge()
 	if Opt.auto_aoe then
 		for _, ability in next, Abilities.autoAoe do
 			ability:UpdateTargetsHit()
@@ -1900,7 +1886,7 @@ function Target:UpdateHealth(reset)
 		table.remove(self.health.history, 1)
 		self.health.history[25] = self.health.current
 	end
-	self.timeToDieMax = self.health.current / Player.health.max * 10
+	self.timeToDieMax = self.health.current / Player.health.max * (Player.spec == SPEC.BLOOD and 20 or 15)
 	self.health.pct = self.health.max > 0 and (self.health.current / self.health.max * 100) or 100
 	self.health.loss_per_sec = (self.health.history[1] - self.health.current) / 5
 	self.timeToDie = (
@@ -2141,12 +2127,6 @@ function SacrificialPact:Usable()
 	return Ability.Usable(self)
 end
 
-function MarkOfFyralath:Refresh(guid)
-	if self.known and self.aura_targets[guid] then
-		self.aura_targets[guid].expires = Player.time + self.buff_duration
-	end
-end
-
 -- End Ability Modifications
 
 -- Start Summoned Pet Modifications
@@ -2297,9 +2277,6 @@ APL[SPEC.BLOOD].defensives = function(self)
 	if self.defensive_active then
 		return
 	end
-	if RedThirst.known and VampiricStrength.known and VampiricBlood:Usable() and VampiricStrength:Down() then
-		return UseExtra(VampiricBlood)
-	end
 	if Player:UnderAttack() and Player.drw_remains == 0 and not DancingRuneWeapon:Ready(InsatiableBlade.known and 10 or 0) then
 		if RedThirst.known and VampiricBlood:Usable() then
 			UseExtra(VampiricBlood)
@@ -2329,14 +2306,11 @@ actions.drw_up+=/consumption
 actions.drw_up+=/blood_boil,if=charges_fractional>=1.1&buff.hemostasis.stack<5
 actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variable.heart_strike_rp_drw
 ]]
-	if AshenDecay.known and HeartStrike:Usable() and Player.runic_power.deficit >= self.heart_strike_rp and AshenDecay:Up() and AshenDecay.debuff:Down() and min(5, Player.enemies) <= HeartStrike:Targets() then
-		return HeartStrike
-	end
 	if BloodBoil:Usable() and BloodPlague:Down() then
 		return BloodBoil
 	end
 	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
-		(ShatteringBone.known and DeathAndDecay.buff:Up() and (not AshenDecay.known or AshenDecay.debuff:Up() or AshenDecay:Down())) or
+		(ShatteringBone.known and DeathAndDecay.buff:Up()) or
 		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
 	) then
 		UseCooldown(Tombstone)
@@ -2396,7 +2370,7 @@ actions.standard+=/blood_boil,if=charges_fractional>=1.1
 actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7))
 ]]
 	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
-		(ShatteringBone.known and DeathAndDecay.buff:Up() and not DancingRuneWeapon:Ready(25) and (not AshenDecay.known or AshenDecay.debuff:Up() or AshenDecay:Down())) or
+		(ShatteringBone.known and DeathAndDecay.buff:Up() and not DancingRuneWeapon:Ready(25)) or
 		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
 	) then
 		UseCooldown(Tombstone)
@@ -2409,9 +2383,6 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	end
 	if Marrowrend:Usable() and self.bonestorm_refresh and (BoneShield:Remains() <= 5 or (BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
 		return Marrowrend
-	end
-	if AshenDecay.known and HeartStrike:Usable() and Player.runic_power.deficit >= self.heart_strike_rp and AshenDecay:Up() and AshenDecay.debuff:Down() and min(5, Player.enemies) <= HeartStrike:Targets() then
-		return HeartStrike
 	end
 	if Player.use_cds and Consumption:Usable() then
 		UseCooldown(Consumption)
@@ -2453,20 +2424,13 @@ end
 
 APL[SPEC.BLOOD].trinkets = function(self)
 --[[
-actions.trinkets=use_item,name=fyralath_the_dreamrender,if=dot.mark_of_fyralath.ticking
 # Prioritize damage dealing on use trinkets over trinkets that give buffs
-actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_buffs&(variable.damage_trinket_priority=1|trinket.2.cooldown.remains|!trinket.2.has_cooldown)
+actions.trinkets=use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_buffs&(variable.damage_trinket_priority=1|trinket.2.cooldown.remains|!trinket.2.has_cooldown)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=!variable.trinket_2_buffs&(variable.damage_trinket_priority=2|trinket.1.cooldown.remains|!trinket.1.has_cooldown)
-actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=!equipped.fyralath_the_dreamrender&(variable.trinket_1_buffs|trinket.1.cooldown.remains)&(variable.trinket_2_buffs|trinket.2.cooldown.remains)
+actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=(variable.trinket_1_buffs|trinket.1.cooldown.remains)&(variable.trinket_2_buffs|trinket.2.cooldown.remains)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_2_exclude|trinket.2.cooldown.remains|!trinket.2.has_cooldown|variable.trinket_2_buffs)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_buffs&(buff.dancing_rune_weapon.up|!talent.dancing_rune_weapon|cooldown.dancing_rune_weapon.remains>20)&(variable.trinket_1_exclude|trinket.1.cooldown.remains|!trinket.1.has_cooldown|variable.trinket_1_buffs)
 ]]
-	if FyralathTheDreamrender:Usable() and MarkOfFyralath:Ticking() >= HeartStrike:Targets() and Player.drw_remains == 0 and (not AshenDecay.known or (AshenDecay.debuff:Remains() >= 4 and AshenDecay.debuff:Ticking() >= HeartStrike:Targets())) and (not Bonestorm.known or not Bonestorm:Ready()) and (
-		not Player:UnderAttack() or
-		(Player.runic_power.current >= 35 and Player.health.pct >= 80 and ((BoneShield:Stack() >= self.bone_shield_refresh_value and BloodShield:Up()) or (Bonestorm.known and Bonestorm:Remains() >= 2)))
-	) then
-		return UseCooldown(FyralathTheDreamrender)
-	end
 	if Trinket1:Usable() then
 		return UseCooldown(Trinket1)
 	end
@@ -2753,8 +2717,7 @@ actions.cooldowns+=/empower_rune_weapon,use_off_gcd=1,if=!talent.breath_of_sindr
 actions.cooldowns+=/abomination_limb,if=talent.obliteration&!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains<3&(variable.adds_remain|variable.st_planning)|fight_remains<12
 actions.cooldowns+=/abomination_limb,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
 actions.cooldowns+=/abomination_limb,if=!talent.breath_of_sindragosa&!talent.obliteration&(variable.adds_remain|variable.st_planning)
-actions.cooldowns+=/chill_streak,if=set_bonus.tier31_2pc&buff.chilling_rage.remains<3
-actions.cooldowns+=/chill_streak,if=!set_bonus.tier31_2pc&active_enemies>=2&(!death_and_decay.ticking&talent.cleaving_strikes|!talent.cleaving_strikes|active_enemies<=5)
+actions.cooldowns+=/chill_streak,if=!death_and_decay.ticking&talent.cleaving_strikes|!talent.cleaving_strikes|active_enemies<=5
 actions.cooldowns+=/pillar_of_frost,if=talent.obliteration&(variable.adds_remain|variable.st_planning)&(buff.empower_rune_weapon.up|cooldown.empower_rune_weapon.remains)&!variable.rw_wait|fight_remains<12
 actions.cooldowns+=/pillar_of_frost,if=talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)&(!talent.icecap&(runic_power>70|cooldown.breath_of_sindragosa.remains>40)|talent.icecap&(cooldown.breath_of_sindragosa.remains>10|buff.breath_of_sindragosa.up))
 actions.cooldowns+=/pillar_of_frost,if=talent.icecap&!talent.obliteration&!talent.breath_of_sindragosa&(variable.adds_remain|variable.st_planning)
@@ -2783,10 +2746,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	) then
 		UseCooldown(AbominationLimb)
 	end
-	if ChillStreak:Usable() and (
-		(ChillingRage.known and ChillingRage:Remains() < 3) or
-		(not ChillingRage.known and Player.enemies >= 2 and (not CleavingStrikes.known or Player.enemies <= 5 or DeathAndDecay.buff:Down()))
-	) then
+	if ChillStreak:Usable() and (not CleavingStrikes.known or Player.enemies <= 5 or DeathAndDecay.buff:Down()) then
 		UseCooldown(ChillStreak)
 	end
 	if PillarOfFrost:Usable() and PillarOfFrost:Down() and (
@@ -2968,22 +2928,14 @@ end
 
 APL[SPEC.FROST].trinkets = function(self)
 --[[
-actions.trinkets=use_item,name=fyralath_the_dreamrender,if=dot.mark_of_fyralath.ticking&!buff.pillar_of_frost.up&!buff.bloodlust.up&!buff.empower_rune_weapon.up&!variable.rp_buffs
-actions.trinkets+=/use_item,use_off_gcd=1,name=algethar_puzzle_box,if=!buff.pillar_of_frost.up&cooldown.pillar_of_frost.remains<2&(!talent.breath_of_sindragosa|runic_power>60&(buff.breath_of_sindragosa.up|cooldown.breath_of_sindragosa.remains<2))
 # Trinkets The trinket with the highest estimated value, will be used first and paired with Pillar of Frost.
-actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&!variable.trinket_1_manual&(!buff.pillar_of_frost.up&trinket.1.cast_time>0|!trinket.1.cast_time>0)&(buff.breath_of_sindragosa.up|buff.pillar_of_frost.up)&(variable.trinket_2_exclude|!trinket.2.has_cooldown|trinket.2.cooldown.remains|variable.trinket_priority=1)|trinket.1.proc.any_dps.duration>=fight_remains
+actions.trinkets=use_item,use_off_gcd=1,slot=trinket1,if=variable.trinket_1_buffs&!variable.trinket_1_manual&(!buff.pillar_of_frost.up&trinket.1.cast_time>0|!trinket.1.cast_time>0)&(buff.breath_of_sindragosa.up|buff.pillar_of_frost.up)&(variable.trinket_2_exclude|!trinket.2.has_cooldown|trinket.2.cooldown.remains|variable.trinket_priority=1)|trinket.1.proc.any_dps.duration>=fight_remains
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_buffs&!variable.trinket_2_manual&(!buff.pillar_of_frost.up&trinket.2.cast_time>0|!trinket.2.cast_time>0)&(buff.breath_of_sindragosa.up|buff.pillar_of_frost.up)&(variable.trinket_1_exclude|!trinket.1.has_cooldown|trinket.1.cooldown.remains|variable.trinket_priority=2)|trinket.2.proc.any_dps.duration>=fight_remains
 # If only one on use trinket provides a buff, use the other on cooldown. Or if neither trinket provides a buff, use both on cooldown.
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_buffs&!variable.trinket_1_manual&(!variable.trinket_1_buffs&(trinket.2.cooldown.remains|!variable.trinket_2_buffs)|(trinket.1.cast_time>0&!buff.pillar_of_frost.up|!trinket.1.cast_time>0)|talent.pillar_of_frost&cooldown.pillar_of_frost.remains_expected>20|!talent.pillar_of_frost)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=!variable.trinket_2_buffs&!variable.trinket_2_manual&(!variable.trinket_2_buffs&(trinket.1.cooldown.remains|!variable.trinket_1_buffs)|(trinket.2.cast_time>0&!buff.pillar_of_frost.up|!trinket.2.cast_time>0)|talent.pillar_of_frost&cooldown.pillar_of_frost.remains_expected>20|!talent.pillar_of_frost)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=(!variable.trinket_1_buffs|trinket.1.cooldown.remains)&(!variable.trinket_2_buffs|trinket.2.cooldown.remains)
 ]]
-	if FyralathTheDreamrender:Usable() and MarkOfFyralath:Ticking() >= Obliterate:Targets() and PillarOfFrost:Down() and not Player:BloodlustActive() and EmpowerRuneWeapon:Down() and not self.rp_buffs then
-		return UseCooldown(FyralathTheDreamrender)
-	end
-	if Trinket.AlgetharPuzzleBox:Usable() and PillarOfFrost:Down() and PillarOfFrost:Ready(2) and (not BreathOfSindragosa.known or (Player.runic_power.current > 60 and (BreathOfSindragosa:Up() or BreathOfSindragosa:Ready(2)))) then
-		return UseCooldown(Trinket.AlgetharPuzzleBox)
-	end
 	if Trinket1:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
 		return UseCooldown(Trinket1)
 	end
@@ -3537,7 +3489,7 @@ end
 
 function UI:UpdateDisplay()
 	Timer.display = 0
-	local border, dim, dim_cd, text_center, text_cd
+	local border, dim, dim_cd, text_cd, text_center
 
 	if Opt.dimmer then
 		dim = not ((not Player.main) or
@@ -3558,10 +3510,12 @@ function UI:UpdateDisplay()
 			border = 'freecast'
 		end
 	end
-	if Player.cd and Player.cd.requires_react then
-		local react = Player.cd:React()
-		if react > 0 then
-			text_cd = format('%.1f', react)
+	if Player.cd then
+		if Player.cd.requires_react then
+			local react = Player.cd:React()
+			if react > 0 then
+				text_cd = format('%.1f', react)
+			end
 		end
 	end
 	if DancingRuneWeapon.known and Player.drw_remains > 0 then
@@ -3698,7 +3652,7 @@ CombatEvent.UNIT_DIED = function(event, srcGUID, dstGUID)
 	if not uid or Target.Dummies[uid] then
 		return
 	end
-	trackAuras:Remove(dstGUID)
+	TrackedAuras:Remove(dstGUID)
 	if Opt.auto_aoe then
 		AutoAoe:Remove(dstGUID)
 	end
@@ -3714,7 +3668,6 @@ CombatEvent.SWING_DAMAGE = function(event, srcGUID, dstGUID, amount, overkill, s
 		if Opt.auto_aoe then
 			AutoAoe:Add(dstGUID, true)
 		end
-		MarkOfFyralath:Refresh(dstGUID)
 	elseif dstGUID == Player.guid then
 		Player.swing.last_taken = Player.time
 		if Opt.auto_aoe then
@@ -3790,7 +3743,7 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 					elseif (event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED' or event == 'SPELL_MISSED' or event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH') and pet.CastLanded then
 						pet:CastLanded(unit, spellId, dstGUID, event, missType)
 					end
-					--log(format('PET %d EVENT %s SPELL %s ID %d', pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+					--log(format('%.3f PET %d EVENT %s SPELL %s ID %d', Player.time, pet.unitId, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
 				end
 			end
 		end
@@ -3799,7 +3752,7 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 
 	local ability = spellId and Abilities.bySpellId[spellId]
 	if not ability then
-		--log(format('EVENT %s TRACK CHECK FOR UNKNOWN %s ID %d', event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
+		--log(format('%.3f EVENT %s TRACK CHECK FOR UNKNOWN %s ID %d', Player.time, event, type(spellName) == 'string' and spellName or 'Unknown', spellId or 0))
 		return
 	end
 
@@ -3833,9 +3786,6 @@ CombatEvent.SPELL = function(event, srcGUID, dstGUID, spellId, spellName, spellS
 	end
 	if event == 'SPELL_DAMAGE' or event == 'SPELL_ABSORBED' or event == 'SPELL_MISSED' or event == 'SPELL_AURA_APPLIED' or event == 'SPELL_AURA_REFRESH' then
 		ability:CastLanded(dstGUID, event, missType)
-		if MarkOfFyralath.known and event ~= 'SPELL_MISSED' then
-			MarkOfFyralath:Refresh(dstGUID)
-		end
 	end
 end
 
@@ -3982,10 +3932,6 @@ function Events:PLAYER_EQUIPMENT_CHANGED()
 	_, _, _, _, _, _, _, _, equipType = GetItemInfo(GetInventoryItemID('player', 17) or 0)
 	Player.equipped.offhand = equipType == 'INVTYPE_WEAPON'
 
-	Player.set_bonus.t29 = (Player:Equipped(200405) and 1 or 0) + (Player:Equipped(200407) and 1 or 0) + (Player:Equipped(200408) and 1 or 0) + (Player:Equipped(200409) and 1 or 0) + (Player:Equipped(200410) and 1 or 0)
-	Player.set_bonus.t30 = (Player:Equipped(202459) and 1 or 0) + (Player:Equipped(202460) and 1 or 0) + (Player:Equipped(202461) and 1 or 0) + (Player:Equipped(202462) and 1 or 0) + (Player:Equipped(202464) and 1 or 0)
-	Player.set_bonus.t31 = (Player:Equipped(207198) and 1 or 0) + (Player:Equipped(207199) and 1 or 0) + (Player:Equipped(207200) and 1 or 0) + (Player:Equipped(207201) and 1 or 0) + (Player:Equipped(207203) and 1 or 0)
-	Player.set_bonus.t32 = (Player:Equipped(217221) and 1 or 0) + (Player:Equipped(217222) and 1 or 0) + (Player:Equipped(217223) and 1 or 0) + (Player:Equipped(217224) and 1 or 0) + (Player:Equipped(217225) and 1 or 0)
 	Player.set_bonus.t33 = (Player:Equipped(212000) and 1 or 0) + (Player:Equipped(212001) and 1 or 0) + (Player:Equipped(212002) and 1 or 0) + (Player:Equipped(212003) and 1 or 0) + (Player:Equipped(212005) and 1 or 0)
 
 	Player:ResetSwing(true, true)
