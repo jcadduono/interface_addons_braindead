@@ -2183,6 +2183,9 @@ actions.precombat+=/variable,name=damage_trinket_priority,op=setif,value=2,value
 		if DeathAndDecay:Usable() then
 			UseCooldown(DeathAndDecay)
 		end
+		if DeathsCaress:Usable() and BoneShield:Remains() < 5 then
+			return DeathsCaress
+		end
 	else
 
 	end
@@ -2217,7 +2220,10 @@ actions+=/call_action_list,name=standard
 	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0))
 	self.death_strike_dump_amount = (BloodShield:Up() and Player.health.pct > 70) and 90 or 65
 	self.bone_shield_refresh_value = (Consumption.known or Blooddrinker.known) and 4 or 5
-	self.bonestorm_refresh = not Bonestorm.known or Bonestorm:Down() or self.bone_shield_refresh_value >= (BoneShield:Stack() + Bonestorm:Remains())
+	self.delay_bone_shield_refresh = (
+		(Bonestorm.known and Bonestorm:Up() and (BoneShield:Stack() + Bonestorm:Remains()) < self.bone_shield_refresh_value) or
+		(ReapersMark.known and ReapersMark:Ticking() > 0 and BoneShield:Stack() >= 3 and BoneShield:Remains() > (ReapersMark:LowestRemains() + (Player.gcd * 2)))
+	)
 
 	if Player.use_cds then
 		if Opt.trinket then
@@ -2232,11 +2238,16 @@ actions+=/call_action_list,name=standard
 	if DeathStrike:Usable() and Player.health.pct < 50 then
 		return DeathStrike
 	end
-	if Marrowrend:Usable() and self.bonestorm_refresh and BoneShield:Down() and Player:UnderAttack() then
-		return Marrowrend
-	end
-	if DeathsCaress:Usable() and self.bonestorm_refresh and BoneShield:Down() then
-		return DeathsCaress
+	if not self.delay_bone_shield_refresh then
+		if Marrowrend:Usable() and BoneShield:Down() and (
+			Player:UnderAttack() or
+			(Exterminate.known and Exterminate:Up())
+		) then
+			return Marrowrend
+		end
+		if DeathsCaress:Usable() and BoneShield:Down() then
+			return DeathsCaress
+		end
 	end
 	if DeathAndDecay:Usable() and DeathAndDecay.buff:Down() and (SanguineGround.known or UnholyGround.known or Player.enemies > 3 or CrimsonScourge:Up()) then
 		return DeathAndDecay
@@ -2256,7 +2267,7 @@ actions+=/call_action_list,name=standard
 		if SacrificialPact:Usable() and Player.drw_remains == 0 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
 			UseExtra(SacrificialPact)
 		end
-		if ReapersMark:Usable() and Player.drw_remains == 0 and ReapersMark:Down() then
+		if ReapersMark:Usable() and Player.drw_remains == 0 and ReapersMark:Down() and (not Exterminate.known or Exterminate:Stack() <= 1) and (Player.enemies > 1 or Target.timeToDie > (ReapersMark:Duration() + 3)) then
 			UseCooldown(ReapersMark)
 		end
 		if BloodTap:Usable() and (
@@ -2331,7 +2342,7 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	) then
 		return DeathStrike
 	end
-	if Marrowrend:Usable() and self.bonestorm_refresh and (
+	if not self.delay_bone_shield_refresh and Marrowrend:Usable() and (
 		BoneShield:Remains() <= 4 or
 		(BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)
 	) then
@@ -2365,7 +2376,7 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 		BoneShield:Remains() <= 10 or
 		BoneShield:Stack() < self.bone_shield_refresh_value or
 		Exterminate:Stack() >= Exterminate:MaxStack() or
-		ReapersMark:Ready(Player.gcd * 2) or
+		ReapersMark:Ready(8) or
 		ReapersMark:Ticking() > 0
 	) then
 		return Marrowrend
@@ -2408,17 +2419,19 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	) then
 		return DeathStrike
 	end
-	if DeathsCaress:Usable() and self.bonestorm_refresh and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd and (
-		BoneShield:Remains() <= 5 or
-		(BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)
-	) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and (not Exterminate.known or Exterminate:Down()) then
-		return DeathsCaress
-	end
-	if Marrowrend:Usable() and self.bonestorm_refresh and (
-		BoneShield:Remains() <= 5 or
-		(BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)
-	) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
-		return Marrowrend
+	if not self.delay_bone_shield_refresh then
+		if DeathsCaress:Usable() and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd and (
+			BoneShield:Remains() <= 5 or
+			(BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)
+		) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and (not Exterminate.known or Exterminate:Down()) then
+			return DeathsCaress
+		end
+		if Marrowrend:Usable() and (
+			BoneShield:Remains() <= 5 or
+			(BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)
+		) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
+			return Marrowrend
+		end
 	end
 	if Player.use_cds and Consumption:Usable() then
 		UseCooldown(Consumption)
@@ -2439,7 +2452,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 		BoneShield:Remains() <= 10 or
 		BoneShield:Stack() < self.bone_shield_refresh_value or
 		Exterminate:Stack() >= Exterminate:MaxStack() or
-		ReapersMark:Ready(Player.gcd * 2) or
+		ReapersMark:Ready(8) or
 		ReapersMark:Ticking() > 0
 	) then
 		return Marrowrend
