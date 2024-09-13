@@ -744,6 +744,13 @@ function Ability:RunicPowerCost()
 	return self.runic_power_cost
 end
 
+function Ability:Free()
+	return (
+		(self.rune_cost > 0 and self:RuneCost() == 0) or
+		(self.runic_power_cost > 0 and self:RunicPowerCost() == 0)
+	)
+end
+
 function Ability:ChargesFractional()
 	local info = GetSpellCharges(self.spellId)
 	if not info then
@@ -2235,8 +2242,8 @@ actions+=/call_action_list,name=standard
 		return DeathAndDecay
 	end
 	if DeathStrike:Usable() and (
-		(Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or
-		(IcyTalons.known and IcyTalons:Remains() <= Player.gcd) or
+		(Coagulopathy.known and (Coagulopathy:Up() or DeathStrike:Free()) and Coagulopathy:Remains() <= Player.gcd) or
+		(IcyTalons.known and (IcyTalons:Up() or DeathStrike:Free()) and IcyTalons:Remains() <= Player.gcd) or
 		(Player.runic_power.current >= self.death_strike_dump_amount) or
 		(Player.runic_power.deficit <= self.heart_strike_rp)
 	) then
@@ -2319,8 +2326,8 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 		UseCooldown(Tombstone)
 	end
 	if DeathStrike:Usable() and (
-		(Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or
-		(IcyTalons.known and IcyTalons:Remains() <= Player.gcd)
+		(Coagulopathy.known and (Player.runic_power.current >= self.death_strike_dump_amount or Coagulopathy:Up() or DeathStrike:Free()) and Coagulopathy:Remains() <= Player.gcd) or
+		(IcyTalons.known and (Player.runic_power.current >= self.death_strike_dump_amount or IcyTalons:Up() or DeathStrike:Free()) and IcyTalons:Remains() <= Player.gcd)
 	) then
 		return DeathStrike
 	end
@@ -2394,8 +2401,8 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 		UseCooldown(Tombstone)
 	end
 	if DeathStrike:Usable() and (
-		(Coagulopathy.known and Coagulopathy:Remains() <= Player.gcd) or
-		(IcyTalons.known and IcyTalons:Remains() <= Player.gcd) or
+		(Coagulopathy.known and (Coagulopathy:Up() or DeathStrike:Free()) and Coagulopathy:Remains() <= Player.gcd) or
+		(IcyTalons.known and (IcyTalons:Up() or DeathStrike:Free()) and IcyTalons:Remains() <= Player.gcd) or
 		(Player.runic_power.current >= self.death_strike_dump_amount) or
 		(Player.runic_power.deficit <= self.heart_strike_rp)
 	) then
@@ -2670,7 +2677,7 @@ actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 	if self.frostscythe_priority and Frostscythe:Usable() and KillingMachine:Up() and (KillingMachine:Stack() >= 2 or KillingMachine:Remains() < Player.gcd or (Bonegrinder:Up() and (Bonegrinder:Remains() < Player.gcd or Bonegrinder:Stack() >= 5))) then
 		return Frostscythe
 	end
-	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.heal) then
+	if DeathStrike:Usable() and Player.health.pct < (DeathStrike:Free() and 80 or Opt.heal) then
 		UseCooldown(DeathStrike)
 	end
 	if not self.frostscythe_priority and Obliterate:Usable() and (Player:RuneTimeTo(4) < Player.gcd or (not self.pooling_runes and KillingMachine:Up()) or (CleavingStrikes.known and DeathAndDecay.buff:Up())) then
@@ -2691,7 +2698,7 @@ actions.aoe+=/arcane_torrent,if=runic_power.deficit>25
 	if not self.pooling_runic_power and FrostStrike:Usable() and not GlacialAdvance.known then
 		return FrostStrike
 	end
-	if DeathStrike:Usable() and DarkSuccor:Up() then
+	if DeathStrike:Usable() and DeathStrike:Free() then
 		UseCooldown(DeathStrike)
 	end
 	if HornOfWinter:Usable() and Player.runes.ready < 2 and Player.runic_power.deficit > 25 then
@@ -2932,7 +2939,7 @@ actions.single_target+=/frost_strike,if=!variable.pooling_runic_power
 	if HowlingBlast:Usable() and Icebreaker.rank == 2 and Rime:Up() then
 		return HowlingBlast
 	end
-	if DeathStrike:Usable() and Player.health.pct < (DarkSuccor:Up() and 80 or Opt.heal) then
+	if DeathStrike:Usable() and Player.health.pct < (DeathStrike:Free() and 80 or Opt.heal) then
 		UseCooldown(DeathStrike)
 	end
 	if HornOfWinter:Usable() and Player.runes.ready < 4 and Player.runic_power.deficit > 25 and Obliteration.known and BreathOfSindragosa.known then
@@ -2956,7 +2963,7 @@ actions.single_target+=/frost_strike,if=!variable.pooling_runic_power
 	if not Player.pooling_runic_power and FrostStrike:Usable() then
 		return FrostStrike
 	end
-	if DeathStrike:Usable() and DarkSuccor:Up() then
+	if DeathStrike:Usable() and DeathStrike:Free() then
 		UseCooldown(DeathStrike)
 	end
 end
@@ -3170,7 +3177,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 	if not Player.pooling_for_aotd and FesteringStrike:Usable() and ((((FesteringWound:Stack() < 4 and UnholyAssault:Down()) or FesteringWound:Stack() < 3) and Apocalypse:Ready(3)) or FesteringWound:Stack() < 1) then
 		return FesteringStrike
 	end
-	if DeathStrike:Usable() and DarkSuccor:Up() then
+	if DeathStrike:Usable() and DeathStrike:Free() then
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
@@ -3235,7 +3242,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 	if not Player.pooling_for_aotd and FesteringStrike:Usable() and ((((FesteringWound:Stack() < 4 and UnholyAssault:Down()) or FesteringWound:Stack() < 3) and Apocalypse:Ready(3)) or FesteringWound:Stack() < 1) then
 		return FesteringStrike
 	end
-	if DeathStrike:Usable() and DarkSuccor:Up() then
+	if DeathStrike:Usable() and DeathStrike:Free() then
 		return DeathStrike
 	end
 	if not Player.pooling_for_gargoyle then
@@ -3579,7 +3586,7 @@ function UI:UpdateCombat()
 
 	if Player.main then
 		braindeadPanel.icon:SetTexture(Player.main.icon)
-		Player.main_freecast = (Player.main.runic_power_cost > 0 and Player.main:RunicPowerCost() == 0) or (Player.main.rune_cost > 0 and Player.main:RuneCost() == 0) or (Player.main.Free and Player.main:Free())
+		Player.main_freecast = Player.main:Free()
 	end
 	if Player.cd then
 		braindeadCooldownPanel.icon:SetTexture(Player.cd.icon)
