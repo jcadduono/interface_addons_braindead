@@ -2384,7 +2384,7 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	) then
 		return DeathStrike
 	end
-	if Player.use_cds and Consumption:Usable() then
+	if Player.use_cds and Consumption:Usable() and BloodPlague:Up() then
 		UseCooldown(Consumption)
 	end
 	if Hemostasis.known and BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.1 and Hemostasis:Stack() < 5 then
@@ -2457,7 +2457,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 			return Marrowrend
 		end
 	end
-	if Player.use_cds and Consumption:Usable() then
+	if Player.use_cds and Consumption:Usable() and BloodPlague:Up() then
 		UseCooldown(Consumption)
 	end
 	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
