@@ -1342,9 +1342,9 @@ local Exterminate = Ability:Add(441378, false, true, 441426)
 Exterminate.max_stack = 2
 Exterminate:AutoAoe()
 Exterminate[1] = Ability:Add(441416, true, true)
-Exterminate[1].buff_duration = 600
+Exterminate[1].buff_duration = 30
 Exterminate[2] = Ability:Add(447954, true, true)
-Exterminate[2].buff_duration = 600
+Exterminate[2].buff_duration = 30
 local PainfulDeath = Ability:Add(443564, false, true)
 local ReapersMark = Ability:Add(439843, false, true, 434765)
 ReapersMark.rune_cost = 2
@@ -2067,11 +2067,23 @@ function Obliterate:Targets()
 end
 
 function Exterminate:Remains()
-	return self[1]:Remains() + self[2]:Remains()
+	local remains
+	for i = 1, self.max_stack do
+		remains = self[i]:Remains()
+		if remains > 0 then
+			return remains
+		end
+	end
+	return 0
 end
 
 function Exterminate:Stack()
-	return (self[1]:Up() and 2 or 0) + (self[2]:Up() and 1 or 0)
+	for i = 1, self.max_stack do
+		if self[i]:Remains() > 0 then
+			return self.max_stack - (i - 1)
+		end
+	end
+	return 0
 end
 
 function PillarOfFrost:CooldownDuration()
@@ -2267,7 +2279,7 @@ actions+=/call_action_list,name=standard
 		if SacrificialPact:Usable() and Player.drw_remains == 0 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
 			UseExtra(SacrificialPact)
 		end
-		if ReapersMark:Usable() and Player.drw_remains == 0 and ReapersMark:Down() and (not Exterminate.known or Exterminate:Stack() <= 1) and (Player.enemies > 1 or Target.timeToDie > (ReapersMark:Duration() + 3)) then
+		if ReapersMark:Usable() and ReapersMark:Down() and (not Exterminate.known or Exterminate:Stack() <= 1) and (Player.enemies > 1 or Target.timeToDie > (ReapersMark:Duration() + 3)) then
 			UseCooldown(ReapersMark)
 		end
 		if BloodTap:Usable() and (
@@ -2342,9 +2354,15 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	) then
 		return DeathStrike
 	end
-	if not self.delay_bone_shield_refresh and Marrowrend:Usable() and (
-		BoneShield:Remains() <= 4 or
-		(BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)
+	if Marrowrend:Usable() and (
+		(not self.delay_bone_shield_refresh and (
+			BoneShield:Remains() <= 4 or
+			(BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)
+		)) or
+		(Exterminate.known and Exterminate:Up() and (
+			Exterminate:Remains() < (Player.gcd * 3) or
+			(Target.boss and Target.timeToDie < (Exterminate:Stack() * Player.gcd * 2))
+		))
 	) then
 		return Marrowrend
 	end
@@ -2418,6 +2436,12 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 		(Player.runic_power.deficit <= self.heart_strike_rp)
 	) then
 		return DeathStrike
+	end
+	if Exterminate.known and Marrowrend:Usable() and Exterminate:Up() and (
+		Exterminate:Remains() < (Player.gcd * 3) or
+		(Target.boss and Target.timeToDie < (Exterminate:Stack() * Player.gcd * 2))
+	) then
+		return Marrowrend
 	end
 	if not self.delay_bone_shield_refresh then
 		if DeathsCaress:Usable() and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd and (
