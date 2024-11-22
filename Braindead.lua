@@ -1338,13 +1338,11 @@ local VirulentEruption = Ability:Add(191685, false, true)
 ------ Tier Bonuses
 
 -- Hero talents
-local Exterminate = Ability:Add(441378, false, true, 441426)
+local Exterminate = Ability:Add(441378, true, true, 441416)
 Exterminate.max_stack = 2
-Exterminate:AutoAoe()
-Exterminate[1] = Ability:Add(441416, true, true)
-Exterminate[1].buff_duration = 30
-Exterminate[2] = Ability:Add(447954, true, true)
-Exterminate[2].buff_duration = 30
+Exterminate.buff_duration = 30
+Exterminate.damage = Ability:Add(441426, false, true)
+Exterminate.damage:AutoAoe()
 local PainfulDeath = Ability:Add(443564, false, true)
 local ReapersMark = Ability:Add(439843, false, true, 434765)
 ReapersMark.rune_cost = 2
@@ -1745,12 +1743,9 @@ function Player:UpdateKnown()
 	if RaiseAbomination.known then
 		ArmyOfTheDead.known = false
 	end
-	if Exterminate.known then
-		Exterminate[1].known = true
-		Exterminate[2].known = true
-	end
 	DeathAndDecay.buff.known = DeathAndDecay.known
 	DeathAndDecay.damage.known = DeathAndDecay.known
+	Exterminate.damage.known = Exterminate.known
 	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalanche.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
 
@@ -2064,26 +2059,6 @@ end
 
 function Obliterate:Targets()
 	return min(Player.enemies, (CleavingStrikes.known and DeathAndDecay.buff:Up()) and 3 or 1)
-end
-
-function Exterminate:Remains()
-	local remains
-	for i = 1, self.max_stack do
-		remains = self[i]:Remains()
-		if remains > 0 then
-			return remains
-		end
-	end
-	return 0
-end
-
-function Exterminate:Stack()
-	for i = 1, self.max_stack do
-		if self[i]:Remains() > 0 then
-			return self.max_stack - (i - 1)
-		end
-	end
-	return 0
 end
 
 function PillarOfFrost:CooldownDuration()
