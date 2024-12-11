@@ -548,7 +548,7 @@ function Ability:Usable(seconds)
 	return self:Ready(seconds)
 end
 
-function Ability:Remains()
+function Ability:Remains(offGCD)
 	if self:Casting() or self:Traveling() > 0 then
 		return self:Duration()
 	end
@@ -561,7 +561,7 @@ function Ability:Remains()
 			if aura.expirationTime == 0 then
 				return 600 -- infinite duration
 			end
-			return max(0, aura.expirationTime - Player.ctime - (self.off_gcd and 0 or Player.execute_remains))
+			return max(0, aura.expirationTime - Player.ctime - ((offGCD or self.off_gcd) and 0 or Player.execute_remains))
 		end
 	end
 	return 0
@@ -1338,6 +1338,7 @@ local VirulentEruption = Ability:Add(191685, false, true)
 ------ Tier Bonuses
 
 -- Hero talents
+---- Deathbringer
 local Exterminate = Ability:Add(441378, true, true, 441416)
 Exterminate.max_stack = 2
 Exterminate.buff_duration = 30
@@ -1350,6 +1351,20 @@ ReapersMark.cooldown_duration = 45
 ReapersMark.buff_duration = 12
 ReapersMark:Track()
 local SwiftEnd = Ability:Add(443560, false, true)
+---- San'layn
+local EssenceOfTheBloodQueen = Ability:Add(433925, true, true)
+EssenceOfTheBloodQueen.buff_duration = 20
+EssenceOfTheBloodQueen.max_stack = 5
+local GiftOfTheSanlayn = Ability:Add(434152, true, true, 434153)
+GiftOfTheSanlayn.buff_duration = 10
+local InflictionOfSorrow = Ability:Add(434143, true, true, 434144)
+InflictionOfSorrow.buff = Ability:Add(460049, true, true)
+InflictionOfSorrow.buff.buff_duration = 15
+local VampiricStrike = Ability:Add(433895, false, true, 434422)
+VampiricStrike.rune_cost = 1
+VampiricStrike.learn_spellId = 433901
+VampiricStrike.buff = Ability:Add(434674, true, true)
+VampiricStrike.buff.buff_duration = 600
 -- PvP talents
 
 -- Racials
@@ -1748,6 +1763,8 @@ function Player:UpdateKnown()
 	Exterminate.damage.known = Exterminate.known
 	Razorice.known = RuneOfRazorice.known or GlacialAdvance.known or Avalanche.known
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
+	VampiricStrike.buff.known = VampiricStrike.known
+	EssenceOfTheBloodQueen.known = VampiricStrike.known
 
 	if DancingRuneWeapon.known then
 		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 14, 'OUTLINE')
@@ -2121,6 +2138,25 @@ function SacrificialPact:Usable()
 	return Ability.Usable(self)
 end
 
+function VampiricStrike.buff:Remains()
+	local info = GetSpellInfo(HeartStrike.spellId)
+	if info and info.iconID == self.icon then
+		return 600
+	end
+	return 0
+end
+
+function VampiricStrike:Usable(...)
+	return Ability.Usable(self, ...) and self.buff:Up()
+end
+
+function HeartStrike:Usable(...)
+	if VampiricStrike.known and VampiricStrike.buff:Up() then
+		return false
+	end
+	return Ability.Usable(self, ...)
+end
+
 -- End Ability Modifications
 
 -- Start Summoned Pet Modifications
@@ -2204,13 +2240,14 @@ actions+=/call_action_list,name=standard
 ]]
 	Player.drw_remains = DancingRuneWeapon:Remains()
 	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.drw_remains > 0
-	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0))
+	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0) + (VampiricStrike.known and VampiricStrike.buff:Up() and 5 or 0))
 	self.death_strike_dump_amount = (BloodShield:Up() and Player.health.pct > 70) and 90 or 65
-	self.bone_shield_refresh_value = (Consumption.known or Blooddrinker.known) and 4 or 5
+	self.bone_shield_refresh_value = VampiricStrike.known and 7 or 6
 	self.delay_bone_shield_refresh = (
-		(Bonestorm.known and Bonestorm:Up() and (BoneShield:Stack() + Bonestorm:Remains()) < self.bone_shield_refresh_value) or
+		(Bonestorm.known and Bonestorm:Up() and (BoneShield:Stack() + Bonestorm:Remains()) >= self.bone_shield_refresh_value) or
 		(ReapersMark.known and ReapersMark:Ticking() > 0 and BoneShield:Stack() >= 3 and BoneShield:Remains() > (ReapersMark:LowestRemains() + (Player.gcd * 2)))
 	)
+	self.plague_up = (BloodPlague:Ticking() >= Player.enemies or BloodBoil:UsedWithin(5)) and BloodPlague:Up()
 
 	if Player.use_cds then
 		if Opt.trinket then
@@ -2314,10 +2351,13 @@ actions.drw_up+=/consumption
 actions.drw_up+=/blood_boil,if=charges_fractional>=1.1&buff.hemostasis.stack<5
 actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variable.heart_strike_rp_drw
 ]]
-	if BloodBoil:Usable() and BloodPlague:Down() then
+	if BloodBoil:Usable() and (not self.plague_up or (VampiricStrike.known and BloodPlague:Remains() < 10)) then
 		return BloodBoil
 	end
-	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
+	if Consumption:Usable() and self.plague_up and Player.drw_remains < 3 then
+		UseCooldown(Consumption)
+	end
+	if Tombstone:Usable() and BoneShield:Stack() > 5 and (
 		(ShatteringBone.known and DeathAndDecay.buff:Up()) or
 		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
 	) then
@@ -2341,11 +2381,27 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	) then
 		return Marrowrend
 	end
-	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
-		UseCooldown(SoulReaper)
-	end
 	if DeathAndDecay:Usable() and DeathAndDecay.buff:Down() and (SanguineBlood.known or UnholyGround.known) then
 		return DeathAndDecay
+	end
+	if VampiricStrike.known then
+		if DeathStrike:Usable() and Player.runic_power.current >= 108 then
+			return DeathStrike
+		end
+		if VampiricStrike:Usable() and Player:RuneTimeTo(2) < Player.gcd then
+			return VampiricStrike
+		end
+		if InflictionOfSorrow.known then
+			if VampiricStrike:Usable() and InflictionOfSorrow.buff:Up() and DeathAndDecay.buff:Up() then
+				return VampiricStrike
+			end
+			if HeartStrike:Usable() and InflictionOfSorrow.buff:Up() and DeathAndDecay.buff:Up() then
+				return HeartStrike
+			end
+		end
+	end
+	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
+		UseCooldown(SoulReaper)
 	end
 	if BloodBoil:Usable() and (
 		(Player.enemies > 2 and BloodBoil:ChargesFractional() >= 1.1) or
@@ -2359,7 +2415,7 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	) then
 		return DeathStrike
 	end
-	if Player.use_cds and Consumption:Usable() and BloodPlague:Up() then
+	if Consumption:Usable() and self.plague_up then
 		UseCooldown(Consumption)
 	end
 	if Hemostasis.known and BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.1 and Hemostasis:Stack() < 5 then
@@ -2373,6 +2429,12 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 		ReapersMark:Ticking() > 0
 	) then
 		return Marrowrend
+	end
+	if VampiricStrike:Usable() and (
+		Player:RuneTimeTo(2) < Player.gcd or
+		Player.runic_power.deficit >= self.heart_strike_rp
+	) then
+		return VampiricStrike
 	end
 	if HeartStrike:Usable() and (
 		Player:RuneTimeTo(2) < Player.gcd or
@@ -2398,15 +2460,22 @@ actions.standard+=/heart_strike,if=rune.time_to_4<gcd
 actions.standard+=/blood_boil,if=charges_fractional>=1.1
 actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.stack>7))
 ]]
+	if DeathStrike:Usable() and (
+		(Coagulopathy.known and (Coagulopathy:Up() or DeathStrike:Free()) and Coagulopathy:Remains() <= Player.gcd) or
+		(IcyTalons.known and (IcyTalons:Up() or DeathStrike:Free()) and IcyTalons:Remains() <= Player.gcd)
+	) then
+		return DeathStrike
+	end
+	if BloodBoil:Usable() and not self.plague_up then
+		return BloodBoil
+	end
 	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
 		(ShatteringBone.known and DeathAndDecay.buff:Up() and not DancingRuneWeapon:Ready(25)) or
 		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
 	) then
 		UseCooldown(Tombstone)
 	end
-	if DeathStrike:Usable() and (
-		(Coagulopathy.known and (Coagulopathy:Up() or DeathStrike:Free()) and Coagulopathy:Remains() <= Player.gcd) or
-		(IcyTalons.known and (IcyTalons:Up() or DeathStrike:Free()) and IcyTalons:Remains() <= Player.gcd) or
+	if DeathStrike:Usable() and (not VampiricStrike.known or VampiricStrike.buff:Down()) and (
 		(Player.runic_power.current >= self.death_strike_dump_amount) or
 		(Player.runic_power.deficit <= self.heart_strike_rp)
 	) then
@@ -2432,7 +2501,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 			return Marrowrend
 		end
 	end
-	if Player.use_cds and Consumption:Usable() and BloodPlague:Up() then
+	if Player.use_cds and Consumption:Usable() and self.plague_up and (not InflictionOfSorrow.known or not DancingRuneWeapon:Ready(20)) then
 		UseCooldown(Consumption)
 	end
 	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
@@ -2440,6 +2509,23 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	end
 	if Player.use_cds and Bonestorm:Usable() and BoneShield:Stack() >= (6 + (ReinforcedBones.known and 2 or 0)) then
 		UseCooldown(Bonestorm)
+	end
+	if VampiricStrike.known then
+		if DeathStrike:Usable() and Player.runic_power.current >= 108 then
+			return DeathStrike
+		end
+		if VampiricStrike:Usable() then
+			return VampiricStrike
+		end
+		if InflictionOfSorrow.known and HeartStrike:Usable() and InflictionOfSorrow.buff:Up() and DeathAndDecay.buff:Up() then
+			return HeartStrike
+		end
+	end
+	if DeathStrike:Usable() and (
+		(Player.runic_power.current >= self.death_strike_dump_amount) or
+		(Player.runic_power.deficit <= self.heart_strike_rp)
+	) then
+		return DeathStrike
 	end
 	if BloodBoil:Usable() and BloodBoil:ChargesFractional() >= 1.8 and (
 		Player.enemies > 2 or
@@ -2456,6 +2542,9 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	) then
 		return Marrowrend
 	end
+	if VampiricStrike:Usable() and Player:RuneTimeTo(4) < Player.gcd then
+		return VampiricStrike
+	end
 	if HeartStrike:Usable() and Player:RuneTimeTo(4) < Player.gcd then
 		return HeartStrike
 	end
@@ -2470,6 +2559,9 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 		(not DancingRuneWeapon.known or not DancingRuneWeapon:Ready(Player.gcd * 3))
 	) then
 		return Marrowrend
+	end
+	if VampiricStrike:Usable() and Player.runes.ready > 1 and (Player:RuneTimeTo(3) < Player.gcd or BoneShield:Stack() > 7) then
+		return VampiricStrike
 	end
 	if HeartStrike:Usable() and Player.runes.ready > 1 and (Player:RuneTimeTo(3) < Player.gcd or BoneShield:Stack() > 7) then
 		return HeartStrike
