@@ -284,7 +284,7 @@ local Player = {
 	},
 	main_freecast = false,
 	use_cds = false,
-	drw_remains = 0,
+	major_cd_remains = 0,
 	pooling_for_aotd = false,
 	pooling_for_gargoyle = false,
 }
@@ -1873,6 +1873,11 @@ function Player:Update()
 		AutoAoe:Purge()
 	end
 
+	self.major_cd_remains = (
+		(DancingRuneWeapon.known and DancingRuneWeapon:Remains()) or
+		(PillarOfFrost.known and PillarOfFrost:Remains())
+	) or 0
+
 	self.main = APL[self.spec]:Main()
 end
 
@@ -2258,9 +2263,8 @@ actions+=/dancing_rune_weapon,if=!buff.dancing_rune_weapon.up
 actions+=/run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=standard
 ]]
-	Player.drw_remains = DancingRuneWeapon:Remains()
-	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.drw_remains > 0
-	self.heart_strike_rp = (15 + (Player.drw_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0) + (VampiricStrike.known and VampiricStrike.buff:Up() and 5 or 0))
+	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.major_cd_remains > 0
+	self.heart_strike_rp = (15 + (Player.major_cd_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0) + (VampiricStrike.known and VampiricStrike.buff:Up() and 5 or 0))
 	self.death_strike_dump_amount = (BloodShield:Up() and Player.health.pct > 70) and 90 or 65
 	self.bone_shield_refresh_value = VampiricStrike.known and 7 or 6
 	self.delay_bone_shield_refresh = (
@@ -2305,10 +2309,10 @@ actions+=/call_action_list,name=standard
 		return DeathStrike
 	end
 	if Player.use_cds then
-		if Blooddrinker:Usable() and Player.drw_remains == 0 then
+		if Blooddrinker:Usable() and Player.major_cd_remains == 0 then
 			UseCooldown(Blooddrinker)
 		end
-		if SacrificialPact:Usable() and Player.drw_remains == 0 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
+		if SacrificialPact:Usable() and Player.major_cd_remains == 0 and (Pet.RisenGhoul:Remains() < 2 or Target.timeToDie < Player.gcd) then
 			UseExtra(SacrificialPact)
 		end
 		if ReapersMark:Usable() and ReapersMark:Down() and (not Exterminate.known or Exterminate:Stack() <= 1) and (Player.enemies > 1 or Target.timeToDie > (ReapersMark:Duration() + 3)) then
@@ -2323,11 +2327,11 @@ actions+=/call_action_list,name=standard
 		if AbominationLimb:Usable() then
 			UseCooldown(AbominationLimb)
 		end
-		if DancingRuneWeapon:Usable() and Player.drw_remains == 0 then
+		if DancingRuneWeapon:Usable() and Player.major_cd_remains == 0 then
 			UseCooldown(DancingRuneWeapon)
 		end
 	end
-	if Player.drw_remains > 0 then
+	if Player.major_cd_remains > 0 then
 		return self:drw_up()
 	end
 	return self:standard()
@@ -2342,7 +2346,7 @@ APL[SPEC.BLOOD].defensives = function(self)
 	if self.defensive_active then
 		return
 	end
-	if Player:UnderAttack() and Player.drw_remains == 0 and not DancingRuneWeapon:Ready(InsatiableBlade.known and 10 or 0) then
+	if Player:UnderAttack() and Player.major_cd_remains == 0 and not DancingRuneWeapon:Ready(InsatiableBlade.known and 10 or 0) then
 		if RedThirst.known and VampiricBlood:Usable() then
 			UseExtra(VampiricBlood)
 		elseif IceboundFortitude:Usable() then
@@ -2374,7 +2378,7 @@ actions.drw_up+=/heart_strike,if=rune.time_to_2<gcd|runic_power.deficit>=variabl
 	if BloodBoil:Usable() and (not self.plague_up or (VampiricStrike.known and BloodPlague:Remains() < 10)) then
 		return BloodBoil
 	end
-	if Consumption:Usable() and self.plague_up and Player.drw_remains < 3 then
+	if Consumption:Usable() and self.plague_up and Player.major_cd_remains < 3 then
 		UseCooldown(Consumption)
 	end
 	if Tombstone:Usable() and BoneShield:Stack() > 5 and (
@@ -2843,7 +2847,10 @@ actions.breath+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuff.razo
 actions.breath+=/howling_blast,if=buff.rime.react
 actions.breath+=/arcane_torrent,if=runic_power<60
 ]]
-
+	if Player.enemies >= 2 then
+		return self:aoe()
+	end
+	return self:single_target()
 end
 
 APL[SPEC.FROST].breath_oblit = function(self)
@@ -2855,7 +2862,7 @@ actions.breath_oblit+=/howling_blast,if=!buff.killing_machine.up
 actions.breath_oblit+=/horn_of_winter,if=runic_power.deficit>25
 actions.breath_oblit+=/arcane_torrent,if=runic_power.deficit>20
 ]]
-
+	return self:obliteration()
 end
 
 
@@ -2925,8 +2932,8 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	end
 	if FrostwyrmsFury:Usable() and (
 		(Target.boss and Target.timeToDie < 3) or
-		(not Obliteration.known and PillarOfFrost:Up() and PillarOfFrost:Remains() < (Player.gcd * 2)) or
-		(Obliteration.known and not PillarOfFrost:Ready() and (not EnduringStrength.known or EnduringStrength:Up() or Player.enemies >= 5) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or PillarOfFrost:Remains() < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (Razorice:Stack() >= 5 or (not RuneOfRazorice.known and not GlacialAdvance.known and not ArcticAssault.known)) and (DeathAndDecay.buff:Down() or (Player.runes.ready < 2 and (Player.runic_power.current < 30 or KillingMachine:Stack() >= 2))))
+		(not Obliteration.known and PillarOfFrost:Up() and Player.major_cd_remains < (Player.gcd * 2)) or
+		(Obliteration.known and not PillarOfFrost:Ready() and (not EnduringStrength.known or EnduringStrength:Up() or Player.enemies >= 5) and ((PillarOfFrost:Up() and UnholyStrength:Up()) or Player.major_cd_remains < (Player.gcd * 2) or (UnholyStrength:Up() and UnholyStrength:Remains() < (Player.gcd * 2))) and (Razorice:Stack() >= 5 or (not RuneOfRazorice.known and not GlacialAdvance.known and not ArcticAssault.known)) and (DeathAndDecay.buff:Down() or (Player.runes.ready < 2 and (Player.runic_power.current < 30 or KillingMachine:Stack() >= 2))))
 	) then
 		UseCooldown(FrostwyrmsFury)
 	end
@@ -2939,7 +2946,7 @@ actions.cooldowns+=/any_dnd,if=!death_and_decay.ticking&variable.adds_remain&(bu
 	if SacrificialPact:Usable() and Player.enemies > 3 and not GlacialAdvance.known and (Target.timeToDie < 3 or ((not BreathOfSindragosa.known or BreathOfSindragosa:Down()) and (not Obliteration.known or PillarOfFrost:Down()) and Pet.RisenGhoul:Remains() < 3)) then
 		UseExtra(SacrificialPact)
 	end
-	if DeathAndDecay:Usable() and Player.enemies >= 2 and DeathAndDecay.buff:Down() and ((PillarOfFrost:Remains() > 5 and (KillingMachine:Up() or (not Obliteration.known and PillarOfFrost:Remains() < 11))) or (PillarOfFrost:Down() and (DeathAndDecay:ChargesFractional() > 1.75 or (KillingMachine:Up() and PillarOfFrost:CooldownExpected() > (30 * (2 - DeathAndDecay:ChargesFractional()))))) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
+	if DeathAndDecay:Usable() and Player.enemies >= 2 and DeathAndDecay.buff:Down() and ((Player.major_cd_remains > 5 and (KillingMachine:Up() or (not Obliteration.known and Player.major_cd_remains < 11))) or (PillarOfFrost:Down() and (DeathAndDecay:ChargesFractional() > 1.75 or (KillingMachine:Up() and PillarOfFrost:CooldownExpected() > (30 * (2 - DeathAndDecay:ChargesFractional()))))) or (Target.boss and Target.timeToDie < 11)) and (Player.enemies > 5 or CleavingStrikes.known) then
 		UseCooldown(DeathAndDecay)
 	end
 end
@@ -2969,7 +2976,7 @@ actions.obliteration+=/obliterate,target_if=max:(debuff.razorice.stack+1)%(debuf
 	if not self.frostscythe_priority and Obliterate:Usable() and KillingMachine:Up() and DeathAndDecay.buff:Up() then
 		return Obliterate
 	end
-	if KillingMachine:Stack() < 2 and PillarOfFrost:Remains() < Player.gcd then
+	if KillingMachine:Stack() < 2 and Player.major_cd_remains < Player.gcd then
 		if HowlingBlast:Usable() and Rime:Up() then
 			return HowlingBlast
 		end
@@ -3099,10 +3106,10 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket1,if=!variable.trinket_1_b
 actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=!variable.trinket_2_buffs&!variable.trinket_2_manual&(!variable.trinket_2_buffs&(trinket.1.cooldown.remains|!variable.trinket_1_buffs)|(trinket.2.cast_time>0&!buff.pillar_of_frost.up|!trinket.2.cast_time>0)|talent.pillar_of_frost&cooldown.pillar_of_frost.remains_expected>20|!talent.pillar_of_frost)
 actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=(!variable.trinket_1_buffs|trinket.1.cooldown.remains)&(!variable.trinket_2_buffs|trinket.2.cooldown.remains)
 ]]
-	if Trinket1:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
+	if Trinket1:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or Player.major_cd_remains >= 10)) or (Target.boss and Target.timeToDie < 21)) then
 		return UseCooldown(Trinket1)
 	end
-	if Trinket2:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or PillarOfFrost:Remains() >= 10)) or (Target.boss and Target.timeToDie < 21)) then
+	if Trinket2:Usable() and ((PillarOfFrost:Up() and (not Icecap.known or Player.major_cd_remains >= 10)) or (Target.boss and Target.timeToDie < 21)) then
 		return UseCooldown(Trinket2)
 	end
 end
@@ -3787,8 +3794,8 @@ function UI:UpdateDisplay()
 			text_cd_tr = Player.cd.keybind
 		end
 	end
-	if DancingRuneWeapon.known and Player.drw_remains > 0 then
-		text_center = format('%.1fs', Player.drw_remains)
+	if Player.major_cd_remains > 0 then
+		text_center = format('%.1fs', Player.major_cd_remains)
 	elseif ArmyOfTheDead.known and Player.pooling_for_aotd then
 		text_center = format('Pool for\n%s', ArmyOfTheDead.name)
 	elseif SummonGargoyle.known and Player.pooling_for_gargoyle then
