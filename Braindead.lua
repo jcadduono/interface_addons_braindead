@@ -133,7 +133,7 @@ local function InitOpts()
 		aoe = false,
 		auto_aoe = false,
 		auto_aoe_ttl = 10,
-		cd_ttd = 8,
+		cd_ttd = 10,
 		pot = false,
 		trinket = true,
 		heal = 60,
@@ -283,7 +283,6 @@ local Player = {
 		[203729] = true, -- Ominous Chromatic Essence
 	},
 	main_freecast = false,
-	use_cds = false,
 	major_cd_remains = 0,
 	pooling_for_aotd = false,
 	pooling_for_gargoyle = false,
@@ -514,7 +513,11 @@ function Ability:Add(spellId, buff, player, spellId2)
 		aura_target = buff and 'player' or 'target',
 		aura_filter = (buff and 'HELPFUL' or 'HARMFUL') .. (player and '|PLAYER' or ''),
 		keybinds = {},
+		pet_spell = player == 'pet',
 	}
+	if ability.pet_spell then
+		ability.aura_target = buff and 'pet' or 'target'
+	end
 	setmetatable(ability, self)
 	Abilities.all[#Abilities.all + 1] = ability
 	return ability
@@ -539,7 +542,7 @@ function Ability:Usable(seconds)
 	if not self.known then
 		return false
 	end
-	if self.requires_pet and not Pet.active then
+	if self.pet_spell and not Pet.active then
 		return false
 	end
 	if self:RunicPowerCost() > Player.runic_power.current then
@@ -895,10 +898,13 @@ end
 
 function Ability:CastSuccess(dstGUID)
 	self.last_used = Player.time
+	if self.ignore_cast then
+		return
+	end
 	if self.requires_pet then
 		Pet.stuck = false
 	end
-	if self.ignore_cast or (self.pet_spell and not self.player_triggered) then
+	if self.pet_spell then
 		return
 	end
 	Player.last_ability = self
@@ -1493,11 +1499,13 @@ function SummonedPet:AddUnit(guid)
 		expires = Player.time + self:Duration(),
 	}
 	self.active_units[guid] = unit
+	--log(format('%.3f SUMMONED PET ADDED %s EXPIRES %.3f', unit.spawn, guid, unit.expires))
 	return unit
 end
 
 function SummonedPet:RemoveUnit(guid)
 	if self.active_units[guid] then
+		--log(format('%.3f SUMMONED PET REMOVED %s AFTER %.3fs EXPECTED %.3fs', Player.time, guid, Player.time - self.active_units[guid], self.active_units[guid].expires))
 		self.active_units[guid] = nil
 	end
 end
@@ -1733,30 +1741,32 @@ function Player:UpdateKnown()
 	local info, node
 	local configId = C_ClassTalents.GetActiveConfigID()
 	for _, ability in next, Abilities.all do
-		ability.known = false
-		ability.rank = 0
-		for _, spellId in next, ability.spellIds do
-			info = GetSpellInfo(spellId)
-			if info then
-				ability.spellId, ability.name, ability.icon = info.spellID, info.name, info.originalIconID
+		if not ability.pet_spell then
+			ability.known = false
+			ability.rank = 0
+			for _, spellId in next, ability.spellIds do
+				info = GetSpellInfo(spellId)
+				if info then
+					ability.spellId, ability.name, ability.icon = info.spellID, info.name, info.originalIconID
+				end
+				if IsPlayerSpell(spellId) or (ability.learn_spellId and IsPlayerSpell(ability.learn_spellId)) then
+					ability.known = true
+					break
+				end
 			end
-			if IsPlayerSpell(spellId) or (ability.learn_spellId and IsPlayerSpell(ability.learn_spellId)) then
-				ability.known = true
-				break
+			if ability.bonus_id then -- used for checking enchants and crafted effects
+				ability.known = self:BonusIdEquipped(ability.bonus_id)
 			end
-		end
-		if ability.bonus_id then -- used for checking enchants and crafted effects
-			ability.known = self:BonusIdEquipped(ability.bonus_id)
-		end
-		if ability.talent_node and configId then
-			node = C_Traits.GetNodeInfo(configId, ability.talent_node)
-			if node then
-				ability.rank = node.activeRank
-				ability.known = ability.rank > 0
+			if ability.talent_node and configId then
+				node = C_Traits.GetNodeInfo(configId, ability.talent_node)
+				if node then
+					ability.rank = node.activeRank
+					ability.known = ability.rank > 0
+				end
 			end
-		end
-		if C_LevelLink.IsSpellLocked(ability.spellId) or (ability.check_usable and not IsSpellUsable(ability.spellId)) then
-			ability.known = false -- spell is locked, do not mark as known
+			if C_LevelLink.IsSpellLocked(ability.spellId) or (ability.check_usable and not IsSpellUsable(ability.spellId)) then
+				ability.known = false -- spell is locked, do not mark as known
+			end
 		end
 	end
 
@@ -1785,12 +1795,6 @@ function Player:UpdateKnown()
 	UnholyStrength.known = RuneOfTheFallenCrusader.known
 	VampiricStrike.buff.known = VampiricStrike.known
 	EssenceOfTheBloodQueen.known = VampiricStrike.known
-
-	if DancingRuneWeapon.known then
-		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 14, 'OUTLINE')
-	else
-		braindeadPanel.text.center:SetFont('Fonts\\FRIZQT__.TTF', 9, 'OUTLINE')
-	end
 
 	Abilities:Update()
 	SummonedPets:Update()
@@ -1904,6 +1908,26 @@ end
 -- End Player Functions
 
 -- Start Pet Functions
+
+function Pet:UpdateKnown()
+	local info
+	for _, ability in next, Abilities.all do
+		if ability.pet_spell then
+			ability.known = false
+			ability.rank = 0
+			for _, spellId in next, ability.spellIds do
+				info = GetSpellInfo(spellId)
+				ability.spellId, ability.name, ability.icon = info.spellID, info.name, info.originalIconID
+				if IsSpellKnown(spellId, true) then
+					ability.known = true
+					break
+				end
+			end
+		end
+	end
+
+	Abilities:Update()
+end
 
 function Pet:Update()
 	self.guid = UnitGUID('pet')
@@ -2268,7 +2292,7 @@ actions+=/dancing_rune_weapon,if=!buff.dancing_rune_weapon.up
 actions+=/run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
 actions+=/call_action_list,name=standard
 ]]
-	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.major_cd_remains > 0
+	self.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or Player.major_cd_remains > 0
 	self.heart_strike_rp = (15 + (Player.major_cd_remains > 0 and 10 or 0) + (Heartbreaker.known and HeartStrike:Targets() * 2 or 0) + (VampiricStrike.known and VampiricStrike.buff:Up() and 5 or 0))
 	self.death_strike_dump_amount = (BloodShield:Up() and Player.health.pct > 70) and 90 or 65
 	self.bone_shield_refresh_value = VampiricStrike.known and 7 or 6
@@ -2278,7 +2302,7 @@ actions+=/call_action_list,name=standard
 	)
 	self.plague_up = (BloodPlague:Ticking() >= Player.enemies or BloodBoil:UsedWithin(5)) and BloodPlague:Up()
 
-	if Player.use_cds then
+	if self.use_cds then
 		if Opt.trinket then
 			self:trinkets()
 		end
@@ -2313,7 +2337,7 @@ actions+=/call_action_list,name=standard
 	) then
 		return DeathStrike
 	end
-	if Player.use_cds then
+	if self.use_cds then
 		if Blooddrinker:Usable() and Player.major_cd_remains == 0 then
 			UseCooldown(Blooddrinker)
 		end
@@ -2498,7 +2522,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	if BloodBoil:Usable() and not self.plague_up then
 		return BloodBoil
 	end
-	if Player.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
+	if self.use_cds and Tombstone:Usable() and BoneShield:Stack() > 5 and (
 		(ShatteringBone.known and DeathAndDecay.buff:Up() and not DancingRuneWeapon:Ready(25)) or
 		(not ShatteringBone.known and Player.runes.ready >= 2 and Player.runic_power.deficit >= 30)
 	) then
@@ -2520,23 +2544,23 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 		if DeathsCaress:Usable() and not Consumption.known and not Blooddrinker.known and Player:RuneTimeTo(3) > Player.gcd and (
 			BoneShield:Remains() <= 5 or
 			(BoneShield:Stack() < (self.bone_shield_refresh_value + 1) and Player.runic_power.deficit > 10)
-		) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and (not Exterminate.known or Exterminate:Down()) then
+		) and not (self.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) and (not Exterminate.known or Exterminate:Down()) then
 			return DeathsCaress
 		end
 		if Marrowrend:Usable() and (
 			BoneShield:Remains() <= 5 or
 			(BoneShield:Stack() < self.bone_shield_refresh_value and Player.runic_power.deficit > 20)
-		) and not (Player.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
+		) and not (self.use_cds and InsatiableBlade.known and DancingRuneWeapon:Ready(BoneShield:Remains() - 2)) then
 			return Marrowrend
 		end
 	end
-	if Player.use_cds and Consumption:Usable() and self.plague_up and (not InflictionOfSorrow.known or not DancingRuneWeapon:Ready(20)) then
+	if self.use_cds and Consumption:Usable() and self.plague_up and (not InflictionOfSorrow.known or not DancingRuneWeapon:Ready(20)) then
 		UseCooldown(Consumption)
 	end
 	if SoulReaper:Usable() and Target:TimeToPct(35) < 5 and Target.timeToDie > (SoulReaper:Remains() + 5) then
 		UseCooldown(SoulReaper)
 	end
-	if Player.use_cds and Bonestorm:Usable() and BoneShield:Stack() >= (6 + (ReinforcedBones.known and 2 or 0)) then
+	if self.use_cds and Bonestorm:Usable() and BoneShield:Stack() >= (6 + (ReinforcedBones.known and 2 or 0)) then
 		UseCooldown(Bonestorm)
 	end
 	if VampiricStrike.known then
@@ -2583,7 +2607,7 @@ actions.standard+=/heart_strike,if=(rune>1&(rune.time_to_3<gcd|buff.bone_shield.
 	) then
 		return BloodBoil
 	end
-	if Player.use_cds and Bonestorm.known and Bonestorm:Ready(Player.gcd * 3) and BoneShield:Stack() < (6 + (ReinforcedBones.known and 2 or 0)) and Bonestorm:Down() and (
+	if self.use_cds and Bonestorm.known and Bonestorm:Ready(Player.gcd * 3) and BoneShield:Stack() < (6 + (ReinforcedBones.known and 2 or 0)) and Bonestorm:Down() and (
 		(not BoneCollector.known or not AbominationLimb.known or (not AbominationLimb:Ready(Player.gcd * 3) and AbominationLimb:Down())) and
 		(not DancingRuneWeapon.known or not DancingRuneWeapon:Ready(Player.gcd * 3))
 	) then
@@ -2615,7 +2639,7 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=trinket2,if=variable.trinket_2_bu
 end
 
 APL[SPEC.FROST].Main = function(self)
-	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up()) or (CleavingStrikes.known and Player.enemies >= 2 and DeathAndDecay.buff:Up())
+	self.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or EmpowerRuneWeapon:Up() or PillarOfFrost:Up() or (BreathOfSindragosa.known and BreathOfSindragosa:Up()) or (CleavingStrikes.known and Player.enemies >= 2 and DeathAndDecay.buff:Up())
 
 	if Player:TimeInCombat() == 0 then
 --[[
@@ -2702,10 +2726,10 @@ actions+=/call_action_list,name=single_target,if=active_enemies=1
 	else
 		self.breath_pooling_time = 3
 	end
-	self.pooling_runes = Player.use_cds and Obliteration.known and Player.runes.ready < 4 and PillarOfFrost:CooldownExpected() < self.oblit_pooling_time
-	self.pooling_runic_power = Player.use_cds and ((BreathOfSindragosa.known and BreathOfSindragosa:Ready(self.breath_pooling_time)) or (Obliteration.known and Player.runic_power.current < 35 and PillarOfFrost:CooldownExpected() < self.oblit_pooling_time))
+	self.pooling_runes = self.use_cds and Obliteration.known and Player.runes.ready < 4 and PillarOfFrost:CooldownExpected() < self.oblit_pooling_time
+	self.pooling_runic_power = self.use_cds and ((BreathOfSindragosa.known and BreathOfSindragosa:Ready(self.breath_pooling_time)) or (Obliteration.known and Player.runic_power.current < 35 and PillarOfFrost:CooldownExpected() < self.oblit_pooling_time))
 
-	if Player.use_cds and Opt.defensives and Player:UnderAttack() and (Target.boss or Target.classification == 'elite') then
+	if self.use_cds and Opt.defensives and Player:UnderAttack() and (Target.boss or Target.classification == 'elite') then
 		self:defensives()
 	end
 	if HowlingBlast:Usable() and Player.enemies >= 2 and FrostFever:Down() and (not Obliteration.known or PillarOfFrost:Down() or KillingMachine:Down()) then
@@ -2733,7 +2757,7 @@ actions+=/call_action_list,name=single_target,if=active_enemies=1
 	) then
 		return RemorselessWinter
 	end
-	if Player.use_cds then
+	if self.use_cds then
 		if Opt.trinket then
 			self:trinkets()
 		end
@@ -3120,9 +3144,9 @@ actions.trinkets+=/use_item,use_off_gcd=1,slot=main_hand,if=(!variable.trinket_1
 end
 
 APL[SPEC.UNHOLY].Main = function(self)
-	Player.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DarkTransformation:Up() or (ArmyOfTheDead.known and ArmyOfTheDead:Up()) or (UnholyAssault.known and UnholyAssault:Up()) or (SummonGargoyle.known and Pet.EbonGargoyle:Up())
+	self.use_cds = Target.boss or Target.player or Target.timeToDie > (Opt.cd_ttd - min(Player.enemies - 1, 6)) or DarkTransformation:Up() or (ArmyOfTheDead.known and ArmyOfTheDead:Up()) or (UnholyAssault.known and UnholyAssault:Up()) or (SummonGargoyle.known and Pet.EbonGargoyle:Up())
 	Player.pooling_for_aotd = ArmyOfTheDead.known and Target.boss and ArmyOfTheDead:Ready(5)
-	Player.pooling_for_gargoyle = Player.use_cds and SummonGargoyle.known and SummonGargoyle:Ready(5)
+	Player.pooling_for_gargoyle = self.use_cds and SummonGargoyle.known and SummonGargoyle:Ready(5)
 
 	if not Pet.active and RaiseDeadUnholy:Usable() then
 		UseExtra(RaiseDeadUnholy)
@@ -3180,7 +3204,7 @@ actions.cooldowns+=/unholy_assault,if=cooldown.apocalypse.remains<2&equipped.ram
 actions.cooldowns+=/unholy_assault,if=active_enemies>=2&((cooldown.death_and_decay.remains<=gcd&!talent.defile.enabled)|(cooldown.defile.remains<=gcd&talent.defile.enabled))
 actions.cooldowns+=/unholy_blight
 ]]
-	if Player.use_cds then
+	if self.use_cds then
 		if Player.pooling_for_aotd and ArmyOfTheDead:Usable() then
 			return UseCooldown(ArmyOfTheDead)
 		end
@@ -3240,7 +3264,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 	if Outbreak:Usable() and not Outbreak:Previous() and VirulentPlague:Ticking() < Player.enemies then
 		return Outbreak
 	end
-	local apocalypse_not_ready = not Player.use_cds or not Apocalypse.known or not Apocalypse:Ready()
+	local apocalypse_not_ready = not self.use_cds or not Apocalypse.known or not Apocalypse:Ready()
 	if DeathAndDecay:Usable() and apocalypse_not_ready and Target.timeToDie > max(6 - Player.enemies, 2) then
 		return DeathAndDecay
 	end
@@ -3276,7 +3300,7 @@ actions.aoe+=/death_coil,if=!variable.pooling_for_gargoyle
 			return FesteringStrike
 		end
 	end
-	local apocalypse_not_ready_5 = not Player.use_cds or not Apocalypse.known or not Apocalypse:Ready(5)
+	local apocalypse_not_ready_5 = not self.use_cds or not Apocalypse.known or not Apocalypse:Ready(5)
 	if DeathCoil:Usable() then
 		if SuddenDoom:Up() and (Player.runes.deficit >= 4 or not Player.pooling_for_gargoyle) then
 			return DeathCoil
@@ -3338,7 +3362,7 @@ actions.generic+=/death_coil,if=runic_power.deficit<20&!variable.pooling_for_gar
 actions.generic+=/festering_strike,if=((((debuff.festering_wound.stack<4&!buff.unholy_assault.up)|debuff.festering_wound.stack<3)&cooldown.apocalypse.remains<3)|debuff.festering_wound.stack<1)&cooldown.army_of_the_dead.remains>5
 actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 ]]
-	local apocalypse_not_ready_5 = not Player.use_cds or not Apocalypse.known or not Apocalypse:Ready(5)
+	local apocalypse_not_ready_5 = not self.use_cds or not Apocalypse.known or not Apocalypse:Ready(5)
 	if DeathCoil:Usable() then
 		if Pet.EbonGargoyle:Up() or (SuddenDoom:Up() and not Player.pooling_for_gargoyle) then
 			return DeathCoil
@@ -3347,7 +3371,7 @@ actions.generic+=/death_coil,if=!variable.pooling_for_gargoyle
 			return DeathCoil
 		end
 	end
-	local apocalypse_not_ready = not Player.use_cds or not Apocalypse.known or not Apocalypse:Ready()
+	local apocalypse_not_ready = not self.use_cds or not Apocalypse.known or not Apocalypse:Ready()
 	if apocalypse_not_ready then
 		if Pestilence.known and DeathAndDecay:Usable() and Target.timeToDie > 6 then
 			return DeathAndDecay
@@ -3797,7 +3821,7 @@ end
 
 function UI:UpdateDisplay()
 	Timer.display = 0
-	local border, dim, dim_cd, text_cd, text_center, text_tr, text_cd_center, text_cd_tr
+	local border, dim, dim_cd, text_cd, text_center, text_tr, text_bl, text_cd_center, text_cd_tr
 
 	if Opt.dimmer then
 		dim = not ((not Player.main) or
@@ -3839,8 +3863,9 @@ function UI:UpdateDisplay()
 		end
 	end
 	if Player.major_cd_remains > 0 then
-		text_center = format('%.1fs', Player.major_cd_remains)
-	elseif ArmyOfTheDead.known and Player.pooling_for_aotd then
+		text_bl = format('%.1fs', Player.major_cd_remains)
+	end
+	if ArmyOfTheDead.known and Player.pooling_for_aotd then
 		text_center = format('Pool for\n%s', ArmyOfTheDead.name)
 	elseif SummonGargoyle.known and Player.pooling_for_gargoyle then
 		text_center = format('Pool for\n%s', SummonGargoyle.name)
@@ -3853,6 +3878,7 @@ function UI:UpdateDisplay()
 	braindeadPanel.dimmer:SetShown(dim)
 	braindeadPanel.text.center:SetText(text_center)
 	braindeadPanel.text.tr:SetText(text_tr)
+	braindeadPanel.text.bl:SetText(text_bl)
 	braindeadCooldownPanel.dimmer:SetShown(dim_cd)
 	braindeadCooldownPanel.text.center:SetText(text_cd_center)
 	braindeadCooldownPanel.text.tr:SetText(text_cd_tr)
@@ -4198,6 +4224,7 @@ function Events:UNIT_PET(unitId)
 	if unitId ~= 'player' then
 		return
 	end
+	Pet:UpdateKnown()
 	Pet:Update()
 end
 
@@ -4655,7 +4682,7 @@ SlashCmdList[ADDON] = function(msg, editbox)
 	end
 	if msg[1] == 'ttd' then
 		if msg[2] then
-			Opt.cd_ttd = tonumber(msg[2]) or 8
+			Opt.cd_ttd = tonumber(msg[2]) or 10
 		end
 		return Status('Minimum enemy lifetime to use cooldowns on (ignored on bosses)', Opt.cd_ttd, 'seconds')
 	end
