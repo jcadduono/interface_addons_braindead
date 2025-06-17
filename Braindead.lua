@@ -4180,7 +4180,7 @@ end
 
 function Events:UNIT_MAXPOWER(unitId)
 	if unitId == 'player' then
-		Player.level = UnitLevel(unitId)
+		Player.level = UnitEffectiveLevel(unitId)
 		Player.runes.max = UnitPowerMax(unitId, 5)
 		Player.runic_power.max = UnitPowerMax(unitId, 6)
 	end
